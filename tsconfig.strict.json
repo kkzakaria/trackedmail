@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Mode strict type-safe pour le code métier uniquement
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "components/**/!(ui)/*.ts",
+    "components/**/!(ui)/*.tsx",
+    "supabase/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "components/ui/**",
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts"
+  ]
+}
