@@ -112,6 +112,10 @@ export function useAuthContext() {
     if (error) {
       throw error;
     }
+
+    // Pattern Supabase : invalidation cache + redirection immédiate
+    router.refresh(); // Équivalent client-side de revalidatePath()
+    router.push("/dashboard"); // Redirection explicite recommandée par Supabase
   };
 
   const signUp = async (
