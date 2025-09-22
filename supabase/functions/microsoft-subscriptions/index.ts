@@ -238,7 +238,7 @@ async function createSubscription(
     }
 
     // Configurer l'abonnement
-    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/microsoft-webhook`
+    const webhookUrl = `${Deno.env.get('MICROSOFT_WEBHOOK_BASE_URL')}/microsoft-webhook`
     const clientState = Deno.env.get('MICROSOFT_WEBHOOK_SECRET') || 'default-secret'
     const expirationHours = request.expirationHours || SUBSCRIPTION_CONFIG.defaultExpirationHours
     const expirationDateTime = new Date(Date.now() + expirationHours * 60 * 60 * 1000)
@@ -254,7 +254,7 @@ async function createSubscription(
     }
 
     // Créer l'abonnement via Microsoft Graph
-    const graphSubscription = createGraphSubscription(subscriptionPayload)
+    const graphSubscription = await createGraphSubscription(subscriptionPayload)
 
     // Stocker l'abonnement en base
     const { error: storeError } = await supabase
@@ -752,23 +752,54 @@ async function cleanupExpiredSubscriptions(
 /**
  * Crée un abonnement via Microsoft Graph API
  */
-function createGraphSubscription(subscriptionPayload: SubscriptionPayload): GraphSubscription {
-  // TODO: Implémenter l'appel réel à Microsoft Graph
-  // Pour l'instant, on simule une réponse
-  console.log('Would create Graph subscription with payload:', subscriptionPayload)
+async function createGraphSubscription(subscriptionPayload: SubscriptionPayload): Promise<GraphSubscription> {
+  console.log('Creating Graph subscription with payload:', subscriptionPayload)
 
-  // Simulation d'une réponse Microsoft Graph
-  return {
-    id: `subscription-${Date.now()}`,
-    resource: subscriptionPayload.resource,
-    applicationId: 'app-id',
-    changeType: subscriptionPayload.changeType,
-    clientState: subscriptionPayload.clientState,
-    notificationUrl: subscriptionPayload.notificationUrl,
-    expirationDateTime: subscriptionPayload.expirationDateTime,
-    creatorId: 'creator-id',
-    includeResourceData: subscriptionPayload.includeResourceData,
-    latestSupportedTlsVersion: 'v1_2'
+  try {
+    // Obtenir un token d'accès via l'Edge Function microsoft-auth
+    const tokenResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/microsoft-auth`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({
+        action: 'acquire',
+        scopes: ['https://graph.microsoft.com/.default']
+      })
+    })
+
+    if (!tokenResponse.ok) {
+      throw new Error(`Failed to get access token: ${tokenResponse.status}`)
+    }
+
+    const tokenData = await tokenResponse.json()
+    if (!tokenData.success || !tokenData.access_token) {
+      throw new Error('Invalid token response')
+    }
+
+    // Créer la souscription via Microsoft Graph API
+    const graphResponse = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(subscriptionPayload)
+    })
+
+    if (!graphResponse.ok) {
+      const errorText = await graphResponse.text()
+      throw new Error(`Microsoft Graph API error: ${graphResponse.status} ${errorText}`)
+    }
+
+    const subscription = await graphResponse.json()
+    console.log('Successfully created Graph subscription:', subscription.id)
+
+    return subscription as GraphSubscription
+  } catch (error) {
+    console.error('Error creating Graph subscription:', error)
+    throw error
   }
 }
 

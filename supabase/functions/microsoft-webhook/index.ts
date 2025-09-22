@@ -92,7 +92,39 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  // Vérification de la méthode HTTP
+  // Vérifier s'il y a un validationToken dans l'URL (GET ou POST)
+  const url = new URL(req.url)
+  const validationToken = url.searchParams.get('validationToken')
+
+  if (validationToken) {
+    console.log(`[VALIDATION] ${req.method} validation request detected`)
+    console.log(`[VALIDATION] Token: ${validationToken}`)
+    console.log(`[VALIDATION] Headers: ${JSON.stringify(Object.fromEntries(req.headers.entries()))}`)
+    console.log(`[VALIDATION] URL: ${req.url}`)
+    console.log(`[VALIDATION] All query params: ${JSON.stringify(Object.fromEntries(url.searchParams.entries()))}`)
+
+    console.log(`[VALIDATION] Returning validation token: ${validationToken}`)
+    return new Response(validationToken, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' }
+    })
+  }
+
+  // Gestion de la validation GET (fallback)
+  if (req.method === 'GET') {
+    console.log('[VALIDATION] GET request without validation token, returning OK')
+    return new Response('OK', {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' }
+    })
+  }
+
+  // Gestion de TOUTES les autres requêtes (pour diagnostic)
+  console.log(`[DEBUG] ${req.method} request received`)
+  console.log(`[DEBUG] Headers: ${JSON.stringify(Object.fromEntries(req.headers.entries()))}`)
+  console.log(`[DEBUG] URL: ${req.url}`)
+
+  // Vérification de la méthode HTTP pour les notifications
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
@@ -104,12 +136,50 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Lecture du payload
-    const payload: WebhookPayload = await req.json()
+    // Lecture du payload pour les notifications POST
+    const contentType = req.headers.get('content-type')
+    let payload: WebhookPayload
 
-    // Gestion de la validation initiale du webhook
+    if (contentType && contentType.includes('application/json')) {
+      // Vérifier si le body n'est pas vide
+      const text = await req.text()
+      if (!text || text.trim() === '') {
+        console.log('Received empty body, treating as ping request')
+        return new Response(
+          JSON.stringify({ message: 'Webhook endpoint is ready' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      try {
+        payload = JSON.parse(text)
+      } catch (parseError) {
+        console.error('Failed to parse JSON payload:', parseError)
+        return new Response(
+          JSON.stringify({ error: 'Invalid JSON payload' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      }
+    } else {
+      // Si pas de body JSON, retourner une erreur
+      return new Response(
+        JSON.stringify({ error: 'Invalid content type, expected application/json' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Gestion de la validation via POST (format alternatif)
     if (payload.validationTokens && payload.validationTokens.length > 0) {
-      console.log('Webhook validation requested')
+      console.log('Webhook validation requested via POST')
       return new Response(payload.validationTokens[0], {
         status: 200,
         headers: { 'Content-Type': 'text/plain' }
@@ -246,9 +316,10 @@ async function processNotification(
 ): Promise<void> {
   console.log(`Processing notification: ${notification.changeType} for ${notification.resource}`)
 
-  // Vérifier que c'est bien un message email
-  if (!notification.resource.includes('/messages/')) {
+  // Vérifier que c'est bien un message email (Microsoft Graph utilise 'Messages' avec M majuscule)
+  if (!notification.resource.includes('/Messages/') && !notification.resource.includes('/messages/')) {
     console.log('Notification is not for an email message, skipping')
+    console.log(`Resource received: ${notification.resource}`)
     return
   }
 
@@ -260,9 +331,13 @@ async function processNotification(
 
   try {
     // Extraire l'ID du message et l'ID utilisateur depuis la resource
+    // Microsoft Graph utilise 'Users' et 'Messages' avec majuscules
     const resourceParts = notification.resource.split('/')
-    const userIdIndex = resourceParts.findIndex(part => part === 'users') + 1
-    const messageIdIndex = resourceParts.findIndex(part => part === 'messages') + 1
+    const userIdIndex = resourceParts.findIndex(part => part.toLowerCase() === 'users') + 1
+    const messageIdIndex = resourceParts.findIndex(part => part.toLowerCase() === 'messages') + 1
+
+    console.log(`Resource parts: ${JSON.stringify(resourceParts)}`)
+    console.log(`User ID index: ${userIdIndex}, Message ID index: ${messageIdIndex}`)
 
     if (userIdIndex <= 0 || messageIdIndex <= 0) {
       throw new Error('Could not extract user ID and message ID from resource')
@@ -272,7 +347,7 @@ async function processNotification(
     const messageId = resourceParts[messageIdIndex]
 
     // Récupérer les détails du message via Microsoft Graph
-    const messageDetails = getMessageDetails(userId, messageId)
+    const messageDetails = await getMessageDetails(userId, messageId)
 
     if (!messageDetails) {
       console.warn(`Could not fetch message details for ${messageId}`)
@@ -290,7 +365,8 @@ async function processNotification(
     }
 
     // Vérifier si c'est un email depuis un dossier "Sent Items"
-    const isSentEmail = isFromSentFolder(notification.resource)
+    // En récupérant les informations du dossier parent depuis Microsoft Graph
+    const isSentEmail = await isFromSentFolder(userId, messageDetails.id, await getAccessToken())
     if (!isSentEmail) {
       console.log(`Email ${messageId} not from sent folder, skipping`)
       return
@@ -326,18 +402,94 @@ async function processNotification(
 
 /**
  * Récupère les détails d'un message via Microsoft Graph
- * Note: Dans un vrai environnement, on utiliserait le service Microsoft Graph
  */
-function getMessageDetails(_userId: string, _messageId: string): EmailMessage | null {
+async function getMessageDetails(userId: string, messageId: string): Promise<EmailMessage | null> {
   try {
-    // TODO: Implémenter l'appel réel à Microsoft Graph
-    // Pour l'instant, on simule une réponse
-    console.log(`Would fetch message details for user ${_userId}, message ${_messageId}`)
+    console.log(`Fetching message details for user ${userId}, message ${messageId}`)
 
-    // Ici, on devrait utiliser le MicrosoftGraphService pour récupérer les détails
-    // return await microsoftGraphService.getMessage(userId, messageId, true)
+    // Obtenir un token d'accès valide via l'Edge Function microsoft-auth
+    const tokenResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/microsoft-auth`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({
+        action: 'acquire'
+      })
+    })
 
-    return null
+    if (!tokenResponse.ok) {
+      console.error('Failed to get access token:', tokenResponse.status)
+      return null
+    }
+
+    const tokenData = await tokenResponse.json()
+    if (!tokenData.success || !tokenData.access_token) {
+      console.error('Invalid token response:', tokenData)
+      return null
+    }
+
+    const accessToken = tokenData.access_token
+
+    // Récupérer les détails du message via Microsoft Graph API
+    const graphUrl = `https://graph.microsoft.com/v1.0/users/${userId}/messages/${messageId}?$select=id,conversationId,conversationIndex,internetMessageId,subject,sender,toRecipients,ccRecipients,sentDateTime,hasAttachments,importance,bodyPreview,body,internetMessageHeaders`
+    console.log('Microsoft Graph API URL:', graphUrl)
+    console.log('Access token length:', accessToken?.length)
+
+    const messageResponse = await fetch(graphUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!messageResponse.ok) {
+      const errorText = await messageResponse.text()
+      console.error(`Failed to fetch message details: ${messageResponse.status} ${messageResponse.statusText}`)
+      console.error('Error response:', errorText)
+      return null
+    }
+
+    const messageData = await messageResponse.json()
+
+    // Transformer la réponse Microsoft Graph en format EmailMessage
+    const emailMessage: EmailMessage = {
+      id: messageData.id,
+      conversationId: messageData.conversationId,
+      conversationIndex: messageData.conversationIndex,
+      internetMessageId: messageData.internetMessageId,
+      subject: messageData.subject || '',
+      sender: {
+        emailAddress: {
+          name: messageData.sender?.emailAddress?.name || '',
+          address: messageData.sender?.emailAddress?.address || ''
+        }
+      },
+      toRecipients: messageData.toRecipients?.map((recipient: { emailAddress: { name?: string; address: string } }) => ({
+        emailAddress: {
+          name: recipient.emailAddress?.name || '',
+          address: recipient.emailAddress?.address || ''
+        }
+      })) || [],
+      ccRecipients: messageData.ccRecipients?.map((recipient: { emailAddress: { name?: string; address: string } }) => ({
+        emailAddress: {
+          name: recipient.emailAddress?.name || '',
+          address: recipient.emailAddress?.address || ''
+        }
+      })) || [],
+      sentDateTime: messageData.sentDateTime,
+      hasAttachments: messageData.hasAttachments || false,
+      importance: messageData.importance || 'normal',
+      bodyPreview: messageData.bodyPreview || '',
+      inReplyTo: messageData.inReplyTo,
+      references: messageData.references,
+      internetMessageHeaders: messageData.internetMessageHeaders || []
+    }
+
+    console.log(`Successfully fetched message details for ${messageId}`)
+    return emailMessage
+
   } catch (error) {
     console.error(`Error fetching message details:`, error)
     return null
@@ -360,7 +512,9 @@ async function shouldExcludeEmail(supabase: EdgeSupabaseClient, message: EmailMe
       return false
     }
 
-    const tenantConfig: TenantConfig = JSON.parse(config.value)
+    const tenantConfig: TenantConfig = typeof config.value === 'string'
+      ? JSON.parse(config.value)
+      : config.value
 
     if (!tenantConfig.exclude_internal_emails || !tenantConfig.domain) {
       return false
@@ -380,12 +534,79 @@ async function shouldExcludeEmail(supabase: EdgeSupabaseClient, message: EmailMe
 }
 
 /**
- * Vérifie si l'email provient du dossier "Sent Items"
+ * Récupère un token d'accès depuis le service d'auth
  */
-function isFromSentFolder(resource: string): boolean {
-  // Vérifier si la resource contient "sentitems" ou "sent items"
-  return resource.toLowerCase().includes('sentitems') ||
-         resource.toLowerCase().includes('sent items')
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const tokenResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/microsoft-auth`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({
+        action: 'acquire'
+      })
+    })
+
+    if (!tokenResponse.ok) {
+      console.error('Failed to get access token for folder check:', tokenResponse.status)
+      return null
+    }
+
+    const tokenData = await tokenResponse.json()
+    if (!tokenData.success || !tokenData.access_token) {
+      console.error('Invalid token response for folder check:', tokenData)
+      return null
+    }
+
+    return tokenData.access_token
+  } catch (error) {
+    console.error('Error getting access token for folder check:', error)
+    return null
+  }
+}
+
+/**
+ * Vérifie si l'email provient du dossier "Sent Items" via Microsoft Graph API
+ */
+async function isFromSentFolder(userId: string, messageId: string, accessToken: string | null): Promise<boolean> {
+  if (!accessToken) {
+    console.warn('No access token available for folder check')
+    return false
+  }
+
+  try {
+    // Approche directe : essayer de récupérer le message depuis le dossier SentItems
+    // Si la requête réussit, le message est dans le dossier SentItems
+    const sentItemsUrl = `https://graph.microsoft.com/v1.0/users/${userId}/mailFolders('SentItems')/messages/${messageId}?$select=id`
+    console.log(`Checking if message is in SentItems folder: ${sentItemsUrl}`)
+
+    const sentItemsResponse = await fetch(
+      sentItemsUrl,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    const isInSentItems = sentItemsResponse.ok
+    console.log(`Message ${messageId} is in SentItems folder: ${isInSentItems}`)
+
+    if (!isInSentItems) {
+      // Log de l'erreur pour comprendre pourquoi ce n'est pas dans SentItems
+      const errorText = await sentItemsResponse.text()
+      console.log(`SentItems check failed (${sentItemsResponse.status}): ${errorText}`)
+    }
+
+    return isInSentItems
+
+  } catch (error) {
+    console.error('Error checking if message is from sent folder:', error)
+    return false
+  }
 }
 
 /**
