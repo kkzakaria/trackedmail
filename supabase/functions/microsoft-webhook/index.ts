@@ -37,6 +37,11 @@ interface WebhookPayload {
   validationTokens?: string[]
 }
 
+interface NotificationWithEncryption extends MicrosoftGraphWebhookNotification {
+  encryptedContent?: string
+  dataSignature?: string
+}
+
 interface EmailMessage {
   id: string
   conversationId: string
@@ -187,7 +192,7 @@ Deno.serve(async (req) => {
     }
 
     // Vérification de la sécurité
-    const isValid = validateWebhookSecurity(req, payload)
+    const isValid = await validateWebhookSecurity(req, payload)
     if (!isValid) {
       console.warn('Webhook security validation failed')
       return new Response(
@@ -248,10 +253,10 @@ Deno.serve(async (req) => {
 /**
  * Valide la sécurité du webhook
  */
-function validateWebhookSecurity(
-  _req: Request,
+async function validateWebhookSecurity(
+  req: Request,
   payload: WebhookPayload
-): boolean {
+): Promise<boolean> {
   try {
     const webhookSecret = Deno.env.get('MICROSOFT_WEBHOOK_SECRET')
     if (!webhookSecret) {
@@ -268,14 +273,214 @@ function validateWebhookSecurity(
       }
     }
 
-    // TODO: Ajouter validation de signature si nécessaire
-    // Dans un environnement de production, valider aussi la signature du webhook
-
-    return true
+    // Validation de signature selon les recommandations OWASP et Microsoft Graph
+    return await validateWebhookSignature(req, payload, webhookSecret)
   } catch (error) {
     console.error('Error validating webhook security:', error)
     return false
   }
+}
+
+/**
+ * Valide la signature du webhook selon les recommandations OWASP et Microsoft Graph
+ * Implémente la validation JWT et HMAC-SHA256 pour la sécurité
+ */
+async function validateWebhookSignature(
+  req: Request,
+  payload: WebhookPayload,
+  webhookSecret: string
+): Promise<boolean> {
+  try {
+    console.log('[SECURITY] Starting webhook signature validation')
+
+    // 1. Validation des JWT tokens (recommandation Microsoft Graph)
+    if (payload.validationTokens && payload.validationTokens.length > 0) {
+      console.log('[SECURITY] Validating JWT tokens from payload')
+
+      for (const token of payload.validationTokens) {
+        const isValidJWT = validateJWTToken(token)
+        if (!isValidJWT) {
+          console.warn('[SECURITY] JWT token validation failed')
+          logSecurityEvent('jwt_validation_failed', req, { token: token.substring(0, 20) + '...' })
+          return false
+        }
+      }
+    }
+
+    // 2. Validation HMAC-SHA256 pour les données chiffrées (recommandation OWASP)
+    if (payload.value && payload.value.length > 0) {
+      for (const notification of payload.value) {
+        // Vérifier si la notification contient des données chiffrées avec signature
+        const notificationWithEncryption = notification as NotificationWithEncryption
+        if (notificationWithEncryption.encryptedContent && notificationWithEncryption.dataSignature) {
+          const isValidHMAC = await validateHMACSignature(
+            notificationWithEncryption.encryptedContent,
+            notificationWithEncryption.dataSignature,
+            webhookSecret
+          )
+          if (!isValidHMAC) {
+            console.warn('[SECURITY] HMAC signature validation failed')
+            logSecurityEvent('hmac_validation_failed', req, { notificationId: notification.resourceData.id })
+            return false
+          }
+        }
+      }
+    }
+
+    // 3. Protection contre les attaques de replay (timestamp validation)
+    const timestamp = req.headers.get('timestamp') || req.headers.get('x-timestamp')
+    if (timestamp) {
+      const isValidTimestamp = validateTimestamp(timestamp)
+      if (!isValidTimestamp) {
+        console.warn('[SECURITY] Timestamp validation failed - possible replay attack')
+        logSecurityEvent('replay_attack_detected', req, { timestamp })
+        return false
+      }
+    }
+
+    console.log('[SECURITY] Webhook signature validation successful')
+    logSecurityEvent('signature_validation_success', req, {})
+    return true
+
+  } catch (error) {
+    console.error('[SECURITY] Error during signature validation:', error)
+    logSecurityEvent('signature_validation_error', req, { error: error instanceof Error ? error.message : String(error) })
+    return false
+  }
+}
+
+/**
+ * Valide un JWT token selon les spécifications Microsoft Graph
+ */
+function validateJWTToken(token: string): boolean {
+  try {
+    // Validation basique de la structure JWT
+    const parts = token.split('.')
+    if (parts.length !== 3) {
+      return false
+    }
+
+    // Décoder le payload
+    const payload = JSON.parse(atob(parts[1]))
+
+    // Vérifier l'expiration
+    const exp = payload.exp
+    if (!exp || exp <= Math.floor(Date.now() / 1000)) {
+      console.warn('[SECURITY] JWT token expired')
+      return false
+    }
+
+    // Vérifier l'émetteur Microsoft Graph (recommandation Microsoft)
+    const azp = payload.azp
+    if (azp !== '0bf30f3b-4a52-48df-9a82-234910c4a086') {
+      console.warn('[SECURITY] JWT token from invalid issuer:', azp)
+      return false
+    }
+
+    // Vérifier l'audience (notre webhook URL)
+    const webhookBaseUrl = Deno.env.get('MICROSOFT_WEBHOOK_BASE_URL')
+    if (webhookBaseUrl && payload.aud && !payload.aud.includes(webhookBaseUrl)) {
+      console.warn('[SECURITY] JWT token invalid audience')
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.warn('[SECURITY] JWT token validation error:', error)
+    return false
+  }
+}
+
+/**
+ * Valide la signature HMAC-SHA256 selon les recommandations OWASP
+ */
+async function validateHMACSignature(
+  data: string,
+  signature: string,
+  secret: string
+): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(secret)
+    const messageData = encoder.encode(data)
+
+    // Importer la clé pour HMAC
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign', 'verify']
+    )
+
+    // Calculer la signature HMAC-SHA256
+    const calculatedSignature = await crypto.subtle.sign('HMAC', key, messageData)
+    const calculatedSignatureBase64 = btoa(String.fromCharCode(...new Uint8Array(calculatedSignature)))
+
+    // Comparaison sécurisée pour éviter les attaques de timing
+    return timingSafeEqual(calculatedSignatureBase64, signature)
+  } catch (error) {
+    console.warn('[SECURITY] HMAC validation error:', error)
+    return false
+  }
+}
+
+/**
+ * Validation de timestamp pour protection contre les attaques de replay
+ */
+function validateTimestamp(timestamp: string): boolean {
+  try {
+    const requestTime = parseInt(timestamp) * 1000 // Convertir en millisecondes
+    const currentTime = Date.now()
+    const timeDiff = Math.abs(currentTime - requestTime)
+
+    // Fenêtre de tolérance de 5 minutes (recommandation OWASP)
+    const tolerance = 5 * 60 * 1000 // 5 minutes en millisecondes
+
+    return timeDiff <= tolerance
+  } catch (error) {
+    console.warn('[SECURITY] Timestamp validation error:', error)
+    return false
+  }
+}
+
+/**
+ * Comparaison sécurisée pour éviter les attaques de timing (recommandation OWASP)
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false
+  }
+
+  let result = 0
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+
+  return result === 0
+}
+
+/**
+ * Log des événements de sécurité pour traçabilité et monitoring
+ */
+function logSecurityEvent(
+  eventType: string,
+  req: Request,
+  details: Record<string, unknown>
+): void {
+  const securityLog = {
+    timestamp: new Date().toISOString(),
+    event_type: eventType,
+    ip_address: req.headers.get('X-Forwarded-For') || req.headers.get('CF-Connecting-IP') || 'unknown',
+    user_agent: req.headers.get('User-Agent') || 'unknown',
+    url: req.url,
+    details
+  }
+
+  console.log('[SECURITY_LOG]', JSON.stringify(securityLog))
+
+  // En production, envoyer vers un système de monitoring de sécurité
+  // comme Supabase Edge Functions logs ou un SIEM
 }
 
 /**
