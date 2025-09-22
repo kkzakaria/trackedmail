@@ -46,11 +46,11 @@ interface TokenResponse {
 
 /**
  * Scopes par défaut pour Microsoft Graph
+ * Note: Pour les Application Permissions (client credentials flow),
+ * nous devons utiliser .default au lieu de scopes individuels
  */
 const DEFAULT_SCOPES = [
-  'https://graph.microsoft.com/Mail.ReadWrite',
-  'https://graph.microsoft.com/Mail.Send',
-  'https://graph.microsoft.com/User.Read.All'
+  'https://graph.microsoft.com/.default'
 ]
 
 /**
@@ -565,16 +565,21 @@ async function storeToken(
   expiresAt: Date,
   scopes: string[]
 ): Promise<void> {
+  // D'abord, supprimer les tokens existants
+  await supabase
+    .from('microsoft_graph_tokens')
+    .delete()
+    .eq('token_type', 'bearer')
+
+  // Ensuite, insérer le nouveau token
   const { error } = await supabase
     .from('microsoft_graph_tokens')
-    .upsert({
+    .insert({
       token_type: 'bearer',
       encrypted_token: encryptedToken,
       expires_at: expiresAt.toISOString(),
       scope: scopes.join(' '),
       last_refreshed_at: new Date().toISOString()
-    }, {
-      onConflict: 'token_type'
     })
 
   if (error) {
@@ -587,9 +592,19 @@ async function storeToken(
  */
 function isTokenValid(token: string): boolean {
   try {
+    // Vérification que le token n'est pas vide
+    if (!token || token.trim() === '') {
+      return false
+    }
+
     // Vérification basique de la structure du token JWT
     const parts = token.split('.')
     if (parts.length !== 3) {
+      return false
+    }
+
+    // Vérifier que chaque partie n'est pas vide
+    if (!parts[0] || !parts[1] || !parts[2]) {
       return false
     }
 
