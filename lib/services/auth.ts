@@ -1,4 +1,4 @@
-import { createServerComponentClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import type { UserInsert, UserUpdate } from "@/lib/types";
 
 export class AuthService {
@@ -6,7 +6,7 @@ export class AuthService {
    * Get current user from server-side
    */
   static async getCurrentUser() {
-    const supabase = await createServerComponentClient();
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -35,7 +35,7 @@ export class AuthService {
    * Check if user has required role
    */
   static async hasRole(userId: string, requiredRoles: string[]) {
-    const supabase = await createServerComponentClient();
+    const supabase = await createClient();
 
     const { data: user, error } = await supabase
       .from("users")
@@ -68,7 +68,7 @@ export class AuthService {
    * Get user's assigned mailboxes
    */
   static async getUserMailboxes(userId: string) {
-    const supabase = await createServerComponentClient();
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("user_mailbox_assignments")
@@ -89,14 +89,28 @@ export class AuthService {
       throw error;
     }
 
-    return data?.map(item => item.mailbox).filter(Boolean) || [];
+    type MailboxSelection = {
+      id: string;
+      email_address: string;
+      display_name: string | null;
+      is_active: boolean | null;
+      last_sync: string | null;
+    };
+
+    type MailboxAssignment = {
+      mailbox: MailboxSelection | null;
+    };
+
+    return (
+      data?.map((item: MailboxAssignment) => item.mailbox).filter(Boolean) || []
+    );
   }
 
   /**
    * Create user profile after signup
    */
   static async createUserProfile(userData: UserInsert) {
-    const supabase = await createServerComponentClient();
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("users")
@@ -115,7 +129,7 @@ export class AuthService {
    * Update user profile
    */
   static async updateUserProfile(userId: string, updates: UserUpdate) {
-    const supabase = await createServerComponentClient();
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("users")
