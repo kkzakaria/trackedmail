@@ -96,11 +96,21 @@ export class MailboxService {
    * Create a new mailbox
    */
   async createMailbox(mailbox: MailboxInsert) {
+    console.log("🔍 [MailboxService] Tentative de création:", mailbox);
+
     // Check if mailbox already exists
     const existing = await this.getMailboxByEmail(mailbox.email_address);
     if (existing) {
+      console.log(
+        "❌ [MailboxService] Boîte mail existante trouvée:",
+        existing
+      );
       throw new Error("Une boîte mail avec cette adresse existe déjà");
     }
+
+    console.log(
+      "✅ [MailboxService] Aucune boîte mail existante, insertion..."
+    );
 
     const { data, error } = await this.supabase
       .from("mailboxes")
@@ -108,7 +118,18 @@ export class MailboxService {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ [MailboxService] Erreur Supabase:", {
+        error,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
+
+    console.log("✅ [MailboxService] Création réussie:", data);
     return data;
   }
 

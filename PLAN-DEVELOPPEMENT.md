@@ -149,7 +149,17 @@
 - [x] Hooks React et services TypeScript ✅ useMailboxes, MailboxService
 - [ ] Validation et synchronisation avec Microsoft Graph (Phase 2.2)
 
-#### 2.1.5 Gestion des Utilisateurs de l'Application 🆕
+#### 2.1.6 Résolution Automatique des IDs Microsoft 🆕
+
+- [ ] Service Microsoft Graph pour résolution des email → microsoft_user_id
+- [ ] Endpoint API `/api/mailboxes/resolve-microsoft-id`
+- [ ] Mise à jour automatique des boîtes mail existantes sans microsoft_user_id
+- [ ] Gestion des erreurs (email inexistant, permissions insuffisantes)
+- [ ] Validation de l'accessibilité via Microsoft Graph
+- [ ] Job périodique pour synchroniser les IDs manquants
+- [ ] Interface de diagnostic des problèmes de résolution
+
+#### 2.1.7 Gestion des Utilisateurs de l'Application 🆕
 
 - [ ] Interface d'administration des utilisateurs `/admin/users`
 - [ ] CRUD complet pour les utilisateurs (create, read, update, soft delete)

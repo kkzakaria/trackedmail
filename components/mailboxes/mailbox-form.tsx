@@ -47,7 +47,6 @@ export function MailboxForm({
     defaultValues: {
       email_address: initialData?.email_address || "",
       display_name: initialData?.display_name || "",
-      microsoft_user_id: initialData?.microsoft_user_id || "",
       is_active: initialData?.is_active ?? true,
     },
   });
@@ -56,12 +55,11 @@ export function MailboxForm({
     try {
       let result;
 
-      // Convert undefined to null for database compatibility
+      // Convert and clean data for database compatibility
       const dbData = {
-        ...data,
-        display_name: data.display_name || null,
-        microsoft_user_id: data.microsoft_user_id || null,
-        is_active: data.is_active ?? null,
+        email_address: data.email_address,
+        display_name: data.display_name?.trim() || null,
+        is_active: data.is_active ?? true,
       };
 
       if (isEditing) {
@@ -146,28 +144,7 @@ export function MailboxForm({
               )}
             />
 
-            {/* Microsoft User ID Field */}
-            <FormField
-              control={form.control}
-              name="microsoft_user_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ID utilisateur Microsoft</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                      {...field}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    ID utilisateur Microsoft Graph (optionnel, sera récupéré
-                    automatiquement).
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Microsoft User ID will be automatically resolved via Graph API */}
 
             {/* Active Status Switch */}
             <FormField
@@ -237,8 +214,9 @@ export function MailboxForm({
                 </li>
                 <li>
                   • Le nom d&apos;affichage aide à identifier rapidement la
-                  boîte mail
+                  boîte mail (optionnel)
                 </li>
+                <li>• L&apos;ID Microsoft sera récupéré automatiquement</li>
                 <li>• Les boîtes mail inactives ne seront pas surveillées</li>
               </ul>
             </div>
