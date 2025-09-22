@@ -7,6 +7,10 @@
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import {
+  EdgeSupabaseClient,
+  MailboxRow
+} from '../_shared/types.ts'
 
 console.log('Microsoft Graph Webhook Handler - Ready!')
 
@@ -83,7 +87,7 @@ interface TenantConfig {
  */
 Deno.serve(async (req) => {
   // Configuration Supabase
-  const supabase = createClient(
+  const supabase: EdgeSupabaseClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
@@ -113,7 +117,7 @@ Deno.serve(async (req) => {
     }
 
     // Vérification de la sécurité
-    const isValid = await validateWebhookSecurity(req, payload)
+    const isValid = validateWebhookSecurity(req, payload)
     if (!isValid) {
       console.warn('Webhook security validation failed')
       return new Response(
@@ -174,10 +178,10 @@ Deno.serve(async (req) => {
 /**
  * Valide la sécurité du webhook
  */
-async function validateWebhookSecurity(
-  req: Request,
+function validateWebhookSecurity(
+  _req: Request,
   payload: WebhookPayload
-): Promise<boolean> {
+): boolean {
   try {
     const webhookSecret = Deno.env.get('MICROSOFT_WEBHOOK_SECRET')
     if (!webhookSecret) {
@@ -208,7 +212,7 @@ async function validateWebhookSecurity(
  * Log l'événement webhook pour traçabilité
  */
 async function logWebhookEvent(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   payload: WebhookPayload,
   req: Request
 ): Promise<void> {
@@ -237,7 +241,7 @@ async function logWebhookEvent(
  * Traite une notification individuelle
  */
 async function processNotification(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   notification: MicrosoftGraphWebhookNotification
 ): Promise<void> {
   console.log(`Processing notification: ${notification.changeType} for ${notification.resource}`)
@@ -268,7 +272,7 @@ async function processNotification(
     const messageId = resourceParts[messageIdIndex]
 
     // Récupérer les détails du message via Microsoft Graph
-    const messageDetails = await getMessageDetails(userId, messageId)
+    const messageDetails = getMessageDetails(userId, messageId)
 
     if (!messageDetails) {
       console.warn(`Could not fetch message details for ${messageId}`)
@@ -286,7 +290,7 @@ async function processNotification(
     }
 
     // Vérifier si c'est un email depuis un dossier "Sent Items"
-    const isSentEmail = await isFromSentFolder(notification.resource)
+    const isSentEmail = isFromSentFolder(notification.resource)
     if (!isSentEmail) {
       console.log(`Email ${messageId} not from sent folder, skipping`)
       return
@@ -324,11 +328,11 @@ async function processNotification(
  * Récupère les détails d'un message via Microsoft Graph
  * Note: Dans un vrai environnement, on utiliserait le service Microsoft Graph
  */
-async function getMessageDetails(userId: string, messageId: string): Promise<EmailMessage | null> {
+function getMessageDetails(_userId: string, _messageId: string): EmailMessage | null {
   try {
     // TODO: Implémenter l'appel réel à Microsoft Graph
     // Pour l'instant, on simule une réponse
-    console.log(`Would fetch message details for user ${userId}, message ${messageId}`)
+    console.log(`Would fetch message details for user ${_userId}, message ${_messageId}`)
 
     // Ici, on devrait utiliser le MicrosoftGraphService pour récupérer les détails
     // return await microsoftGraphService.getMessage(userId, messageId, true)
@@ -343,7 +347,7 @@ async function getMessageDetails(userId: string, messageId: string): Promise<Ema
 /**
  * Vérifie si un email doit être exclu (email interne)
  */
-async function shouldExcludeEmail(supabase: any, message: EmailMessage): Promise<boolean> {
+async function shouldExcludeEmail(supabase: EdgeSupabaseClient, message: EmailMessage): Promise<boolean> {
   try {
     // Récupérer la configuration du tenant
     const { data: config } = await supabase
@@ -378,7 +382,7 @@ async function shouldExcludeEmail(supabase: any, message: EmailMessage): Promise
 /**
  * Vérifie si l'email provient du dossier "Sent Items"
  */
-async function isFromSentFolder(resource: string): Promise<boolean> {
+function isFromSentFolder(resource: string): boolean {
   // Vérifier si la resource contient "sentitems" ou "sent items"
   return resource.toLowerCase().includes('sentitems') ||
          resource.toLowerCase().includes('sent items')
@@ -387,7 +391,7 @@ async function isFromSentFolder(resource: string): Promise<boolean> {
 /**
  * Récupère la mailbox par user ID Microsoft
  */
-async function getMailboxByUserId(supabase: any, microsoftUserId: string): Promise<any> {
+async function getMailboxByUserId(supabase: EdgeSupabaseClient, microsoftUserId: string): Promise<MailboxRow | null> {
   try {
     const { data, error } = await supabase
       .from('mailboxes')
@@ -410,7 +414,7 @@ async function getMailboxByUserId(supabase: any, microsoftUserId: string): Promi
 /**
  * Vérifie si un email est déjà suivi
  */
-async function getExistingTrackedEmail(supabase: any, internetMessageId: string): Promise<any> {
+async function getExistingTrackedEmail(supabase: EdgeSupabaseClient, internetMessageId: string): Promise<{ id: string } | null> {
   try {
     const { data, error } = await supabase
       .from('tracked_emails')
@@ -432,7 +436,7 @@ async function getExistingTrackedEmail(supabase: any, internetMessageId: string)
 /**
  * Insère un nouvel email suivi
  */
-async function insertTrackedEmail(supabase: any, message: EmailMessage, mailboxId: string): Promise<void> {
+async function insertTrackedEmail(supabase: EdgeSupabaseClient, message: EmailMessage, mailboxId: string): Promise<void> {
   try {
     const recipientEmails = message.toRecipients.map(r => r.emailAddress.address)
     const ccEmails = message.ccRecipients?.map(r => r.emailAddress.address) || []
@@ -479,7 +483,7 @@ async function insertTrackedEmail(supabase: any, message: EmailMessage, mailboxI
  * Stocke les headers d'email importants
  */
 async function storeMessageHeaders(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   messageId: string,
   headers: Array<{name: string, value: string}>
 ): Promise<void> {
@@ -525,7 +529,7 @@ async function storeMessageHeaders(
  * Log une tentative de détection pour monitoring
  */
 async function logDetectionAttempt(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   message: EmailMessage,
   isResponse: boolean,
   trackedEmailId: string | null,

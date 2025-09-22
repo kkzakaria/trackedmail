@@ -7,6 +7,9 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { ClientSecretCredential } from 'npm:@azure/identity@4'
+import {
+  EdgeSupabaseClient
+} from '../_shared/types.ts'
 
 console.log('Microsoft Graph Token Manager - Ready!')
 
@@ -55,7 +58,7 @@ const DEFAULT_SCOPES = [
  */
 Deno.serve(async (req) => {
   // Configuration Supabase
-  const supabase = createClient(
+  const supabase: EdgeSupabaseClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
@@ -113,7 +116,7 @@ Deno.serve(async (req) => {
  */
 async function handleGetRequest(
   req: Request,
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   const url = new URL(req.url)
@@ -140,7 +143,7 @@ async function handleGetRequest(
  */
 async function handlePostRequest(
   req: Request,
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   // Vérification de l'authentification (optionnel selon le use case)
@@ -165,7 +168,7 @@ async function handlePostRequest(
     case 'refresh':
       return await refreshToken(supabase, tokenRequest, corsHeaders)
     case 'validate':
-      return await validateToken(supabase, tokenRequest, corsHeaders)
+      return validateToken(supabase, tokenRequest, corsHeaders)
     case 'revoke':
       return await revokeTokens(supabase, corsHeaders)
     default:
@@ -183,7 +186,7 @@ async function handlePostRequest(
  * Acquiert un nouveau token d'accès
  */
 async function acquireToken(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   request: TokenRequest,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -209,7 +212,7 @@ async function acquireToken(
     const expiresIn = Math.floor((tokenResponse.expiresOnTimestamp - Date.now()) / 1000)
 
     // Chiffrer et stocker le token
-    const encryptedToken = await encryptToken(tokenResponse.token)
+    const encryptedToken = encryptToken(tokenResponse.token)
     await storeToken(supabase, encryptedToken, expiresAt, scopes)
 
     const response: TokenResponse = {
@@ -250,7 +253,7 @@ async function acquireToken(
  * Renouvelle un token existant
  */
 async function refreshToken(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   request: TokenRequest,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -283,17 +286,17 @@ async function refreshToken(
 /**
  * Valide un token existant
  */
-async function validateToken(
-  supabase: any,
+function validateToken(
+  _supabase: EdgeSupabaseClient,
   request: TokenRequest,
   corsHeaders: Record<string, string>
-): Promise<Response> {
+): Response {
   try {
     if (!request.token) {
       throw new Error('Token is required for validation')
     }
 
-    const isValid = await isTokenValid(request.token)
+    const isValid = isTokenValid(request.token)
 
     const response: TokenResponse = {
       success: isValid,
@@ -331,7 +334,7 @@ async function validateToken(
  * Révoque tous les tokens stockés
  */
 async function revokeTokens(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   try {
@@ -381,7 +384,7 @@ async function revokeTokens(
  * Récupère le statut des tokens
  */
 async function getTokenStatus(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   try {
@@ -394,7 +397,13 @@ async function getTokenStatus(
     }
 
     const now = new Date()
-    const tokenStatus = tokens?.map((token: any) => {
+    const tokenStatus = tokens?.map((token: {
+      token_type: string;
+      expires_at: string;
+      scope: string;
+      last_refreshed_at: string;
+      created_at: string;
+    }) => {
       const expiresAt = new Date(token.expires_at)
       const isExpired = expiresAt <= now
       const expiresInMinutes = Math.floor((expiresAt.getTime() - now.getTime()) / (1000 * 60))
@@ -440,7 +449,7 @@ async function getTokenStatus(
  * Récupère les statistiques des tokens
  */
 async function getTokenStats(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   try {
@@ -531,7 +540,7 @@ function getAuthConfig(): AuthConfig {
 /**
  * Chiffre un token (implémentation simplifiée)
  */
-async function encryptToken(token: string): Promise<string> {
+function encryptToken(token: string): string {
   // Note: Implémentation simplifiée pour la démo
   // En production, utiliser crypto.subtle pour un chiffrement robuste
   const encoder = new TextEncoder()
@@ -542,7 +551,7 @@ async function encryptToken(token: string): Promise<string> {
 /**
  * Déchiffre un token
  */
-async function decryptToken(encryptedToken: string): Promise<string> {
+function _decryptToken(encryptedToken: string): string {
   // Note: Implémentation simplifiée pour la démo
   return atob(encryptedToken)
 }
@@ -551,7 +560,7 @@ async function decryptToken(encryptedToken: string): Promise<string> {
  * Stocke un token de manière sécurisée
  */
 async function storeToken(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   encryptedToken: string,
   expiresAt: Date,
   scopes: string[]
@@ -576,7 +585,7 @@ async function storeToken(
 /**
  * Vérifie si un token est valide
  */
-async function isTokenValid(token: string): Promise<boolean> {
+function isTokenValid(token: string): boolean {
   try {
     // Vérification basique de la structure du token JWT
     const parts = token.split('.')

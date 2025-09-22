@@ -6,7 +6,9 @@
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { ClientSecretCredential } from 'npm:@azure/identity@4'
+import {
+  EdgeSupabaseClient
+} from '../_shared/types.ts'
 
 console.log('Microsoft Graph Subscription Manager - Ready!')
 
@@ -20,6 +22,18 @@ interface SubscriptionRequest {
   userId?: string
   changeTypes?: string[]
   expirationHours?: number
+}
+
+/**
+ * Interface pour le payload de création d'abonnement
+ */
+interface SubscriptionPayload {
+  changeType: string
+  notificationUrl: string
+  resource: string
+  expirationDateTime: string
+  clientState: string
+  includeResourceData: boolean
 }
 
 /**
@@ -55,7 +69,7 @@ const SUBSCRIPTION_CONFIG = {
  */
 Deno.serve(async (req) => {
   // Configuration Supabase
-  const supabase = createClient(
+  const supabase: EdgeSupabaseClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
@@ -113,7 +127,7 @@ Deno.serve(async (req) => {
  */
 async function handlePostRequest(
   req: Request,
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   const subscriptionRequest: SubscriptionRequest = await req.json()
@@ -141,7 +155,7 @@ async function handlePostRequest(
  */
 async function handleGetRequest(
   req: Request,
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   const url = new URL(req.url)
@@ -163,7 +177,7 @@ async function handleGetRequest(
  */
 async function handleDeleteRequest(
   req: Request,
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   const url = new URL(req.url)
@@ -189,7 +203,7 @@ async function handleDeleteRequest(
  * Crée un nouvel abonnement webhook
  */
 async function createSubscription(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   request: SubscriptionRequest,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -240,10 +254,10 @@ async function createSubscription(
     }
 
     // Créer l'abonnement via Microsoft Graph
-    const graphSubscription = await createGraphSubscription(subscriptionPayload)
+    const graphSubscription = createGraphSubscription(subscriptionPayload)
 
     // Stocker l'abonnement en base
-    const { data: storedSubscription, error: storeError } = await supabase
+    const { error: storeError } = await supabase
       .from('webhook_subscriptions')
       .insert({
         subscription_id: graphSubscription.id,
@@ -263,7 +277,7 @@ async function createSubscription(
     if (storeError) {
       // Tentative de nettoyage si l'insertion échoue
       try {
-        await deleteGraphSubscription(graphSubscription.id)
+        deleteGraphSubscription(graphSubscription.id)
       } catch (cleanupError) {
         console.warn('Failed to cleanup Graph subscription after store error:', cleanupError)
       }
@@ -308,7 +322,7 @@ async function createSubscription(
  * Renouvelle un abonnement existant
  */
 async function renewSubscription(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   request: SubscriptionRequest,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -336,7 +350,7 @@ async function renewSubscription(
     const newExpirationDateTime = new Date(Date.now() + expirationHours * 60 * 60 * 1000)
 
     // Renouveler via Microsoft Graph
-    const updatedSubscription = await renewGraphSubscription(
+    const updatedSubscription = renewGraphSubscription(
       request.subscriptionId,
       newExpirationDateTime.toISOString()
     )
@@ -391,7 +405,7 @@ async function renewSubscription(
  * Supprime un abonnement spécifique
  */
 async function deleteSubscription(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   subscriptionId: string,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -400,7 +414,7 @@ async function deleteSubscription(
 
     // Supprimer de Microsoft Graph
     try {
-      await deleteGraphSubscription(subscriptionId)
+      deleteGraphSubscription(subscriptionId)
     } catch (graphError) {
       console.warn('Failed to delete from Microsoft Graph (may already be deleted):', graphError)
     }
@@ -447,7 +461,7 @@ async function deleteSubscription(
  * Supprime tous les abonnements d'une mailbox
  */
 async function deleteMailboxSubscriptions(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   mailboxId: string,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -479,9 +493,14 @@ async function deleteMailboxSubscriptions(
     }
 
     // Supprimer chaque abonnement
-    const deletionResults = await Promise.allSettled(
-      subscriptions.map(sub => deleteGraphSubscription(sub.subscription_id))
-    )
+    const deletionResults = subscriptions.map((sub: { subscription_id: string }) => {
+      try {
+        deleteGraphSubscription(sub.subscription_id)
+        return { status: 'fulfilled' as const }
+      } catch (error) {
+        return { status: 'rejected' as const, reason: error }
+      }
+    })
 
     // Marquer tous comme inactifs
     const { error: updateError } = await supabase
@@ -493,8 +512,8 @@ async function deleteMailboxSubscriptions(
       throw updateError
     }
 
-    const successful = deletionResults.filter(r => r.status === 'fulfilled').length
-    const failed = deletionResults.filter(r => r.status === 'rejected').length
+    const successful = deletionResults.filter((r: { status: 'fulfilled' | 'rejected' }) => r.status === 'fulfilled').length
+    const failed = deletionResults.filter((r: { status: 'fulfilled' | 'rejected' }) => r.status === 'rejected').length
 
     return new Response(
       JSON.stringify({
@@ -529,7 +548,7 @@ async function deleteMailboxSubscriptions(
  * Liste les abonnements
  */
 async function listSubscriptions(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   mailboxId: string | null,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -587,7 +606,7 @@ async function listSubscriptions(
  * Vérifie la santé des abonnements
  */
 async function getSubscriptionHealth(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   try {
@@ -657,7 +676,7 @@ async function getSubscriptionHealth(
  * Nettoie les abonnements expirés
  */
 async function cleanupExpiredSubscriptions(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   try {
@@ -733,7 +752,7 @@ async function cleanupExpiredSubscriptions(
 /**
  * Crée un abonnement via Microsoft Graph API
  */
-async function createGraphSubscription(subscriptionPayload: any): Promise<GraphSubscription> {
+function createGraphSubscription(subscriptionPayload: SubscriptionPayload): GraphSubscription {
   // TODO: Implémenter l'appel réel à Microsoft Graph
   // Pour l'instant, on simule une réponse
   console.log('Would create Graph subscription with payload:', subscriptionPayload)
@@ -756,7 +775,7 @@ async function createGraphSubscription(subscriptionPayload: any): Promise<GraphS
 /**
  * Renouvelle un abonnement via Microsoft Graph API
  */
-async function renewGraphSubscription(subscriptionId: string, expirationDateTime: string): Promise<GraphSubscription> {
+function renewGraphSubscription(subscriptionId: string, expirationDateTime: string): GraphSubscription {
   // TODO: Implémenter l'appel réel à Microsoft Graph
   console.log(`Would renew subscription ${subscriptionId} with expiration ${expirationDateTime}`)
 
@@ -778,7 +797,7 @@ async function renewGraphSubscription(subscriptionId: string, expirationDateTime
 /**
  * Supprime un abonnement via Microsoft Graph API
  */
-async function deleteGraphSubscription(subscriptionId: string): Promise<void> {
+function deleteGraphSubscription(subscriptionId: string): void {
   // TODO: Implémenter l'appel réel à Microsoft Graph
   console.log(`Would delete Graph subscription ${subscriptionId}`)
 }
