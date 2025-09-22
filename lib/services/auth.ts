@@ -1,0 +1,159 @@
+import { createClient } from "@/lib/supabase/server";
+import type { UserInsert, UserUpdate } from "@/lib/types";
+
+export class AuthService {
+  /**
+   * Get current user from server-side
+   */
+  static async getCurrentUser() {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    // Get user profile (only active users)
+    const { data: profile, error: profileError } = await supabase
+      .from("active_users")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    return profile;
+  }
+
+  /**
+   * Check if user has required role
+   */
+  static async hasRole(userId: string, requiredRoles: string[]) {
+    const supabase = await createClient();
+
+    const { data: user, error } = await supabase
+      .from("active_users")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (error || !user) {
+      return false;
+    }
+
+    return user.role ? requiredRoles.includes(user.role) : false;
+  }
+
+  /**
+   * Check if user is admin
+   */
+  static async isAdmin(userId: string) {
+    return this.hasRole(userId, ["administrateur"]);
+  }
+
+  /**
+   * Check if user is manager or admin
+   */
+  static async isManagerOrAdmin(userId: string) {
+    return this.hasRole(userId, ["manager", "administrateur"]);
+  }
+
+  /**
+   * Get user's assigned mailboxes
+   */
+  static async getUserMailboxes(userId: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("user_mailbox_assignments")
+      .select(
+        `
+        mailbox:mailboxes (
+          id,
+          email_address,
+          display_name,
+          is_active,
+          last_sync
+        )
+      `
+      )
+      .eq("user_id", userId);
+
+    if (error) {
+      throw error;
+    }
+
+    type MailboxSelection = {
+      id: string;
+      email_address: string;
+      display_name: string | null;
+      is_active: boolean | null;
+      last_sync: string | null;
+    };
+
+    type MailboxAssignment = {
+      mailbox: MailboxSelection | null;
+    };
+
+    return (
+      data?.map((item: MailboxAssignment) => item.mailbox).filter(Boolean) || []
+    );
+  }
+
+  /**
+   * Create user profile after signup
+   * Note: This should normally be handled by triggers, but kept for manual creation if needed
+   */
+  static async createUserProfile(userData: UserInsert) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("users")
+      .insert(userData)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
+
+  /**
+   * Update user profile
+   */
+  static async updateUserProfile(userId: string, updates: UserUpdate) {
+    const supabase = await createClient();
+
+    // Check if user is active before updating
+    const { data: activeUser, error: checkError } = await supabase
+      .from("active_users")
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    if (checkError || !activeUser) {
+      throw new Error("User account is no longer active");
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .update(updates)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
+}

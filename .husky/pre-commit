@@ -1,0 +1,11 @@
+# Vérification du type-safety strict
+echo "🔍 Vérification TypeScript strict..."
+pnpm typecheck:strict
+
+# Vérification ESLint
+echo "📝 Vérification ESLint..."
+pnpm lint
+
+# Vérification des fichiers stagés avec lint-staged
+echo "🚀 Vérification des fichiers modifiés..."
+pnpm lint-staged

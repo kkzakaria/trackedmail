@@ -7,6 +7,7 @@ L'application a pour vocation de **suivre les emails envoyés** et d'effectuer d
 L'application permettra de suivre un ou plusieurs boîtes de messageries.
 
 Le système utilisera les **API Microsoft Graph** et les **webhooks** pour :
+
 - Détecter automatiquement les réponses aux emails suivis via des mécanismes de threading avancés
 - Enregistrer et mettre à jour les emails envoyés dans une base de données Supabase
 - Arrêter automatiquement le suivi dès la première réponse reçue
@@ -44,21 +45,24 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 ## Authentification - Architecture Duale
 
 ### 1. Authentification Supabase (Frontend/Utilisateur)
+
 - **Périmètre** : Interface utilisateur de l'application
 - **Objectif** : Gestion des sessions utilisateur et contrôle d'accès
 - **Implémentation** : Auth Supabase avec JWT
 
 ### 2. Authentification Microsoft Graph (Backend)
+
 - **Périmètre** : Interactions avec l'API Microsoft Graph uniquement
 - **Objectif** : Accès aux données email de l'organisation avec permissions admin
 - **Permissions requises** :
   - `Mail.ReadWrite` (Application)
-  - `Mail.Send` (Application) 
+  - `Mail.Send` (Application)
   - `User.Read.All` (Application) - pour découvrir les boîtes email
 
 ## Fonctionnalités Principales
 
 ### 1. Tracking des Emails
+
 - Enregistrement automatique des emails envoyés via webhooks Microsoft Graph
 - Exclusion automatique des emails internes (même domaine/tenant)
 - Suivi du statut : pending, responded, stopped, max_reached, bounced, expired
@@ -66,6 +70,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - Stockage des propriétés de threading : conversationId, internetMessageId, inReplyTo, references
 
 ### 2. Détection Intelligente des Réponses
+
 - **Méthode principale** : conversationId Microsoft Graph
 - **Méthodes de fallback** : inReplyTo, references, analyse heuristique
 - **Détection des réponses automatiques** : Filtrage via headers et patterns
@@ -73,6 +78,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - **Première réponse uniquement** : Arrêt automatique du suivi après la première réponse
 
 ### 3. Système de Relance
+
 - **Configuration** : Maximum 3 relances par email avec intervalles configurables
 - **Heures de travail** : 07h00 - 18h00 UTC (configurable globalement)
 - **Conditions d'arrêt** : Après réponse, bounce, max relances atteint, ou 30 jours
@@ -80,6 +86,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - **Gestion des jours non-ouvrés** : Report automatique
 
 ### 4. Dashboard de Suivi
+
 - Vue d'ensemble des emails envoyés avec le statut de suivi
 - Statistiques de réponse et métriques de performance
 - Gestion des templates de relance
@@ -89,6 +96,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 ## API et Webhooks
 
 ### Microsoft Graph Integration
+
 - **Permissions requises** :
   - `Mail.ReadWrite` (Application) - Lecture et écriture des emails
   - `Mail.Send` (Application) - Envoi des relances
@@ -104,6 +112,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
   - internetMessageHeaders (pour détection auto-reply)
 
 ### Supabase Edge Functions
+
 1. **webhook-handler** : Traitement des notifications Microsoft Graph et détection des réponses
 2. **subscription-manager** : Gestion et renouvellement des souscriptions
 3. **followup-scheduler** : Planification et envoi des relances
@@ -112,6 +121,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 ## Base de Données
 
 ### Architecture PostgreSQL via Supabase
+
 - **Tables principales** : users, mailboxes, tracked_emails, followups, email_responses
 - **Nouvelles tables** : webhook_subscriptions, message_headers, detection_logs
 - **Row Level Security (RLS)** : Sécurisation basée sur les rôles utilisateurs
@@ -120,6 +130,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - **Fonctions utilitaires** : Nettoyage des sujets, détection de threading
 
 ### Propriétés de Threading
+
 - **conversationId** : Regroupement Microsoft Graph des messages liés
 - **conversationIndex** : Ordre chronologique dans la conversation
 - **internetMessageId** : ID unique RFC pour threading standard
@@ -129,12 +140,14 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 ## Permissions et Rôles des Utilisateurs
 
 ### Administrateur
+
 - Gestion et accès complet des paramètres de configuration globale
 - Configuration des heures de travail et domaine tenant
 - Gestion des templates de relance globaux
 - Accès aux logs de détection et métriques de performance
 
 ### Manager
+
 - Gestion des utilisateurs
 - Suivi de toutes les boîtes de messageries
 - Assignations des boîtes de messagerie à suivre aux utilisateurs
@@ -143,6 +156,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - Accès aux statistiques globales
 
 ### Utilisateur
+
 - Suivi des boîtes de messageries assignées uniquement
 - Arrêt manuel de suivi d'un email
 - Relance manuelle d'un email
@@ -152,6 +166,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 ## Sécurité et Conformité
 
 ### Sécurité
+
 - **Tokens Microsoft Graph** : Stockage chiffré dans Supabase Vault avec refresh automatique
 - **Validation des webhooks** : Vérification clientState et signatures Microsoft
 - **Rate limiting** : Respect des limites Microsoft Graph (10000 req/10min)
@@ -160,6 +175,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - **Circuit breaker** : Protection contre les échecs de webhooks
 
 ### Conformité
+
 - **Respect du RGPD** : Gestion des données personnelles avec consentement
 - **Droit à l'oubli** : Suppression complète des données utilisateur
 - **Anonymisation** : Données analytiques sans information personnelle
@@ -169,6 +185,7 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 ## Configuration Technique
 
 ### Limites et Contraintes
+
 - **Webhooks** : Maximum 3 jours d'expiration, renouvellement automatique 1h avant
 - **Relances** : Maximum 3 par email, arrêt après 30 jours
 - **Première réponse** : Arrêt automatique du suivi, ignorer les réponses ultérieures
@@ -176,8 +193,8 @@ NB : L'envoi d'e-mail initial via l'application est envisageable mais pas la pri
 - **Latence** : Notifications webhook avec délai possible jusqu'à 3 minutes
 
 ### Monitoring et Métriques
+
 - **Détection des réponses** : Tracking par méthode (conversationId, inReplyTo, etc.)
 - **Performance** : Temps de traitement des webhooks et détection
 - **Fiabilité** : Taux de succès des souscriptions et renouvellements
 - **Qualité** : Précision de la détection des réponses vs faux positifs
-

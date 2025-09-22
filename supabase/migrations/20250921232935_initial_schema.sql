@@ -1,51 +1,35 @@
-# Schéma de Base de Données Supabase
+-- Initial schema for TrackedMail application
+-- TrackedMail: Mono-tenant email tracking and follow-up application
 
-## Vue d'ensemble
-
-Le schéma est conçu pour une application mono-tenant de suivi et relance d'emails, utilisant PostgreSQL via Supabase.
-
-## Tables principales
-
-### 1. users
-
-Table des utilisateurs de l'application (utilise Supabase Auth)
-
-```sql
+-- 1. users table
+-- Application users table (uses Supabase Auth)
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT auth.uid(),
   email TEXT NOT NULL UNIQUE,
   full_name TEXT,
   role TEXT NOT NULL CHECK (role IN ('administrateur', 'manager', 'utilisateur')),
-  mailbox_address TEXT, -- Adresse email Microsoft à suivre
+  mailbox_address TEXT, -- Microsoft email address to track
   timezone TEXT DEFAULT 'UTC',
   pause_relances BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
 
-### 2. mailboxes
-
-Boîtes mail suivies par l'application
-
-```sql
+-- 2. mailboxes table
+-- Mailboxes tracked by the application
 CREATE TABLE mailboxes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email_address TEXT NOT NULL UNIQUE,
   display_name TEXT,
-  microsoft_user_id TEXT, -- ID utilisateur Microsoft Graph
+  microsoft_user_id TEXT, -- Microsoft Graph user ID
   is_active BOOLEAN DEFAULT true,
   last_sync TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
 
-### 3. user_mailbox_assignments
-
-Assignation des boîtes mail aux utilisateurs
-
-```sql
+-- 3. user_mailbox_assignments table
+-- User to mailbox assignments
 CREATE TABLE user_mailbox_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -54,43 +38,39 @@ CREATE TABLE user_mailbox_assignments (
   assigned_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, mailbox_id)
 );
-```
 
-### 4. tracked_emails
-
-Emails envoyés suivis par le système
-
-```sql
+-- 4. tracked_emails table
+-- Sent emails tracked by the system
 CREATE TABLE tracked_emails (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   microsoft_message_id TEXT NOT NULL UNIQUE,
   conversation_id TEXT,
   mailbox_id UUID REFERENCES mailboxes(id) ON DELETE CASCADE,
 
-  -- Métadonnées email
+  -- Email metadata
   subject TEXT NOT NULL,
   sender_email TEXT NOT NULL,
   recipient_emails TEXT[] NOT NULL,
   cc_emails TEXT[],
   bcc_emails TEXT[],
 
-  -- Contenu
+  -- Content
   body_preview TEXT,
   body_content TEXT,
   has_attachments BOOLEAN DEFAULT false,
   importance TEXT CHECK (importance IN ('low', 'normal', 'high')),
 
-  -- Statut de suivi
+  -- Tracking status
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN (
-    'pending',      -- En attente de réponse
-    'responded',    -- A reçu une réponse
-    'stopped',      -- Arrêté manuellement
-    'max_reached',  -- Max de relances atteint
-    'bounced',      -- Email non délivré
-    'expired'       -- Expiré après 30 jours
+    'pending',      -- Waiting for response
+    'responded',    -- Received a response
+    'stopped',      -- Manually stopped
+    'max_reached',  -- Max followups reached
+    'bounced',      -- Email not delivered
+    'expired'       -- Expired after 30 days
   )),
 
-  -- Dates importantes
+  -- Important dates
   sent_at TIMESTAMPTZ NOT NULL,
   responded_at TIMESTAMPTZ,
   stopped_at TIMESTAMPTZ,
@@ -104,29 +84,25 @@ CREATE TABLE tracked_emails (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index pour les recherches fréquentes
+-- Indexes for frequent searches
 CREATE INDEX idx_tracked_emails_status ON tracked_emails(status);
 CREATE INDEX idx_tracked_emails_conversation_id ON tracked_emails(conversation_id);
 CREATE INDEX idx_tracked_emails_sent_at ON tracked_emails(sent_at);
 CREATE INDEX idx_tracked_emails_mailbox_id ON tracked_emails(mailbox_id);
-```
 
-### 5. followup_templates
-
-Templates de relance configurables
-
-```sql
+-- 5. followup_templates table
+-- Configurable followup templates
 CREATE TABLE followup_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
-  followup_number INTEGER NOT NULL, -- 1ère, 2ème, 3ème relance
-  delay_hours INTEGER DEFAULT 96, -- Délai spécifique pour ce template
+  followup_number INTEGER NOT NULL, -- 1st, 2nd, 3rd followup
+  delay_hours INTEGER DEFAULT 96, -- Specific delay for this template
   is_active BOOLEAN DEFAULT true,
   version INTEGER DEFAULT 1,
 
-  -- Variables disponibles dans le template
+  -- Available variables in the template
   available_variables TEXT[] DEFAULT ARRAY[
     'destinataire_nom',
     'destinataire_entreprise',
@@ -140,32 +116,28 @@ CREATE TABLE followup_templates (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
 
-  UNIQUE(followup_number, is_active) -- Une seule template active par niveau
+  UNIQUE(followup_number, is_active) -- Only one active template per level
 );
-```
 
-### 6. followups
-
-Relances envoyées
-
-```sql
+-- 6. followups table
+-- Sent followups
 CREATE TABLE followups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tracked_email_id UUID REFERENCES tracked_emails(id) ON DELETE CASCADE,
   template_id UUID REFERENCES followup_templates(id),
 
-  -- Données de la relance
+  -- Followup data
   followup_number INTEGER NOT NULL,
   microsoft_message_id TEXT UNIQUE,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
 
-  -- Statut
+  -- Status
   status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN (
-    'scheduled',    -- Programmée
-    'sent',        -- Envoyée
-    'failed',      -- Échec d'envoi
-    'cancelled'    -- Annulée
+    'scheduled',    -- Scheduled
+    'sent',        -- Sent
+    'failed',      -- Send failed
+    'cancelled'    -- Cancelled
   )),
 
   -- Timing
@@ -178,33 +150,29 @@ CREATE TABLE followups (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index pour les relances à traiter
+-- Indexes for followups to process
 CREATE INDEX idx_followups_scheduled ON followups(scheduled_for) WHERE status = 'scheduled';
 CREATE INDEX idx_followups_tracked_email ON followups(tracked_email_id);
-```
 
-### 7. email_responses
-
-Réponses détectées aux emails suivis
-
-```sql
+-- 7. email_responses table
+-- Detected responses to tracked emails
 CREATE TABLE email_responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tracked_email_id UUID REFERENCES tracked_emails(id) ON DELETE CASCADE,
   microsoft_message_id TEXT NOT NULL UNIQUE,
 
-  -- Métadonnées de la réponse
+  -- Response metadata
   sender_email TEXT NOT NULL,
   subject TEXT,
   body_preview TEXT,
   received_at TIMESTAMPTZ NOT NULL,
 
-  -- Type de réponse
+  -- Response type
   response_type TEXT CHECK (response_type IN (
-    'direct_reply',     -- Réponse directe
-    'forward',          -- Email transféré
-    'auto_reply',       -- Réponse automatique
-    'bounce'           -- Email non délivré
+    'direct_reply',     -- Direct reply
+    'forward',          -- Forwarded email
+    'auto_reply',       -- Auto response
+    'bounce'           -- Undelivered email
   )),
 
   is_auto_response BOOLEAN DEFAULT false,
@@ -213,13 +181,9 @@ CREATE TABLE email_responses (
 );
 
 CREATE INDEX idx_email_responses_tracked_email ON email_responses(tracked_email_id);
-```
 
-### 8. webhook_events
-
-Historique des événements webhook Microsoft Graph
-
-```sql
+-- 8. webhook_events table
+-- Microsoft Graph webhook events history
 CREATE TABLE webhook_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subscription_id TEXT NOT NULL,
@@ -227,7 +191,7 @@ CREATE TABLE webhook_events (
   resource_data JSONB NOT NULL,
   client_state TEXT,
 
-  -- Traitement
+  -- Processing
   processed BOOLEAN DEFAULT false,
   processed_at TIMESTAMPTZ,
   processing_error TEXT,
@@ -238,30 +202,22 @@ CREATE TABLE webhook_events (
 
 CREATE INDEX idx_webhook_events_processed ON webhook_events(processed);
 CREATE INDEX idx_webhook_events_received_at ON webhook_events(received_at);
-```
 
-### 9. microsoft_graph_tokens
-
-Gestion sécurisée des tokens Microsoft Graph
-
-```sql
+-- 9. microsoft_graph_tokens table
+-- Secure management of Microsoft Graph tokens
 CREATE TABLE microsoft_graph_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  token_type TEXT NOT NULL, -- 'access' ou 'refresh'
-  encrypted_token TEXT NOT NULL, -- Token chiffré avec Supabase Vault
+  token_type TEXT NOT NULL, -- 'access' or 'refresh'
+  encrypted_token TEXT NOT NULL, -- Token encrypted with Supabase Vault
   expires_at TIMESTAMPTZ NOT NULL,
   scope TEXT,
   last_refreshed_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
 
-### 10. system_config
-
-Configuration globale du système
-
-```sql
+-- 10. system_config table
+-- Global system configuration
 CREATE TABLE system_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   key TEXT NOT NULL UNIQUE,
@@ -271,7 +227,7 @@ CREATE TABLE system_config (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Configuration par défaut
+-- Default configuration
 INSERT INTO system_config (key, value, description) VALUES
   ('working_hours', '{
     "timezone": "UTC",
@@ -279,21 +235,17 @@ INSERT INTO system_config (key, value, description) VALUES
     "end": "18:00",
     "working_days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
     "holidays": []
-  }', 'Heures de travail pour les relances'),
+  }', 'Working hours for followups'),
   ('followup_settings', '{
     "max_followups": 3,
     "default_interval_hours": 96,
     "stop_after_days": 30,
     "stop_on_bounce": true,
     "stop_on_unsubscribe": true
-  }', 'Paramètres de relance');
-```
+  }', 'Followup settings');
 
-### 11. audit_logs
-
-Logs d'audit pour la conformité
-
-```sql
+-- 11. audit_logs table
+-- Audit logs for compliance
 CREATE TABLE audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id),
@@ -309,54 +261,10 @@ CREATE TABLE audit_logs (
 
 CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
-```
 
-## Row Level Security (RLS)
+-- Functions and Triggers
 
-```sql
--- Activation RLS sur toutes les tables
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mailboxes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tracked_emails ENABLE ROW LEVEL SECURITY;
-ALTER TABLE followups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE followup_templates ENABLE ROW LEVEL SECURITY;
-
--- Politiques pour les utilisateurs
-CREATE POLICY "Users can view their own profile"
-  ON users FOR SELECT
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can update their own profile"
-  ON users FOR UPDATE
-  USING (auth.uid() = id);
-
--- Politiques pour les emails suivis
-CREATE POLICY "Users can view assigned mailbox emails"
-  ON tracked_emails FOR SELECT
-  USING (
-    mailbox_id IN (
-      SELECT mailbox_id FROM user_mailbox_assignments
-      WHERE user_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('manager', 'administrateur')
-    )
-  );
-
--- Managers et admins peuvent voir tout
-CREATE POLICY "Managers can view all data"
-  ON tracked_emails FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('manager', 'administrateur')
-    )
-  );
-```
-
-## Functions et Triggers
-
-```sql
--- Fonction pour mettre à jour updated_at automatiquement
+-- Function to automatically update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -365,43 +273,56 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Appliquer le trigger à toutes les tables avec updated_at
+-- Apply trigger to all tables with updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_mailboxes_updated_at BEFORE UPDATE ON mailboxes
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER update_tracked_emails_updated_at BEFORE UPDATE ON tracked_emails
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Fonction pour détecter les réponses et mettre à jour le statut
+CREATE TRIGGER update_followup_templates_updated_at BEFORE UPDATE ON followup_templates
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_followups_updated_at BEFORE UPDATE ON followups
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_microsoft_graph_tokens_updated_at BEFORE UPDATE ON microsoft_graph_tokens
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_system_config_updated_at BEFORE UPDATE ON system_config
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Function to detect responses and update status
 CREATE OR REPLACE FUNCTION update_email_status_on_response()
 RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE tracked_emails
+  UPDATE public.tracked_emails
   SET
     status = 'responded',
     responded_at = NEW.received_at
   WHERE id = NEW.tracked_email_id
     AND status = 'pending';
 
-  -- Annuler les relances programmées
-  UPDATE followups
+  -- Cancel scheduled followups
+  UPDATE public.followups
   SET status = 'cancelled'
   WHERE tracked_email_id = NEW.tracked_email_id
     AND status = 'scheduled';
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = '';
 
 CREATE TRIGGER trigger_update_email_status
   AFTER INSERT ON email_responses
   FOR EACH ROW EXECUTE FUNCTION update_email_status_on_response();
-```
 
-## Views utiles
+-- Useful views
 
-```sql
--- Vue des emails nécessitant une relance
+-- View of emails needing followup
 CREATE VIEW emails_needing_followup AS
 SELECT
   te.*,
@@ -414,7 +335,7 @@ WHERE te.status = 'pending'
 GROUP BY te.id
 HAVING COALESCE(MAX(f.followup_number), 0) < 3;
 
--- Vue statistiques par boîte mail
+-- Mailbox statistics view
 CREATE VIEW mailbox_statistics AS
 SELECT
   m.id,
@@ -431,22 +352,19 @@ FROM mailboxes m
 LEFT JOIN tracked_emails te ON te.mailbox_id = m.id
 LEFT JOIN followups f ON f.tracked_email_id = te.id AND f.status = 'sent'
 GROUP BY m.id, m.email_address;
-```
 
-## Indexes supplémentaires pour les performances
+-- Additional performance indexes
 
-```sql
--- Index composite pour les requêtes de relance
+-- Composite index for followup queries
 CREATE INDEX idx_tracked_emails_pending_sent
   ON tracked_emails(status, sent_at)
   WHERE status = 'pending';
 
--- Index pour la recherche par email
+-- Index for email search
 CREATE INDEX idx_tracked_emails_recipient_emails
   ON tracked_emails USING GIN(recipient_emails);
 
--- Index pour les webhooks non traités
+-- Index for unprocessed webhooks
 CREATE INDEX idx_webhook_events_unprocessed
   ON webhook_events(received_at)
   WHERE processed = false;
-```
