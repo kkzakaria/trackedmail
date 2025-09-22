@@ -3,7 +3,14 @@
 -- Uses Supabase test helpers for proper auth.users ↔ public.users integration
 
 -- ============================================
--- 0. Setup and cleanup
+-- 0. Enable required extensions and setup
+-- ============================================
+
+-- Ensure pgcrypto extension is available for test helpers
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ============================================
+-- 1. Cleanup existing data
 -- ============================================
 
 -- Clear existing data (in correct order to respect foreign keys)

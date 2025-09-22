@@ -58,7 +58,7 @@ BEGIN
         email,
         user_metadata,
         '{"provider": "email", "providers": ["email"]}'::jsonb,
-        crypt(password, gen_salt('bf')),
+        extensions.crypt(password, extensions.gen_salt('bf'::text)),
         NOW(),
         NULL,
         NOW(),

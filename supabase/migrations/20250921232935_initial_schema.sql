@@ -299,7 +299,7 @@ CREATE TRIGGER update_system_config_updated_at BEFORE UPDATE ON system_config
 CREATE OR REPLACE FUNCTION update_email_status_on_response()
 RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE tracked_emails
+  UPDATE public.tracked_emails
   SET
     status = 'responded',
     responded_at = NEW.received_at
@@ -307,14 +307,14 @@ BEGIN
     AND status = 'pending';
 
   -- Cancel scheduled followups
-  UPDATE followups
+  UPDATE public.followups
   SET status = 'cancelled'
   WHERE tracked_email_id = NEW.tracked_email_id
     AND status = 'scheduled';
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = '';
 
 CREATE TRIGGER trigger_update_email_status
   AFTER INSERT ON email_responses
