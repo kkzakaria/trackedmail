@@ -1,5 +1,15 @@
 import { createClient } from "@/lib/supabase/client";
 import type { TablesInsert, TablesUpdate } from "@/lib/types/database.types";
+import { microsoftGraphService } from "./microsoft-graph.service";
+import { webhookService } from "./webhook.service";
+import type {
+  ApiResponse,
+  MailboxSyncResult,
+  MailboxConfigurationResult,
+  WebhookSubscriptionResult,
+  WebhookStatusResult,
+  WebhookRemovalResult,
+} from "@/lib/types/microsoft-graph";
 
 type MailboxInsert = TablesInsert<"mailboxes">;
 type MailboxUpdate = TablesUpdate<"mailboxes">;
@@ -163,22 +173,283 @@ export class MailboxService {
   }
 
   /**
-   * Sync mailbox with Microsoft Graph (placeholder for future)
+   * Sync mailbox with Microsoft Graph
    */
-  async syncWithMicrosoft(id: string) {
-    // TODO: Implement Microsoft Graph sync in Phase 2.2
-    const { data, error } = await this.supabase
-      .from("mailboxes")
-      .update({
+  async syncWithMicrosoft(id: string): Promise<ApiResponse<MailboxSyncResult>> {
+    try {
+      // Récupérer la mailbox
+      const mailbox = await this.getMailboxById(id);
+      if (!mailbox) {
+        return {
+          success: false,
+          error: "Mailbox not found",
+          code: "MAILBOX_NOT_FOUND",
+        };
+      }
+
+      if (!mailbox.microsoft_user_id) {
+        return {
+          success: false,
+          error: "No Microsoft User ID configured for this mailbox",
+          code: "NO_MICROSOFT_USER_ID",
+        };
+      }
+
+      // Récupérer les informations utilisateur via Microsoft Graph
+      const userInfo = await microsoftGraphService.getUser(
+        mailbox.microsoft_user_id
+      );
+
+      // Mettre à jour les informations de la mailbox
+      const updates: MailboxUpdate = {
         last_sync: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select()
-      .single();
+      };
 
-    if (error) throw error;
-    return data;
+      // Mettre à jour le nom d'affichage si différent
+      if (
+        userInfo.displayName &&
+        userInfo.displayName !== mailbox.display_name
+      ) {
+        updates.display_name = userInfo.displayName;
+      }
+
+      // Mettre à jour l'email si différent
+      if (userInfo.mail && userInfo.mail !== mailbox.email_address) {
+        // Vérifier que le nouvel email n'est pas déjà utilisé
+        const existing = await this.getMailboxByEmail(userInfo.mail);
+        if (!existing) {
+          updates.email_address = userInfo.mail;
+        }
+      }
+
+      const { data, error } = await this.supabase
+        .from("mailboxes")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: {
+          mailbox: data,
+          userInfo,
+          updatedFields: Object.keys(updates),
+        },
+      };
+    } catch (error) {
+      console.error("Error syncing mailbox with Microsoft Graph:", error);
+      return {
+        success: false,
+        error: "Failed to sync with Microsoft Graph",
+        code: "SYNC_FAILED",
+      };
+    }
+  }
+
+  /**
+   * Configure Microsoft Graph integration for a mailbox
+   */
+  async configureMicrosoftIntegration(
+    id: string,
+    microsoftUserId: string
+  ): Promise<ApiResponse<MailboxConfigurationResult>> {
+    try {
+      // Vérifier que l'utilisateur Microsoft existe
+      const userInfo = await microsoftGraphService.getUser(microsoftUserId);
+
+      // Mettre à jour la mailbox avec l'ID utilisateur Microsoft
+      const { data, error } = await this.supabase
+        .from("mailboxes")
+        .update({
+          microsoft_user_id: microsoftUserId,
+          last_sync: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: {
+          mailbox: data,
+          userInfo,
+        },
+      };
+    } catch (error) {
+      console.error("Error configuring Microsoft integration:", error);
+      return {
+        success: false,
+        error: "Failed to configure Microsoft integration",
+        code: "INTEGRATION_CONFIG_FAILED",
+      };
+    }
+  }
+
+  /**
+   * Create webhook subscription for a mailbox
+   */
+  async createWebhookSubscription(
+    id: string,
+    options: {
+      changeTypes?: string[];
+      expirationHours?: number;
+      includeResourceData?: boolean;
+    } = {}
+  ): Promise<ApiResponse<WebhookSubscriptionResult>> {
+    try {
+      const mailbox = await this.getMailboxById(id);
+      if (!mailbox) {
+        return {
+          success: false,
+          error: "Mailbox not found",
+          code: "MAILBOX_NOT_FOUND",
+        };
+      }
+
+      if (!mailbox.microsoft_user_id) {
+        return {
+          success: false,
+          error: "No Microsoft User ID configured for this mailbox",
+          code: "NO_MICROSOFT_USER_ID",
+        };
+      }
+
+      // Créer l'abonnement webhook
+      const result = await webhookService.createSubscription(
+        id,
+        mailbox.microsoft_user_id,
+        options
+      );
+
+      if (result.success && result.data) {
+        return {
+          success: true,
+          data: {
+            subscription: result.data,
+            created: true,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: result.error ?? "Unknown error",
+        code: result.code ?? "UNKNOWN_ERROR",
+      };
+    } catch (error) {
+      console.error("Error creating webhook subscription:", error);
+      return {
+        success: false,
+        error: "Failed to create webhook subscription",
+        code: "WEBHOOK_CREATION_FAILED",
+      };
+    }
+  }
+
+  /**
+   * Get webhook subscription status for a mailbox
+   */
+  async getWebhookSubscriptionStatus(
+    id: string
+  ): Promise<ApiResponse<WebhookStatusResult>> {
+    try {
+      const result = await webhookService.getActiveSubscription(id);
+
+      if (result.success && result.data) {
+        // Determine health status
+        const now = new Date();
+        const expiresAt = new Date(result.data.expiresAt);
+        const hoursUntilExpiry =
+          (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        let health: "healthy" | "expiring" | "expired" | "error" = "healthy";
+        if (hoursUntilExpiry <= 0) {
+          health = "expired";
+        } else if (hoursUntilExpiry <= 24) {
+          health = "expiring";
+        }
+
+        return {
+          success: true,
+          data: {
+            hasActiveSubscription: result.data.isActive,
+            subscription: result.data,
+            health,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          hasActiveSubscription: false,
+          health: "error" as const,
+        },
+      };
+    } catch (error) {
+      console.error("Error getting webhook subscription status:", error);
+      return {
+        success: false,
+        error: "Failed to get webhook subscription status",
+        code: "WEBHOOK_STATUS_FAILED",
+      };
+    }
+  }
+
+  /**
+   * Remove webhook subscription for a mailbox
+   */
+  async removeWebhookSubscription(
+    id: string
+  ): Promise<ApiResponse<WebhookRemovalResult>> {
+    try {
+      // Récupérer l'abonnement actif
+      const activeSubscription = await webhookService.getActiveSubscription(id);
+
+      if (!activeSubscription.success || !activeSubscription.data) {
+        return {
+          success: true,
+          data: {
+            deleted: false,
+          },
+        };
+      }
+
+      // Supprimer l'abonnement
+      const result = await webhookService.deleteSubscription(
+        activeSubscription.data.id
+      );
+
+      if (result.success) {
+        return {
+          success: true,
+          data: {
+            deleted: true,
+            subscriptionId: activeSubscription.data.id,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: result.error ?? "Unknown error",
+        code: result.code ?? "UNKNOWN_ERROR",
+      };
+    } catch (error) {
+      console.error("Error removing webhook subscription:", error);
+      return {
+        success: false,
+        error: "Failed to remove webhook subscription",
+        code: "WEBHOOK_REMOVAL_FAILED",
+      };
+    }
   }
 
   /**

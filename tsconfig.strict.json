@@ -11,8 +11,7 @@
     "lib/**/*.ts",
     "lib/**/*.tsx",
     "components/**/!(ui)/*.ts",
-    "components/**/!(ui)/*.tsx",
-    "supabase/**/*.ts"
+    "components/**/!(ui)/*.tsx"
   ],
   "exclude": [
     "node_modules",
@@ -20,6 +19,7 @@
     ".next/**",
     "out/**",
     "build/**",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    "supabase/functions/**/*"
   ]
 }

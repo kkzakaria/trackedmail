@@ -152,10 +152,15 @@ export function useSyncMailbox() {
 
   return useMutation({
     mutationFn: (id: string) => mailboxService.syncWithMicrosoft(id),
-    onSuccess: data => {
-      // Update last sync time
-      queryClient.setQueryData(mailboxKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });
+    onSuccess: response => {
+      if (response.success && response.data?.mailbox) {
+        // Update last sync time
+        queryClient.setQueryData(
+          mailboxKeys.detail(response.data.mailbox.id as string),
+          response.data.mailbox
+        );
+        queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });
+      }
     },
   });
 }
