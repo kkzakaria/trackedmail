@@ -17,26 +17,31 @@
 exemple de test d'une foncton edge qui affiche "Hello ${name}" ou ${name} est une variable
 
 ### Étape 1 : générez une nouvelle fonction Edge
+
 Créer la fonction avec la commande **supabase functions new hello-world**
 Cela crée une nouvelle fonction dans supabase/functions/hello-world/index.ts
 
 ```typescript
-Deno.serve(async (req) => {
-  const { name } = await req.json()
+Deno.serve(async req => {
+  const { name } = await req.json();
   const data = {
     message: `Hello ${name}!`,
-  }
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
-})
+  };
+  return new Response(JSON.stringify(data), {
+    headers: { "Content-Type": "application/json" },
+  });
+});
 ```
 
 Cette fonction accepte une charge utile JSON avec un namechamp et renvoie un message d'accueil.
 
 ### Étape 2 : Testez votre fonction localement
-supabase start  # démarrer tous les services supabases
+
+supabase start # démarrer tous les services supabases
 supabase functions serve hello-world # déployer la fonction localement
 
 ### Étape 4 : Envoyer une demande de test
+
 Exécutez **supabase status** pour voir votre clé anonyme locale et d'autres informations d'identification.
 
 ```texte
@@ -49,6 +54,7 @@ curl -i --location --request POST 'http://localhost:54321/functions/v1/hello-wor
 Après avoir exécuté cette commande curl, vous devriez voir :
 { "message": "Hello Functions!" }
 
-## Sources et références 
-https://supabase.com/docs/guides/local-development
-https://supabase.com/docs/guides/functions
+## Sources et références
+
+<https://supabase.com/docs/guides/local-development>
+<https://supabase.com/docs/guides/functions>

@@ -7,7 +7,9 @@ Le schéma est conçu pour une application mono-tenant de suivi et relance d'ema
 ## Tables principales
 
 ### 1. users
+
 Table des utilisateurs de l'application (utilise Supabase Auth)
+
 ```sql
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT auth.uid(),
@@ -23,7 +25,9 @@ CREATE TABLE users (
 ```
 
 ### 2. mailboxes
+
 Boîtes mail suivies par l'application
+
 ```sql
 CREATE TABLE mailboxes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,7 +42,9 @@ CREATE TABLE mailboxes (
 ```
 
 ### 3. user_mailbox_assignments
+
 Assignation des boîtes mail aux utilisateurs
+
 ```sql
 CREATE TABLE user_mailbox_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -51,7 +57,9 @@ CREATE TABLE user_mailbox_assignments (
 ```
 
 ### 4. tracked_emails
+
 Emails envoyés suivis par le système
+
 ```sql
 CREATE TABLE tracked_emails (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -104,7 +112,9 @@ CREATE INDEX idx_tracked_emails_mailbox_id ON tracked_emails(mailbox_id);
 ```
 
 ### 5. followup_templates
+
 Templates de relance configurables
+
 ```sql
 CREATE TABLE followup_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -135,7 +145,9 @@ CREATE TABLE followup_templates (
 ```
 
 ### 6. followups
+
 Relances envoyées
+
 ```sql
 CREATE TABLE followups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -172,7 +184,9 @@ CREATE INDEX idx_followups_tracked_email ON followups(tracked_email_id);
 ```
 
 ### 7. email_responses
+
 Réponses détectées aux emails suivis
+
 ```sql
 CREATE TABLE email_responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -202,7 +216,9 @@ CREATE INDEX idx_email_responses_tracked_email ON email_responses(tracked_email_
 ```
 
 ### 8. webhook_events
+
 Historique des événements webhook Microsoft Graph
+
 ```sql
 CREATE TABLE webhook_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -225,7 +241,9 @@ CREATE INDEX idx_webhook_events_received_at ON webhook_events(received_at);
 ```
 
 ### 9. microsoft_graph_tokens
+
 Gestion sécurisée des tokens Microsoft Graph
+
 ```sql
 CREATE TABLE microsoft_graph_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -240,7 +258,9 @@ CREATE TABLE microsoft_graph_tokens (
 ```
 
 ### 10. system_config
+
 Configuration globale du système
+
 ```sql
 CREATE TABLE system_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -270,7 +290,9 @@ INSERT INTO system_config (key, value, description) VALUES
 ```
 
 ### 11. audit_logs
+
 Logs d'audit pour la conformité
+
 ```sql
 CREATE TABLE audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

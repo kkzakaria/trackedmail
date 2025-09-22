@@ -105,7 +105,7 @@ curl -i --location --request POST 'http://localhost:54321/functions/v1/function-
 
 ### Core Directories
 
-```
+```texte
 app/                 # Next.js App Router pages
 ├── globals.css      # Global styles with Tailwind
 ├── layout.tsx       # Root layout with Geist fonts

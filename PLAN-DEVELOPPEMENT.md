@@ -88,7 +88,8 @@
 #### 1.2 Architecture de Code ✅ COMPLÉTÉ
 
 - [x] Structure des dossiers:
-  ```
+
+  ```texte
   lib/
   ├── supabase/          # Client et configuration ✅
   ├── types/             # Types TypeScript ✅
@@ -97,6 +98,7 @@
   ├── providers/         # React providers ✅
   └── utils/             # Utilitaires ✅
   ```
+
 - [x] Configuration des variables d'environnement
 - [x] Types TypeScript pour toutes les entités (auto-générés)
 

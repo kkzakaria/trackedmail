@@ -9,6 +9,7 @@ D'après l'analyse du flux de détection et de la documentation Microsoft Graph,
 ## 1. Table `tracked_emails` - Ajouts requis
 
 ### Propriétés pour la détection des réponses
+
 ```sql
 -- Ajouter ces colonnes à la table tracked_emails
 ALTER TABLE tracked_emails ADD COLUMN conversation_index TEXT; -- Pour l'ordre chronologique dans le thread
@@ -18,6 +19,7 @@ ALTER TABLE tracked_emails ADD COLUMN references TEXT; -- Chaîne complète des 
 ```
 
 ### Justification
+
 - **conversation_index**: Propriété Microsoft Graph pour déterminer l'ordre des messages dans une conversation
 - **internet_message_id**: ID unique standard (format `<id@domain>`) utilisé pour le threading email
 - **in_reply_to**: Référence directe au message auquel on répond (crucial pour la détection)
