@@ -81,38 +81,114 @@ export type Database = {
           },
         ];
       };
+      detection_logs: {
+        Row: {
+          conversation_id: string | null;
+          created_at: string | null;
+          detection_method: string | null;
+          detection_time_ms: number | null;
+          id: string;
+          is_response: boolean;
+          microsoft_message_id: string;
+          rejection_reason: string | null;
+          tracked_email_id: string | null;
+        };
+        Insert: {
+          conversation_id?: string | null;
+          created_at?: string | null;
+          detection_method?: string | null;
+          detection_time_ms?: number | null;
+          id?: string;
+          is_response: boolean;
+          microsoft_message_id: string;
+          rejection_reason?: string | null;
+          tracked_email_id?: string | null;
+        };
+        Update: {
+          conversation_id?: string | null;
+          created_at?: string | null;
+          detection_method?: string | null;
+          detection_time_ms?: number | null;
+          id?: string;
+          is_response?: boolean;
+          microsoft_message_id?: string;
+          rejection_reason?: string | null;
+          tracked_email_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "detection_logs_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "detection_logs_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "pending_response_detection";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "detection_logs_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "tracked_emails";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       email_responses: {
         Row: {
+          body_content: string | null;
           body_preview: string | null;
+          conversation_id: string | null;
+          conversation_index: string | null;
           created_at: string | null;
           id: string;
+          in_reply_to: string | null;
+          internet_message_id: string | null;
           is_auto_response: boolean | null;
           microsoft_message_id: string;
           received_at: string;
+          references: string | null;
           response_type: string | null;
           sender_email: string;
           subject: string | null;
           tracked_email_id: string | null;
         };
         Insert: {
+          body_content?: string | null;
           body_preview?: string | null;
+          conversation_id?: string | null;
+          conversation_index?: string | null;
           created_at?: string | null;
           id?: string;
+          in_reply_to?: string | null;
+          internet_message_id?: string | null;
           is_auto_response?: boolean | null;
           microsoft_message_id: string;
           received_at: string;
+          references?: string | null;
           response_type?: string | null;
           sender_email: string;
           subject?: string | null;
           tracked_email_id?: string | null;
         };
         Update: {
+          body_content?: string | null;
           body_preview?: string | null;
+          conversation_id?: string | null;
+          conversation_index?: string | null;
           created_at?: string | null;
           id?: string;
+          in_reply_to?: string | null;
+          internet_message_id?: string | null;
           is_auto_response?: boolean | null;
           microsoft_message_id?: string;
           received_at?: string;
+          references?: string | null;
           response_type?: string | null;
           sender_email?: string;
           subject?: string | null;
@@ -124,6 +200,13 @@ export type Database = {
             columns: ["tracked_email_id"];
             isOneToOne: false;
             referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_responses_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "pending_response_detection";
             referencedColumns: ["id"];
           },
           {
@@ -256,6 +339,13 @@ export type Database = {
             foreignKeyName: "followups_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
+            referencedRelation: "pending_response_detection";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
             referencedRelation: "tracked_emails";
             referencedColumns: ["id"];
           },
@@ -293,6 +383,62 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [];
+      };
+      message_headers: {
+        Row: {
+          created_at: string | null;
+          email_response_id: string | null;
+          header_name: string;
+          header_value: string | null;
+          id: string;
+          tracked_email_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          email_response_id?: string | null;
+          header_name: string;
+          header_value?: string | null;
+          id?: string;
+          tracked_email_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          email_response_id?: string | null;
+          header_name?: string;
+          header_value?: string | null;
+          id?: string;
+          tracked_email_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "message_headers_email_response_id_fkey";
+            columns: ["email_response_id"];
+            isOneToOne: false;
+            referencedRelation: "email_responses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_headers_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_headers_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "pending_response_detection";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_headers_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "tracked_emails";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       microsoft_graph_tokens: {
         Row: {
@@ -369,15 +515,19 @@ export type Database = {
           body_preview: string | null;
           cc_emails: string[] | null;
           conversation_id: string | null;
+          conversation_index: string | null;
           created_at: string | null;
           has_attachments: boolean | null;
           id: string;
           importance: string | null;
+          in_reply_to: string | null;
+          internet_message_id: string | null;
           is_reply: boolean | null;
           mailbox_id: string | null;
           microsoft_message_id: string;
           parent_message_id: string | null;
           recipient_emails: string[];
+          references: string | null;
           responded_at: string | null;
           sender_email: string;
           sent_at: string;
@@ -393,15 +543,19 @@ export type Database = {
           body_preview?: string | null;
           cc_emails?: string[] | null;
           conversation_id?: string | null;
+          conversation_index?: string | null;
           created_at?: string | null;
           has_attachments?: boolean | null;
           id?: string;
           importance?: string | null;
+          in_reply_to?: string | null;
+          internet_message_id?: string | null;
           is_reply?: boolean | null;
           mailbox_id?: string | null;
           microsoft_message_id: string;
           parent_message_id?: string | null;
           recipient_emails: string[];
+          references?: string | null;
           responded_at?: string | null;
           sender_email: string;
           sent_at: string;
@@ -417,15 +571,19 @@ export type Database = {
           body_preview?: string | null;
           cc_emails?: string[] | null;
           conversation_id?: string | null;
+          conversation_index?: string | null;
           created_at?: string | null;
           has_attachments?: boolean | null;
           id?: string;
           importance?: string | null;
+          in_reply_to?: string | null;
+          internet_message_id?: string | null;
           is_reply?: boolean | null;
           mailbox_id?: string | null;
           microsoft_message_id?: string;
           parent_message_id?: string | null;
           recipient_emails?: string[];
+          references?: string | null;
           responded_at?: string | null;
           sender_email?: string;
           sent_at?: string;
@@ -580,6 +738,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      webhook_subscriptions: {
+        Row: {
+          change_type: string;
+          client_state: string;
+          created_at: string | null;
+          expiration_date_time: string;
+          id: string;
+          include_resource_data: boolean | null;
+          is_active: boolean | null;
+          last_renewed_at: string | null;
+          mailbox_id: string | null;
+          notification_url: string;
+          renewal_count: number | null;
+          resource: string;
+          subscription_id: string;
+        };
+        Insert: {
+          change_type: string;
+          client_state: string;
+          created_at?: string | null;
+          expiration_date_time: string;
+          id?: string;
+          include_resource_data?: boolean | null;
+          is_active?: boolean | null;
+          last_renewed_at?: string | null;
+          mailbox_id?: string | null;
+          notification_url: string;
+          renewal_count?: number | null;
+          resource: string;
+          subscription_id: string;
+        };
+        Update: {
+          change_type?: string;
+          client_state?: string;
+          created_at?: string | null;
+          expiration_date_time?: string;
+          id?: string;
+          include_resource_data?: boolean | null;
+          is_active?: boolean | null;
+          last_renewed_at?: string | null;
+          mailbox_id?: string | null;
+          notification_url?: string;
+          renewal_count?: number | null;
+          resource?: string;
+          subscription_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "webhook_subscriptions_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
+            referencedRelation: "mailbox_statistics";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "webhook_subscriptions_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
+            referencedRelation: "mailboxes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       emails_needing_followup: {
@@ -638,9 +859,59 @@ export type Database = {
         };
         Relationships: [];
       };
+      pending_response_detection: {
+        Row: {
+          bcc_emails: string[] | null;
+          body_content: string | null;
+          body_preview: string | null;
+          cc_emails: string[] | null;
+          conversation_id: string | null;
+          conversation_index: string | null;
+          created_at: string | null;
+          has_attachments: boolean | null;
+          id: string | null;
+          importance: string | null;
+          in_reply_to: string | null;
+          internet_message_id: string | null;
+          is_reply: boolean | null;
+          mailbox_id: string | null;
+          microsoft_message_id: string | null;
+          parent_message_id: string | null;
+          recipient_emails: string[] | null;
+          references: string | null;
+          responded_at: string | null;
+          response_count: number | null;
+          sender_email: string | null;
+          sent_at: string | null;
+          status: string | null;
+          stopped_at: string | null;
+          subject: string | null;
+          thread_position: number | null;
+          updated_at: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tracked_emails_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
+            referencedRelation: "mailbox_statistics";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tracked_emails_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
+            referencedRelation: "mailboxes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
-      [_ in never]: never;
+      clean_email_subject: {
+        Args: { subject: string };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
