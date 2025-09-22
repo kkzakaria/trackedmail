@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/client';
-import type { TablesInsert, TablesUpdate } from '@/lib/types/database.types';
+import { createClient } from "@/lib/supabase/client";
+import type { TablesInsert, TablesUpdate } from "@/lib/types/database.types";
 
-type MailboxInsert = TablesInsert<'mailboxes'>;
-type MailboxUpdate = TablesUpdate<'mailboxes'>;
+type MailboxInsert = TablesInsert<"mailboxes">;
+type MailboxUpdate = TablesUpdate<"mailboxes">;
 
 export class MailboxService {
   private supabase = createClient();
@@ -17,16 +17,18 @@ export class MailboxService {
     offset?: number;
   }) {
     let query = this.supabase
-      .from('mailboxes')
-      .select('*, user_mailbox_assignments(count)', { count: 'exact' })
-      .order('email_address', { ascending: true });
+      .from("mailboxes")
+      .select("*, user_mailbox_assignments(count)", { count: "exact" })
+      .order("email_address", { ascending: true });
 
     if (filters?.isActive !== undefined) {
-      query = query.eq('is_active', filters.isActive);
+      query = query.eq("is_active", filters.isActive);
     }
 
     if (filters?.search) {
-      query = query.or(`email_address.ilike.%${filters.search}%,display_name.ilike.%${filters.search}%`);
+      query = query.or(
+        `email_address.ilike.%${filters.search}%,display_name.ilike.%${filters.search}%`
+      );
     }
 
     if (filters?.limit) {
@@ -34,7 +36,10 @@ export class MailboxService {
     }
 
     if (filters?.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 10) - 1
+      );
     }
 
     const { data, error, count } = await query;
@@ -48,8 +53,9 @@ export class MailboxService {
    */
   async getMailboxById(id: string) {
     const { data, error } = await this.supabase
-      .from('mailboxes')
-      .select(`
+      .from("mailboxes")
+      .select(
+        `
         *,
         user_mailbox_assignments (
           id,
@@ -63,8 +69,9 @@ export class MailboxService {
             role
           )
         )
-      `)
-      .eq('id', id)
+      `
+      )
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -76,12 +83,12 @@ export class MailboxService {
    */
   async getMailboxByEmail(email: string) {
     const { data, error } = await this.supabase
-      .from('mailboxes')
-      .select('*')
-      .eq('email_address', email)
+      .from("mailboxes")
+      .select("*")
+      .eq("email_address", email)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+    if (error && error.code !== "PGRST116") throw error; // PGRST116 = not found
     return data;
   }
 
@@ -92,11 +99,11 @@ export class MailboxService {
     // Check if mailbox already exists
     const existing = await this.getMailboxByEmail(mailbox.email_address);
     if (existing) {
-      throw new Error('Une boîte mail avec cette adresse existe déjà');
+      throw new Error("Une boîte mail avec cette adresse existe déjà");
     }
 
     const { data, error } = await this.supabase
-      .from('mailboxes')
+      .from("mailboxes")
       .insert(mailbox)
       .select()
       .single();
@@ -113,17 +120,17 @@ export class MailboxService {
     if (updates.email_address) {
       const existing = await this.getMailboxByEmail(updates.email_address);
       if (existing && existing.id !== id) {
-        throw new Error('Une boîte mail avec cette adresse existe déjà');
+        throw new Error("Une boîte mail avec cette adresse existe déjà");
       }
     }
 
     const { data, error } = await this.supabase
-      .from('mailboxes')
+      .from("mailboxes")
       .update({
         ...updates,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -136,9 +143,9 @@ export class MailboxService {
    */
   async deleteMailbox(id: string) {
     const { error } = await this.supabase
-      .from('mailboxes')
+      .from("mailboxes")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) throw error;
   }
@@ -148,10 +155,10 @@ export class MailboxService {
    */
   async toggleMailboxStatus(id: string) {
     const mailbox = await this.getMailboxById(id);
-    if (!mailbox) throw new Error('Boîte mail introuvable');
+    if (!mailbox) throw new Error("Boîte mail introuvable");
 
     return this.updateMailbox(id, {
-      is_active: !mailbox.is_active
+      is_active: !mailbox.is_active,
     });
   }
 
@@ -161,12 +168,12 @@ export class MailboxService {
   async syncWithMicrosoft(id: string) {
     // TODO: Implement Microsoft Graph sync in Phase 2.2
     const { data, error } = await this.supabase
-      .from('mailboxes')
+      .from("mailboxes")
       .update({
         last_sync: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -179,12 +186,12 @@ export class MailboxService {
    */
   async getMailboxStatistics(id: string) {
     const { data, error } = await this.supabase
-      .from('mailbox_statistics')
-      .select('*')
-      .eq('id', id)
+      .from("mailbox_statistics")
+      .select("*")
+      .eq("id", id)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== "PGRST116") throw error;
     return data;
   }
 
@@ -193,19 +200,19 @@ export class MailboxService {
    */
   async getUserMailboxes(userId: string) {
     const { data: user, error: userError } = await this.supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
+      .from("active_users")
+      .select("role")
+      .eq("id", userId)
       .single();
 
     if (userError) throw userError;
 
     // Managers and admins can see all mailboxes
-    if (user.role === 'manager' || user.role === 'administrateur') {
+    if (user.role === "manager" || user.role === "administrateur") {
       const { data, error } = await this.supabase
-        .from('mailboxes')
-        .select('*')
-        .order('email_address');
+        .from("mailboxes")
+        .select("*")
+        .order("email_address");
 
       if (error) throw error;
       return data;
@@ -213,12 +220,14 @@ export class MailboxService {
 
     // Regular users only see assigned mailboxes
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select(`
+      .from("user_mailbox_assignments")
+      .select(
+        `
         mailbox_id,
         mailboxes (*)
-      `)
-      .eq('user_id', userId);
+      `
+      )
+      .eq("user_id", userId);
 
     if (error) throw error;
     return data?.map(assignment => assignment.mailboxes).filter(Boolean) || [];

@@ -17,9 +17,9 @@ export class AuthService {
       return null;
     }
 
-    // Get user profile
+    // Get user profile (only active users)
     const { data: profile, error: profileError } = await supabase
-      .from("users")
+      .from("active_users")
       .select("*")
       .eq("id", user.id)
       .single();
@@ -38,7 +38,7 @@ export class AuthService {
     const supabase = await createClient();
 
     const { data: user, error } = await supabase
-      .from("users")
+      .from("active_users")
       .select("role")
       .eq("id", userId)
       .single();
@@ -47,7 +47,7 @@ export class AuthService {
       return false;
     }
 
-    return requiredRoles.includes(user.role);
+    return user.role ? requiredRoles.includes(user.role) : false;
   }
 
   /**
@@ -108,6 +108,7 @@ export class AuthService {
 
   /**
    * Create user profile after signup
+   * Note: This should normally be handled by triggers, but kept for manual creation if needed
    */
   static async createUserProfile(userData: UserInsert) {
     const supabase = await createClient();
@@ -130,6 +131,17 @@ export class AuthService {
    */
   static async updateUserProfile(userId: string, updates: UserUpdate) {
     const supabase = await createClient();
+
+    // Check if user is active before updating
+    const { data: activeUser, error: checkError } = await supabase
+      .from("active_users")
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    if (checkError || !activeUser) {
+      throw new Error("User account is no longer active");
+    }
 
     const { data, error } = await supabase
       .from("users")

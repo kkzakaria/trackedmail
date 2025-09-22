@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/client';
-import type { TablesInsert } from '@/lib/types/database.types';
+import { createClient } from "@/lib/supabase/client";
+import type { TablesInsert } from "@/lib/types/database.types";
 
-type AssignmentInsert = TablesInsert<'user_mailbox_assignments'>;
+type AssignmentInsert = TablesInsert<"user_mailbox_assignments">;
 
 export class AssignmentService {
   private supabase = createClient();
@@ -11,8 +11,9 @@ export class AssignmentService {
    */
   async getUserMailboxes(userId: string) {
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select(`
+      .from("user_mailbox_assignments")
+      .select(
+        `
         id,
         assigned_at,
         assigned_by,
@@ -24,9 +25,10 @@ export class AssignmentService {
           is_active,
           last_sync
         )
-      `)
-      .eq('user_id', userId)
-      .order('assigned_at', { ascending: false });
+      `
+      )
+      .eq("user_id", userId)
+      .order("assigned_at", { ascending: false });
 
     if (error) throw error;
     return data;
@@ -37,8 +39,9 @@ export class AssignmentService {
    */
   async getMailboxUsers(mailboxId: string) {
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select(`
+      .from("user_mailbox_assignments")
+      .select(
+        `
         id,
         assigned_at,
         user_id,
@@ -52,9 +55,10 @@ export class AssignmentService {
           email,
           full_name
         )
-      `)
-      .eq('mailbox_id', mailboxId)
-      .order('assigned_at', { ascending: false });
+      `
+      )
+      .eq("mailbox_id", mailboxId)
+      .order("assigned_at", { ascending: false });
 
     if (error) throw error;
     return data;
@@ -65,13 +69,13 @@ export class AssignmentService {
    */
   async isUserAssigned(userId: string, mailboxId: string) {
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('mailbox_id', mailboxId)
+      .from("user_mailbox_assignments")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("mailbox_id", mailboxId)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== "PGRST116") throw error;
     return !!data;
   }
 
@@ -84,18 +88,21 @@ export class AssignmentService {
     assignedBy: string;
   }) {
     // Check if already assigned
-    const isAssigned = await this.isUserAssigned(assignment.userId, assignment.mailboxId);
+    const isAssigned = await this.isUserAssigned(
+      assignment.userId,
+      assignment.mailboxId
+    );
     if (isAssigned) {
-      throw new Error('Cet utilisateur est déjà assigné à cette boîte mail');
+      throw new Error("Cet utilisateur est déjà assigné à cette boîte mail");
     }
 
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
+      .from("user_mailbox_assignments")
       .insert({
         user_id: assignment.userId,
         mailbox_id: assignment.mailboxId,
         assigned_by: assignment.assignedBy,
-        assigned_at: new Date().toISOString()
+        assigned_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -109,10 +116,10 @@ export class AssignmentService {
    */
   async unassignMailbox(userId: string, mailboxId: string) {
     const { error } = await this.supabase
-      .from('user_mailbox_assignments')
+      .from("user_mailbox_assignments")
       .delete()
-      .eq('user_id', userId)
-      .eq('mailbox_id', mailboxId);
+      .eq("user_id", userId)
+      .eq("mailbox_id", mailboxId);
 
     if (error) throw error;
   }
@@ -120,17 +127,23 @@ export class AssignmentService {
   /**
    * Bulk assign multiple mailboxes to a user
    */
-  async bulkAssignToUser(userId: string, mailboxIds: string[], assignedBy: string) {
+  async bulkAssignToUser(
+    userId: string,
+    mailboxIds: string[],
+    assignedBy: string
+  ) {
     // Get existing assignments
     const { data: existing, error: existingError } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select('mailbox_id')
-      .eq('user_id', userId);
+      .from("user_mailbox_assignments")
+      .select("mailbox_id")
+      .eq("user_id", userId);
 
     if (existingError) throw existingError;
 
     const existingMailboxIds = existing?.map(a => a.mailbox_id) || [];
-    const newMailboxIds = mailboxIds.filter(id => !existingMailboxIds.includes(id));
+    const newMailboxIds = mailboxIds.filter(
+      id => !existingMailboxIds.includes(id)
+    );
 
     if (newMailboxIds.length === 0) {
       return { added: 0, skipped: mailboxIds.length };
@@ -140,30 +153,34 @@ export class AssignmentService {
       user_id: userId,
       mailbox_id: mailboxId,
       assigned_by: assignedBy,
-      assigned_at: new Date().toISOString()
+      assigned_at: new Date().toISOString(),
     }));
 
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
+      .from("user_mailbox_assignments")
       .insert(assignments)
       .select();
 
     if (error) throw error;
     return {
       added: data?.length || 0,
-      skipped: existingMailboxIds.length
+      skipped: existingMailboxIds.length,
     };
   }
 
   /**
    * Bulk assign multiple users to a mailbox
    */
-  async bulkAssignToMailbox(mailboxId: string, userIds: string[], assignedBy: string) {
+  async bulkAssignToMailbox(
+    mailboxId: string,
+    userIds: string[],
+    assignedBy: string
+  ) {
     // Get existing assignments
     const { data: existing, error: existingError } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select('user_id')
-      .eq('mailbox_id', mailboxId);
+      .from("user_mailbox_assignments")
+      .select("user_id")
+      .eq("mailbox_id", mailboxId);
 
     if (existingError) throw existingError;
 
@@ -178,18 +195,18 @@ export class AssignmentService {
       user_id: userId,
       mailbox_id: mailboxId,
       assigned_by: assignedBy,
-      assigned_at: new Date().toISOString()
+      assigned_at: new Date().toISOString(),
     }));
 
     const { data, error } = await this.supabase
-      .from('user_mailbox_assignments')
+      .from("user_mailbox_assignments")
       .insert(assignments)
       .select();
 
     if (error) throw error;
     return {
       added: data?.length || 0,
-      skipped: existingUserIds.length
+      skipped: existingUserIds.length,
     };
   }
 
@@ -198,9 +215,9 @@ export class AssignmentService {
    */
   async removeAllUserAssignments(userId: string) {
     const { error } = await this.supabase
-      .from('user_mailbox_assignments')
+      .from("user_mailbox_assignments")
       .delete()
-      .eq('user_id', userId);
+      .eq("user_id", userId);
 
     if (error) throw error;
   }
@@ -210,9 +227,9 @@ export class AssignmentService {
    */
   async removeAllMailboxAssignments(mailboxId: string) {
     const { error } = await this.supabase
-      .from('user_mailbox_assignments')
+      .from("user_mailbox_assignments")
       .delete()
-      .eq('mailbox_id', mailboxId);
+      .eq("mailbox_id", mailboxId);
 
     if (error) throw error;
   }
@@ -222,16 +239,17 @@ export class AssignmentService {
    */
   async getAssignmentStats() {
     const { data: mailboxCount, error: mailboxError } = await this.supabase
-      .from('mailboxes')
-      .select('*', { count: 'exact', head: true });
+      .from("mailboxes")
+      .select("*", { count: "exact", head: true });
 
     const { data: userCount, error: userError } = await this.supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
+      .from("active_users")
+      .select("*", { count: "exact", head: true });
 
-    const { data: assignmentCount, error: assignmentError } = await this.supabase
-      .from('user_mailbox_assignments')
-      .select('*', { count: 'exact', head: true });
+    const { data: assignmentCount, error: assignmentError } =
+      await this.supabase
+        .from("user_mailbox_assignments")
+        .select("*", { count: "exact", head: true });
 
     if (mailboxError || userError || assignmentError) {
       throw mailboxError || userError || assignmentError;
@@ -240,7 +258,7 @@ export class AssignmentService {
     return {
       totalMailboxes: mailboxCount,
       totalUsers: userCount,
-      totalAssignments: assignmentCount
+      totalAssignments: assignmentCount,
     };
   }
 }

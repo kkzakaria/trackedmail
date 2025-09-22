@@ -32,7 +32,7 @@ export function useAuthContext() {
     async (authUser: User) => {
       try {
         const { data: profile, error } = await supabase
-          .from("users")
+          .from("active_users")
           .select("*")
           .eq("id", authUser.id)
           .single();
@@ -42,7 +42,7 @@ export function useAuthContext() {
           return;
         }
 
-        if (profile) {
+        if (profile?.id && profile?.email) {
           setUser({
             id: profile.id,
             email: profile.email,
@@ -63,15 +63,19 @@ export function useAuthContext() {
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        await fetchUserProfile(session.user);
+        if (session?.user) {
+          await fetchUserProfile(session.user);
+        }
+      } catch (error) {
+        console.error("Error getting initial session:", error);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     getInitialSession();
@@ -80,12 +84,18 @@ export function useAuthContext() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
+      try {
+        if (session?.user) {
+          await fetchUserProfile(session.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Error in auth state change:", error);
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -109,31 +119,28 @@ export function useAuthContext() {
     password: string,
     userData: Partial<AuthUser>
   ) => {
-    const { data, error } = await supabase.auth.signUp({
+    // Store user metadata that will be automatically synced by triggers
+    const userMetadata = {
+      full_name: userData.full_name || email.split("@")[0],
+      role: userData.role || "utilisateur",
+      timezone: userData.timezone || "Europe/Paris",
+      pause_relances: userData.pause_relances || false,
+    };
+
+    const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: userMetadata,
+      },
     });
 
     if (error) {
       throw error;
     }
 
-    // If user is created, insert profile data
-    if (data.user) {
-      const { error: profileError } = await supabase.from("users").insert({
-        id: data.user.id,
-        email,
-        full_name: userData.full_name || null,
-        role: userData.role || "utilisateur",
-        mailbox_address: userData.mailbox_address || null,
-        timezone: userData.timezone || "UTC",
-        pause_relances: userData.pause_relances || false,
-      });
-
-      if (profileError) {
-        throw profileError;
-      }
-    }
+    // The user profile will be automatically created by triggers
+    // No manual INSERT needed
   };
 
   const signOut = async () => {
@@ -148,6 +155,17 @@ export function useAuthContext() {
   const updateProfile = async (data: Partial<AuthUser>) => {
     if (!user) {
       throw new Error("No user logged in");
+    }
+
+    // Check if user is still active before updating
+    const { data: activeUser, error: checkError } = await supabase
+      .from("active_users")
+      .select("id")
+      .eq("id", user.id)
+      .single();
+
+    if (checkError || !activeUser) {
+      throw new Error("User account is no longer active");
     }
 
     const { error } = await supabase
