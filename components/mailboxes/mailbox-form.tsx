@@ -1,24 +1,43 @@
-'use client';
+"use client";
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { useCreateMailbox, useUpdateMailbox } from '@/lib/hooks/use-mailboxes';
-import { createMailboxSchema } from '@/lib/schemas/mailbox.schema';
-import type { Tables } from '@/lib/types/database.types';
-import { Loader2 } from 'lucide-react';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useCreateMailbox, useUpdateMailbox } from "@/lib/hooks/use-mailboxes";
+import { createMailboxSchema } from "@/lib/schemas/mailbox.schema";
+import * as z from "zod";
+import type { Tables } from "@/lib/types/database.types";
+import { Loader2 } from "lucide-react";
 
 interface MailboxFormProps {
-  initialData?: Tables<'mailboxes'>;
-  onSuccess?: (mailbox: Tables<'mailboxes'>) => void;
+  initialData?: Tables<"mailboxes">;
+  onSuccess?: (mailbox: Tables<"mailboxes">) => void;
   onCancel?: () => void;
 }
 
-export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormProps) {
+export function MailboxForm({
+  initialData,
+  onSuccess,
+  onCancel,
+}: MailboxFormProps) {
   const isEditing = !!initialData;
   const createMailboxMutation = useCreateMailbox();
   const updateMailboxMutation = useUpdateMailbox();
@@ -26,48 +45,56 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
   const form = useForm({
     resolver: zodResolver(createMailboxSchema),
     defaultValues: {
-      email_address: initialData?.email_address || '',
-      display_name: initialData?.display_name || '',
-      microsoft_user_id: initialData?.microsoft_user_id || '',
+      email_address: initialData?.email_address || "",
+      display_name: initialData?.display_name || "",
+      microsoft_user_id: initialData?.microsoft_user_id || "",
       is_active: initialData?.is_active ?? true,
     },
   });
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: z.infer<typeof createMailboxSchema>) => {
     try {
       let result;
 
+      // Convert undefined to null for database compatibility
+      const dbData = {
+        ...data,
+        display_name: data.display_name || null,
+        microsoft_user_id: data.microsoft_user_id || null,
+        is_active: data.is_active ?? null,
+      };
+
       if (isEditing) {
         result = await updateMailboxMutation.mutateAsync({
-          id: initialData!.id,
-          updates: data,
+          id: initialData?.id || "",
+          updates: dbData,
         });
       } else {
-        result = await createMailboxMutation.mutateAsync(data);
+        result = await createMailboxMutation.mutateAsync(dbData);
       }
 
       onSuccess?.(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle validation errors from the server
-      if (error.message) {
-        form.setError('root', { message: error.message });
+      if (error instanceof Error && error.message) {
+        form.setError("root", { message: error.message });
       }
     }
   };
 
-  const isPending = createMailboxMutation.isPending || updateMailboxMutation.isPending;
+  const isPending =
+    createMailboxMutation.isPending || updateMailboxMutation.isPending;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          {isEditing ? 'Modifier la boîte mail' : 'Nouvelle boîte mail'}
+          {isEditing ? "Modifier la boîte mail" : "Nouvelle boîte mail"}
         </CardTitle>
         <CardDescription>
           {isEditing
-            ? 'Modifiez les informations de la boîte mail.'
-            : 'Ajoutez une nouvelle boîte mail à suivre.'
-          }
+            ? "Modifiez les informations de la boîte mail."
+            : "Ajoutez une nouvelle boîte mail à suivre."}
         </CardDescription>
       </CardHeader>
 
@@ -89,7 +116,7 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
                     />
                   </FormControl>
                   <FormDescription>
-                    L'adresse email de la boîte mail Microsoft à suivre.
+                    L&apos;adresse email de la boîte mail Microsoft à suivre.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -102,7 +129,7 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
               name="display_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nom d'affichage</FormLabel>
+                  <FormLabel>Nom d&apos;affichage</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="Nom de l'utilisateur"
@@ -111,7 +138,8 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
                     />
                   </FormControl>
                   <FormDescription>
-                    Nom d'affichage pour identifier facilement la boîte mail.
+                    Nom d&apos;affichage pour identifier facilement la boîte
+                    mail.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -133,7 +161,8 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
                     />
                   </FormControl>
                   <FormDescription>
-                    ID utilisateur Microsoft Graph (optionnel, sera récupéré automatiquement).
+                    ID utilisateur Microsoft Graph (optionnel, sera récupéré
+                    automatiquement).
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -151,7 +180,8 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
                       Boîte mail active
                     </FormLabel>
                     <FormDescription>
-                      Les boîtes mail actives sont surveillées pour les nouveaux emails.
+                      Les boîtes mail actives sont surveillées pour les nouveaux
+                      emails.
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -167,8 +197,8 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
 
             {/* Error message */}
             {form.formState.errors.root && (
-              <div className="rounded-lg border border-destructive/50 p-4">
-                <p className="text-sm text-destructive">
+              <div className="border-destructive/50 rounded-lg border p-4">
+                <p className="text-destructive text-sm">
                   {form.formState.errors.root.message}
                 </p>
               </div>
@@ -182,7 +212,7 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
                 className="flex items-center gap-2"
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isEditing ? 'Mettre à jour' : 'Créer la boîte mail'}
+                {isEditing ? "Mettre à jour" : "Créer la boîte mail"}
               </Button>
 
               {onCancel && (
@@ -198,11 +228,17 @@ export function MailboxForm({ initialData, onSuccess, onCancel }: MailboxFormPro
             </div>
 
             {/* Help text */}
-            <div className="rounded-lg bg-muted p-4">
-              <h4 className="font-medium text-sm mb-2">💡 Conseils</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• L'adresse email doit être valide et accessible via Microsoft Graph</li>
-                <li>• Le nom d'affichage aide à identifier rapidement la boîte mail</li>
+            <div className="bg-muted rounded-lg p-4">
+              <h4 className="mb-2 text-sm font-medium">💡 Conseils</h4>
+              <ul className="text-muted-foreground space-y-1 text-sm">
+                <li>
+                  • L&apos;adresse email doit être valide et accessible via
+                  Microsoft Graph
+                </li>
+                <li>
+                  • Le nom d&apos;affichage aide à identifier rapidement la
+                  boîte mail
+                </li>
                 <li>• Les boîtes mail inactives ne seront pas surveillées</li>
               </ul>
             </div>

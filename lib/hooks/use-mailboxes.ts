@@ -1,20 +1,22 @@
-'use client';
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MailboxService } from '@/lib/services/mailbox.service';
-import type { TablesInsert, TablesUpdate } from '@/lib/types/database.types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MailboxService } from "@/lib/services/mailbox.service";
+import type { TablesInsert, TablesUpdate } from "@/lib/types/database.types";
 
 const mailboxService = new MailboxService();
 
 // Query keys
 export const mailboxKeys = {
-  all: ['mailboxes'] as const,
-  lists: () => [...mailboxKeys.all, 'list'] as const,
-  list: (filters: Record<string, any>) => [...mailboxKeys.lists(), { filters }] as const,
-  details: () => [...mailboxKeys.all, 'detail'] as const,
+  all: ["mailboxes"] as const,
+  lists: () => [...mailboxKeys.all, "list"] as const,
+  list: (filters: Record<string, unknown>) =>
+    [...mailboxKeys.lists(), { filters }] as const,
+  details: () => [...mailboxKeys.all, "detail"] as const,
   detail: (id: string) => [...mailboxKeys.details(), id] as const,
-  userMailboxes: (userId: string) => [...mailboxKeys.all, 'user', userId] as const,
-  statistics: (id: string) => [...mailboxKeys.all, 'stats', id] as const,
+  userMailboxes: (userId: string) =>
+    [...mailboxKeys.all, "user", userId] as const,
+  statistics: (id: string) => [...mailboxKeys.all, "stats", id] as const,
 };
 
 /**
@@ -27,7 +29,7 @@ export function useMailboxes(filters?: {
   offset?: number;
 }) {
   return useQuery({
-    queryKey: mailboxKeys.list(filters),
+    queryKey: mailboxKeys.list(filters || {}),
     queryFn: () => mailboxService.getMailboxes(filters),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -76,7 +78,7 @@ export function useCreateMailbox() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (mailbox: TablesInsert<'mailboxes'>) =>
+    mutationFn: (mailbox: TablesInsert<"mailboxes">) =>
       mailboxService.createMailbox(mailbox),
     onSuccess: () => {
       // Invalidate mailbox lists
@@ -92,13 +94,20 @@ export function useUpdateMailbox() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: TablesUpdate<'mailboxes'> }) =>
-      mailboxService.updateMailbox(id, updates),
-    onSuccess: (data) => {
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: TablesUpdate<"mailboxes">;
+    }) => mailboxService.updateMailbox(id, updates),
+    onSuccess: data => {
       // Invalidate mailbox lists and specific mailbox
       queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });
       queryClient.invalidateQueries({ queryKey: mailboxKeys.detail(data.id) });
-      queryClient.invalidateQueries({ queryKey: mailboxKeys.statistics(data.id) });
+      queryClient.invalidateQueries({
+        queryKey: mailboxKeys.statistics(data.id),
+      });
     },
   });
 }
@@ -127,7 +136,7 @@ export function useToggleMailboxStatus() {
 
   return useMutation({
     mutationFn: (id: string) => mailboxService.toggleMailboxStatus(id),
-    onSuccess: (data) => {
+    onSuccess: data => {
       // Update cache optimistically
       queryClient.setQueryData(mailboxKeys.detail(data.id), data);
       queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });
@@ -143,7 +152,7 @@ export function useSyncMailbox() {
 
   return useMutation({
     mutationFn: (id: string) => mailboxService.syncWithMicrosoft(id),
-    onSuccess: (data) => {
+    onSuccess: data => {
       // Update last sync time
       queryClient.setQueryData(mailboxKeys.detail(data.id), data);
       queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });

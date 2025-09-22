@@ -76,6 +76,13 @@ export type Database = {
             foreignKeyName: "audit_logs_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "active_users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "audit_logs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
@@ -262,6 +269,13 @@ export type Database = {
           version?: number | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "followup_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "active_users";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "followup_templates_created_by_fkey";
             columns: ["created_by"];
@@ -503,6 +517,13 @@ export type Database = {
             foreignKeyName: "system_config_updated_by_fkey";
             columns: ["updated_by"];
             isOneToOne: false;
+            referencedRelation: "active_users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "system_config_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
@@ -637,6 +658,13 @@ export type Database = {
             foreignKeyName: "user_mailbox_assignments_assigned_by_fkey";
             columns: ["assigned_by"];
             isOneToOne: false;
+            referencedRelation: "active_users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_mailbox_assignments_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
@@ -658,6 +686,13 @@ export type Database = {
             foreignKeyName: "user_mailbox_assignments_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "active_users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_mailbox_assignments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
@@ -666,6 +701,7 @@ export type Database = {
       users: {
         Row: {
           created_at: string | null;
+          deleted_at: string | null;
           email: string;
           full_name: string | null;
           id: string;
@@ -677,6 +713,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string | null;
+          deleted_at?: string | null;
           email: string;
           full_name?: string | null;
           id?: string;
@@ -688,6 +725,7 @@ export type Database = {
         };
         Update: {
           created_at?: string | null;
+          deleted_at?: string | null;
           email?: string;
           full_name?: string | null;
           id?: string;
@@ -803,6 +841,42 @@ export type Database = {
       };
     };
     Views: {
+      active_users: {
+        Row: {
+          created_at: string | null;
+          email: string | null;
+          full_name: string | null;
+          id: string | null;
+          mailbox_address: string | null;
+          pause_relances: boolean | null;
+          role: string | null;
+          timezone: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          email?: string | null;
+          full_name?: string | null;
+          id?: string | null;
+          mailbox_address?: string | null;
+          pause_relances?: boolean | null;
+          role?: string | null;
+          timezone?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          email?: string | null;
+          full_name?: string | null;
+          id?: string | null;
+          mailbox_address?: string | null;
+          pause_relances?: boolean | null;
+          role?: string | null;
+          timezone?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
       emails_needing_followup: {
         Row: {
           bcc_emails: string[] | null;
@@ -911,6 +985,38 @@ export type Database = {
       clean_email_subject: {
         Args: { subject: string };
         Returns: string;
+      };
+      cleanup_old_deleted_users: {
+        Args: { older_than_days?: number };
+        Returns: number;
+      };
+      disable_user_sync: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
+      enable_user_sync: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
+      hard_delete_user: {
+        Args: { user_id: string };
+        Returns: boolean;
+      };
+      is_user_deleted: {
+        Args: { user_id: string };
+        Returns: boolean;
+      };
+      restore_user: {
+        Args: { user_id: string };
+        Returns: boolean;
+      };
+      soft_delete_user: {
+        Args: { user_id: string };
+        Returns: boolean;
+      };
+      sync_all_users_from_auth: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
       };
     };
     Enums: {

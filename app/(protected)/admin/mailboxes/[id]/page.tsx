@@ -1,17 +1,38 @@
-'use client';
+"use client";
 
-import { useParams, useRouter } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useMailbox, useDeleteMailbox, useToggleMailboxStatus, useSyncMailbox } from '@/lib/hooks/use-mailboxes';
-import { useMailboxUsers } from '@/lib/hooks/use-assignments';
-import { useAuth } from '@/lib/hooks/use-auth';
-import { ArrowLeft, Edit, Trash2, Power, RefreshCw, Users, Mail, Calendar, User } from 'lucide-react';
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { useParams, useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useMailbox,
+  useDeleteMailbox,
+  useToggleMailboxStatus,
+  useSyncMailbox,
+} from "@/lib/hooks/use-mailboxes";
+import { useMailboxUsers } from "@/lib/hooks/use-assignments";
+import { useAuth } from "@/lib/hooks/use-auth";
+import {
+  ArrowLeft,
+  Edit,
+  Trash2,
+  Power,
+  RefreshCw,
+  Users,
+  Mail,
+  Calendar,
+  User,
+} from "lucide-react";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default function MailboxDetailPage() {
   const params = useParams();
@@ -20,15 +41,19 @@ export default function MailboxDetailPage() {
   const mailboxId = params.id as string;
 
   const { data: mailbox, isLoading, error } = useMailbox(mailboxId);
-  const { data: assignedUsers, isLoading: usersLoading } = useMailboxUsers(mailboxId);
+  const { data: assignedUsers, isLoading: usersLoading } =
+    useMailboxUsers(mailboxId);
 
   const deleteMailboxMutation = useDeleteMailbox();
   const toggleStatusMutation = useToggleMailboxStatus();
   const syncMailboxMutation = useSyncMailbox();
 
   // Redirect if not authorized
-  if (!authLoading && (!user || (user.role !== 'administrateur' && user.role !== 'manager'))) {
-    redirect('/dashboard');
+  if (
+    !authLoading &&
+    (!user || (user.role !== "administrateur" && user.role !== "manager"))
+  ) {
+    redirect("/dashboard");
   }
 
   if (authLoading || isLoading) {
@@ -63,7 +88,7 @@ export default function MailboxDetailPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-destructive">
-              {error?.message || 'Boîte mail introuvable'}
+              {error?.message || "Boîte mail introuvable"}
             </p>
           </CardContent>
         </Card>
@@ -72,13 +97,17 @@ export default function MailboxDetailPage() {
   }
 
   const handleDelete = async () => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer la boîte mail ${mailbox.email_address} ?`)) {
+    if (
+      window.confirm(
+        `Êtes-vous sûr de vouloir supprimer la boîte mail ${mailbox.email_address} ?`
+      )
+    ) {
       try {
         await deleteMailboxMutation.mutateAsync(mailbox.id);
-        router.push('/admin/mailboxes');
+        router.push("/admin/mailboxes");
       } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
-        alert('Erreur lors de la suppression de la boîte mail');
+        console.error("Erreur lors de la suppression:", error);
+        alert("Erreur lors de la suppression de la boîte mail");
       }
     }
   };
@@ -87,8 +116,8 @@ export default function MailboxDetailPage() {
     try {
       await toggleStatusMutation.mutateAsync(mailbox.id);
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
-      alert('Erreur lors de la mise à jour du statut');
+      console.error("Erreur lors de la mise à jour du statut:", error);
+      alert("Erreur lors de la mise à jour du statut");
     }
   };
 
@@ -96,12 +125,13 @@ export default function MailboxDetailPage() {
     try {
       await syncMailboxMutation.mutateAsync(mailbox.id);
     } catch (error) {
-      console.error('Erreur lors de la synchronisation:', error);
-      alert('Erreur lors de la synchronisation');
+      console.error("Erreur lors de la synchronisation:", error);
+      alert("Erreur lors de la synchronisation");
     }
   };
 
-  const canManageMailboxes = user?.role === 'administrateur' || user?.role === 'manager';
+  const canManageMailboxes =
+    user?.role === "administrateur" || user?.role === "manager";
 
   return (
     <div className="container mx-auto py-6">
@@ -111,16 +141,16 @@ export default function MailboxDetailPage() {
           <div className="flex items-center gap-4">
             <Button asChild variant="ghost" size="sm">
               <Link href="/admin/mailboxes">
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Retour
               </Link>
             </Button>
 
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
+              <h1 className="flex items-center gap-2 text-2xl font-bold">
                 {mailbox.email_address}
-                <Badge variant={mailbox.is_active ? 'default' : 'secondary'}>
-                  {mailbox.is_active ? 'Active' : 'Inactive'}
+                <Badge variant={mailbox.is_active ? "default" : "secondary"}>
+                  {mailbox.is_active ? "Active" : "Inactive"}
                 </Badge>
               </h1>
               {mailbox.display_name && (
@@ -134,7 +164,7 @@ export default function MailboxDetailPage() {
               {/* Edit button */}
               <Button asChild variant="outline">
                 <Link href={`/admin/mailboxes/${mailbox.id}/edit`}>
-                  <Edit className="h-4 w-4 mr-2" />
+                  <Edit className="mr-2 h-4 w-4" />
                   Modifier
                 </Link>
               </Button>
@@ -144,10 +174,12 @@ export default function MailboxDetailPage() {
                 variant="outline"
                 onClick={handleToggleStatus}
                 disabled={toggleStatusMutation.isPending}
-                className={!mailbox.is_active ? 'text-green-600' : 'text-orange-600'}
+                className={
+                  !mailbox.is_active ? "text-green-600" : "text-orange-600"
+                }
               >
-                <Power className="h-4 w-4 mr-2" />
-                {mailbox.is_active ? 'Désactiver' : 'Activer'}
+                <Power className="mr-2 h-4 w-4" />
+                {mailbox.is_active ? "Désactiver" : "Activer"}
               </Button>
 
               {/* Sync button */}
@@ -156,18 +188,20 @@ export default function MailboxDetailPage() {
                 onClick={handleSync}
                 disabled={syncMailboxMutation.isPending}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${syncMailboxMutation.isPending ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${syncMailboxMutation.isPending ? "animate-spin" : ""}`}
+                />
                 Synchroniser
               </Button>
 
               {/* Delete button (admin only) */}
-              {user?.role === 'administrateur' && (
+              {user?.role === "administrateur" && (
                 <Button
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={deleteMailboxMutation.isPending}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Supprimer
                 </Button>
               )}
@@ -186,29 +220,39 @@ export default function MailboxDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Adresse email</label>
+                <label className="text-muted-foreground text-sm font-medium">
+                  Adresse email
+                </label>
                 <p className="font-mono">{mailbox.email_address}</p>
               </div>
 
               {mailbox.display_name && (
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Nom d'affichage</label>
+                  <label className="text-muted-foreground text-sm font-medium">
+                    Nom d&apos;affichage
+                  </label>
                   <p>{mailbox.display_name}</p>
                 </div>
               )}
 
               {mailbox.microsoft_user_id && (
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">ID utilisateur Microsoft</label>
-                  <p className="font-mono text-sm">{mailbox.microsoft_user_id}</p>
+                  <label className="text-muted-foreground text-sm font-medium">
+                    ID utilisateur Microsoft
+                  </label>
+                  <p className="font-mono text-sm">
+                    {mailbox.microsoft_user_id}
+                  </p>
                 </div>
               )}
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Statut</label>
+                <label className="text-muted-foreground text-sm font-medium">
+                  Statut
+                </label>
                 <div className="mt-1">
-                  <Badge variant={mailbox.is_active ? 'default' : 'secondary'}>
-                    {mailbox.is_active ? 'Active' : 'Inactive'}
+                  <Badge variant={mailbox.is_active ? "default" : "secondary"}>
+                    {mailbox.is_active ? "Active" : "Inactive"}
                   </Badge>
                 </div>
               </div>
@@ -217,31 +261,38 @@ export default function MailboxDetailPage() {
 
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Créée le</label>
+                  <label className="text-muted-foreground text-sm font-medium">
+                    Créée le
+                  </label>
                   <p className="text-sm">
-                    {new Date(mailbox.created_at!).toLocaleDateString('fr-FR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {mailbox.created_at &&
+                      new Date(mailbox.created_at).toLocaleDateString("fr-FR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Dernière synchronisation</label>
+                  <label className="text-muted-foreground text-sm font-medium">
+                    Dernière synchronisation
+                  </label>
                   <p className="text-sm">
                     {mailbox.last_sync
-                      ? new Date(mailbox.last_sync).toLocaleDateString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : 'Jamais synchronisée'
-                    }
+                      ? new Date(mailbox.last_sync).toLocaleDateString(
+                          "fr-FR",
+                          {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "Jamais synchronisée"}
                   </p>
                 </div>
               </div>
@@ -274,26 +325,33 @@ export default function MailboxDetailPage() {
                 </div>
               ) : assignedUsers && assignedUsers.length > 0 ? (
                 <div className="space-y-4">
-                  {assignedUsers.map((assignment) => (
-                    <div key={assignment.id} className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                  {assignedUsers.map(assignment => (
+                    <div
+                      key={assignment.id}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
                         <User className="h-4 w-4" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">
-                          {assignment.users?.full_name || assignment.users?.email}
+                          {assignment.users?.full_name ||
+                            assignment.users?.email}
                         </p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="text-muted-foreground flex items-center gap-2 text-sm">
                           <span>{assignment.users?.email}</span>
                           <Badge variant="outline" className="text-xs">
                             {assignment.users?.role}
                           </Badge>
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-muted-foreground text-xs">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {new Date(assignment.assigned_at!).toLocaleDateString('fr-FR')}
+                          {assignment.assigned_at &&
+                            new Date(assignment.assigned_at).toLocaleDateString(
+                              "fr-FR"
+                            )}
                         </div>
                       </div>
                     </div>
@@ -306,7 +364,7 @@ export default function MailboxDetailPage() {
               )}
 
               {canManageMailboxes && (
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-4 border-t pt-4">
                   <Button asChild variant="outline" className="w-full">
                     <Link href={`/admin/mailboxes/${mailbox.id}/assignments`}>
                       Gérer les assignations
