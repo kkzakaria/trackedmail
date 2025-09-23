@@ -6,6 +6,38 @@ export * from "./auth";
 export type { Database } from "./database.types";
 export type { User, UserRole, AuthUser, AuthContextType } from "./auth";
 
+// Tracked Email types with enhanced data
+export interface TrackedEmailWithDetails {
+  id: string;
+  microsoft_message_id: string;
+  conversation_id: string | null;
+  subject: string;
+  sender_email: string;
+  recipient_emails: string[];
+  cc_emails: string[] | null;
+  bcc_emails: string[] | null;
+  body_preview: string | null;
+  status: EmailStatus;
+  sent_at: string;
+  responded_at: string | null;
+  stopped_at: string | null;
+  has_attachments: boolean | null;
+  importance: EmailImportance | null;
+
+  // Relations
+  mailbox: {
+    id: string;
+    email_address: string;
+    display_name: string | null;
+  } | null;
+
+  // Aggregated data
+  response_count: number;
+  followup_count: number;
+  last_followup_sent: string | null;
+  days_since_sent: number;
+}
+
 // Additional application types
 export interface ApiResponse<T = unknown> {
   data?: T;
