@@ -9,6 +9,10 @@ import {
   TrashIcon,
 } from "lucide-react";
 
+import { useAuth } from "@/lib/hooks/use-auth";
+import { isAdmin } from "@/lib/utils/auth-utils";
+import { TrackedEmailService } from "@/lib/services/tracked-email.service";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,9 +38,13 @@ import type { TrackedEmailWithDetails } from "@/lib/types";
 
 interface TrackedEmailActionsProps {
   row: Row<TrackedEmailWithDetails>;
-  onStatusUpdate: (emailId: string, status: "stopped" | "pending") => Promise<void>;
+  onStatusUpdate: (
+    emailId: string,
+    status: "stopped" | "pending"
+  ) => Promise<void>;
   onViewDetails?: (email: TrackedEmailWithDetails) => void;
   onSendFollowup?: (email: TrackedEmailWithDetails) => void;
+  onDelete?: (email: TrackedEmailWithDetails) => Promise<void>;
 }
 
 export function TrackedEmailActions({
@@ -44,14 +52,19 @@ export function TrackedEmailActions({
   onStatusUpdate,
   onViewDetails,
   onSendFollowup,
+  onDelete,
 }: TrackedEmailActionsProps) {
+  const { user } = useAuth();
   const email = row.original;
   const [showStopDialog, setShowStopDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const canStop = email.status === "pending";
   const canResume = email.status === "stopped";
-  const canSendFollowup = email.status === "pending" && email.followup_count < 3;
+  const canSendFollowup =
+    email.status === "pending" && email.followup_count < 3;
+  const canDelete = isAdmin(user);
 
   const handleStatusUpdate = async (status: "stopped" | "pending") => {
     try {
@@ -71,6 +84,25 @@ export function TrackedEmailActions({
 
   const handleSendFollowup = () => {
     onSendFollowup?.(email);
+  };
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+
+    try {
+      setLoading(true);
+      if (onDelete) {
+        await onDelete(email);
+      } else {
+        // Fallback to direct service call
+        await TrackedEmailService.deleteTrackedEmail(email.id);
+      }
+    } catch (error) {
+      console.error("Failed to delete email:", error);
+    } finally {
+      setLoading(false);
+      setShowDeleteDialog(false);
+    }
   };
 
   return (
@@ -132,15 +164,21 @@ export function TrackedEmailActions({
             )}
           </DropdownMenuGroup>
 
-          <DropdownMenuSeparator />
-
-          <DropdownMenuGroup>
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
-              <TrashIcon className="mr-2 h-4 w-4" />
-              <span>Supprimer</span>
-              <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <TrashIcon className="mr-2 h-4 w-4" />
+                  <span>Supprimer</span>
+                  <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -150,8 +188,8 @@ export function TrackedEmailActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Arrêter le suivi ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cet email ne sera plus suivi et aucune relance automatique ne sera envoyée.
-              Vous pourrez reprendre le suivi plus tard si nécessaire.
+              Cet email ne sera plus suivi et aucune relance automatique ne sera
+              envoyée. Vous pourrez reprendre le suivi plus tard si nécessaire.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -161,6 +199,29 @@ export function TrackedEmailActions({
               className="bg-orange-600 hover:bg-orange-700"
             >
               Arrêter le suivi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet email ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. L&apos;email &quot;{email.subject}
+              &quot; et toutes ses données associées (réponses, relances,
+              historique) seront définitivement supprimées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Supprimer définitivement
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

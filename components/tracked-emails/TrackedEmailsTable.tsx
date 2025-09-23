@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -30,6 +38,7 @@ import {
   ListFilterIcon,
   MailIcon,
   StopCircleIcon,
+  TrashIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -84,6 +93,9 @@ import {
 import { TrackedEmailStatusBadge } from "./TrackedEmailStatusBadge";
 import { TrackedEmailActions } from "./TrackedEmailActions";
 import { useTrackedEmails } from "@/lib/hooks/useTrackedEmails";
+import { TrackedEmailService } from "@/lib/services/tracked-email.service";
+import { useAuth } from "@/lib/hooks/use-auth";
+import { isAdmin } from "@/lib/utils/auth-utils";
 import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types";
 
 // Custom filter function for multi-column searching
@@ -138,6 +150,7 @@ const formatRecipients = (recipients: string[], maxShow = 2) => {
 
 export default function TrackedEmailsTable() {
   const router = useRouter();
+  const { user } = useAuth();
   const id = useId();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -150,6 +163,8 @@ export default function TrackedEmailsTable() {
       desc: true,
     },
   ]);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkOperationLoading, setBulkOperationLoading] = useState(false);
 
   const {
     emails,
@@ -173,6 +188,23 @@ export default function TrackedEmailsTable() {
     sortBy: sorting[0]?.id || "sent_at",
     sortOrder: sorting[0]?.desc ? "desc" : "asc",
   });
+
+  const handleDeleteEmail = useCallback(
+    async (email: TrackedEmailWithDetails) => {
+      if (!isAdmin(user)) return;
+
+      try {
+        await TrackedEmailService.deleteTrackedEmail(email.id);
+        toast.success("Email supprimé avec succès");
+        // Trigger refetch
+        window.location.reload(); // Simple refresh for now
+      } catch (error) {
+        console.error("Failed to delete email:", error);
+        toast.error("Erreur lors de la suppression de l'email");
+      }
+    },
+    [user]
+  );
 
   const columns: ColumnDef<TrackedEmailWithDetails>[] = useMemo(
     () => [
@@ -294,13 +326,14 @@ export default function TrackedEmailsTable() {
               console.warn("Send followup:", email);
               // TODO: Implement followup modal
             }}
+            onDelete={handleDeleteEmail}
           />
         ),
         size: 60,
         enableHiding: false,
       },
     ],
-    [updateEmailStatus, router]
+    [updateEmailStatus, router, handleDeleteEmail]
   );
 
   const handleBulkStop = async () => {
@@ -312,6 +345,39 @@ export default function TrackedEmailsTable() {
       table.resetRowSelection();
     } catch (error) {
       console.error("Failed to stop emails:", error);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedRows = table.getSelectedRowModel().rows;
+    const emailIds = selectedRows.map(row => row.original.id);
+
+    if (!isAdmin(user) || emailIds.length === 0) return;
+
+    try {
+      setBulkOperationLoading(true);
+      const result = await TrackedEmailService.bulkDeleteEmails(emailIds);
+
+      if (result.errors.length > 0) {
+        toast.error(
+          `Suppression partielle: ${result.errors.length} erreurs sur ${emailIds.length} emails`
+        );
+        console.error("Bulk delete errors:", result.errors);
+      } else {
+        toast.success(`${result.deleted} email(s) supprimé(s) avec succès`);
+      }
+
+      table.resetRowSelection();
+      // Trigger refetch from parent
+      if (result.deleted > 0) {
+        window.location.reload(); // Simple refresh for now
+      }
+    } catch (error) {
+      console.error("Failed to delete emails:", error);
+      toast.error("Erreur lors de la suppression des emails");
+    } finally {
+      setBulkOperationLoading(false);
+      setShowBulkDeleteDialog(false);
     }
   };
 
@@ -592,6 +658,69 @@ export default function TrackedEmailsTable() {
                   <AlertDialogCancel>Annuler</AlertDialogCancel>
                   <AlertDialogAction onClick={handleBulkStop}>
                     Arrêter le suivi
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          {/* Bulk delete action - Admin only */}
+          {table.getSelectedRowModel().rows.length > 0 && isAdmin(user) && (
+            <AlertDialog
+              open={showBulkDeleteDialog}
+              onOpenChange={setShowBulkDeleteDialog}
+            >
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="ml-2">
+                  <TrashIcon
+                    className="-ms-1 opacity-60"
+                    size={16}
+                    aria-hidden="true"
+                  />
+                  Supprimer
+                  <span className="bg-background text-muted-foreground/70 -me-1 inline-flex h-5 max-h-full items-center rounded border px-1 font-[inherit] text-[0.625rem] font-medium">
+                    {table.getSelectedRowModel().rows.length}
+                  </span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
+                  <div
+                    className="border-destructive flex size-9 shrink-0 items-center justify-center rounded-full border"
+                    aria-hidden="true"
+                  >
+                    <TrashIcon
+                      className="text-destructive opacity-80"
+                      size={16}
+                    />
+                  </div>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Supprimer définitivement les emails sélectionnés ?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Cette action est irréversible.{" "}
+                      {table.getSelectedRowModel().rows.length} email
+                      {table.getSelectedRowModel().rows.length === 1
+                        ? ""
+                        : "s"}{" "}
+                      et toutes les données associées (réponses, relances,
+                      historique) seront définitivement supprimé
+                      {table.getSelectedRowModel().rows.length === 1 ? "" : "s"}
+                      .
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleBulkDelete}
+                    className="bg-destructive hover:bg-destructive/90"
+                    disabled={bulkOperationLoading}
+                  >
+                    {bulkOperationLoading
+                      ? "Suppression..."
+                      : "Supprimer définitivement"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

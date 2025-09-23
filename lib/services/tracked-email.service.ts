@@ -252,6 +252,49 @@ export class TrackedEmailService {
   }
 
   /**
+   * Delete a tracked email (admin only)
+   */
+  static async deleteTrackedEmail(emailId: string): Promise<void> {
+    const { error } = await supabase
+      .from("tracked_emails")
+      .delete()
+      .eq("id", emailId);
+
+    if (error) {
+      throw new Error(`Failed to delete tracked email: ${error.message}`);
+    }
+  }
+
+  /**
+   * Bulk delete tracked emails (admin only)
+   */
+  static async bulkDeleteEmails(emailIds: string[]): Promise<{
+    deleted: number;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    let deleted = 0;
+
+    // Process deletions in parallel for better performance
+    const deletionPromises = emailIds.map(async emailId => {
+      try {
+        await this.deleteTrackedEmail(emailId);
+        deleted++;
+      } catch (error) {
+        errors.push(
+          `Failed to delete email ${emailId}: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      }
+    });
+
+    await Promise.all(deletionPromises);
+
+    return { deleted, errors };
+  }
+
+  /**
    * Get tracked email details with full relations
    */
   static async getTrackedEmailById(
