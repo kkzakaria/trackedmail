@@ -40,6 +40,21 @@ serve(async (req) => {
     // Créer le client Supabase avec les droits de service
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // 0. Vérifier si le système de relances est activé
+    const isFollowupEnabled = await checkFollowupSystemEnabled(supabase);
+    if (!isFollowupEnabled) {
+      console.log('⚠️ Followup system is disabled. Skipping scheduling.');
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Followup system is disabled',
+        processed: 0,
+        emails_processed: 0
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
     // 1. Récupérer les emails nécessitant des relances
     const emailsNeedingFollowup = await getEmailsNeedingFollowup(supabase);
     console.log(`📧 Found ${emailsNeedingFollowup.length} emails needing followups`);
@@ -494,4 +509,28 @@ function extractCompanyFromEmail(email: string): string {
 
   const company = domain.split('.')[0];
   return company.charAt(0).toUpperCase() + company.slice(1);
+}
+
+/**
+ * Vérifie si le système de relances est activé
+ */
+async function checkFollowupSystemEnabled(supabase: EdgeSupabaseClient): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'followup_settings')
+      .single();
+
+    if (error) {
+      console.error('Failed to check followup system status:', error);
+      return false;
+    }
+
+    const settings = JSON.parse(data.value);
+    return settings.enabled !== false; // Par défaut activé si pas spécifié
+  } catch (error) {
+    console.error('Error parsing followup settings:', error);
+    return false;
+  }
 }

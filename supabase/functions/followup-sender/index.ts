@@ -46,6 +46,22 @@ serve(async (req) => {
     // Créer le client Supabase avec les droits de service
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // 0. Vérifier si le système de relances est activé
+    const isFollowupEnabled = await checkFollowupSystemEnabled(supabase);
+    if (!isFollowupEnabled) {
+      console.log('⚠️ Followup system is disabled. Skipping sending.');
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Followup system is disabled',
+        sent: 0,
+        failed: 0,
+        total_processed: 0
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
     // 1. Récupérer les relances prêtes à être envoyées
     const followupsToSend = await getFollowupsToSend(supabase);
     console.log(`📧 Found ${followupsToSend.length} followups ready to send`);
@@ -357,5 +373,29 @@ async function cleanupExpiredFollowups(supabase: EdgeSupabaseClient): Promise<vo
     console.error('Failed to cleanup expired followups:', error);
   } else {
     console.log('✅ Cleaned up expired followups');
+  }
+}
+
+/**
+ * Vérifie si le système de relances est activé
+ */
+async function checkFollowupSystemEnabled(supabase: EdgeSupabaseClient): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'followup_settings')
+      .single();
+
+    if (error) {
+      console.error('Failed to check followup system status:', error);
+      return false;
+    }
+
+    const settings = JSON.parse(data.value);
+    return settings.enabled !== false; // Par défaut activé si pas spécifié
+  } catch (error) {
+    console.error('Error parsing followup settings:', error);
+    return false;
   }
 }
