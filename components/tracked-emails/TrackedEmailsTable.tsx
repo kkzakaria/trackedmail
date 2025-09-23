@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -136,6 +137,7 @@ const formatRecipients = (recipients: string[], maxShow = 2) => {
 };
 
 export default function TrackedEmailsTable() {
+  const router = useRouter();
   const id = useId();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -286,8 +288,7 @@ export default function TrackedEmailsTable() {
             row={row}
             onStatusUpdate={updateEmailStatus}
             onViewDetails={email => {
-              console.warn("View details:", email);
-              // TODO: Implement details modal/page
+              router.push(`/dashboard/emails/${email.id}`);
             }}
             onSendFollowup={email => {
               console.warn("Send followup:", email);
@@ -299,7 +300,7 @@ export default function TrackedEmailsTable() {
         enableHiding: false,
       },
     ],
-    [updateEmailStatus]
+    [updateEmailStatus, router]
   );
 
   const handleBulkStop = async () => {
