@@ -10,6 +10,13 @@ import { ClientSecretCredential } from 'npm:@azure/identity@4'
 import {
   EdgeSupabaseClient
 } from '../_shared/types.ts'
+import {
+  encryptData,
+  decryptData,
+  serializeEncryptedData,
+  deserializeEncryptedData,
+  EncryptionError
+} from '../_shared/encryption.ts'
 
 console.log('Microsoft Graph Token Manager - Ready!')
 
@@ -212,7 +219,7 @@ async function acquireToken(
     const expiresIn = Math.floor((tokenResponse.expiresOnTimestamp - Date.now()) / 1000)
 
     // Chiffrer et stocker le token
-    const encryptedToken = encryptToken(tokenResponse.token)
+    const encryptedToken = await encryptToken(tokenResponse.token)
     await storeToken(supabase, encryptedToken, expiresAt, scopes)
 
     const response: TokenResponse = {
@@ -538,22 +545,35 @@ function getAuthConfig(): AuthConfig {
 }
 
 /**
- * Chiffre un token (implémentation simplifiée)
+ * Encrypt a token using robust AES-256-GCM encryption
+ *
+ * @param token - The plaintext token to encrypt
+ * @returns Promise<string> - Serialized encrypted data for storage
  */
-function encryptToken(token: string): string {
-  // Note: Implémentation simplifiée pour la démo
-  // En production, utiliser crypto.subtle pour un chiffrement robuste
-  const encoder = new TextEncoder()
-  const data = encoder.encode(token)
-  return btoa(String.fromCharCode(...data))
+async function encryptToken(token: string): Promise<string> {
+  try {
+    const encrypted = await encryptData(token)
+    return serializeEncryptedData(encrypted)
+  } catch (error) {
+    console.error('Token encryption failed:', error)
+    throw new Error('Failed to encrypt token')
+  }
 }
 
 /**
- * Déchiffre un token
+ * Decrypt a token using robust AES-256-GCM decryption
+ *
+ * @param encryptedToken - The serialized encrypted token data
+ * @returns Promise<string> - The decrypted plaintext token
  */
-function _decryptToken(encryptedToken: string): string {
-  // Note: Implémentation simplifiée pour la démo
-  return atob(encryptedToken)
+async function decryptToken(encryptedToken: string): Promise<string> {
+  try {
+    const encrypted = deserializeEncryptedData(encryptedToken)
+    return await decryptData(encrypted)
+  } catch (error) {
+    console.error('Token decryption failed:', error)
+    throw new Error('Failed to decrypt token')
+  }
 }
 
 /**

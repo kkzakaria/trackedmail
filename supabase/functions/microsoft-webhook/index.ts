@@ -519,6 +519,7 @@ async function processNotification(
   supabase: EdgeSupabaseClient,
   notification: MicrosoftGraphWebhookNotification
 ): Promise<void> {
+  const startTime = Date.now()
   console.log(`Processing notification: ${notification.changeType} for ${notification.resource}`)
 
   // Vérifier que c'est bien un message email (Microsoft Graph utilise 'Messages' avec M majuscule)
@@ -565,7 +566,7 @@ async function processNotification(
       console.log(`Email ${messageId} excluded (internal email)`)
 
       // Log de l'exclusion
-      await logDetectionAttempt(supabase, messageDetails, false, null, 'not_detected', 'internal_email')
+      await logDetectionAttempt(supabase, messageDetails, false, null, 'not_detected', 'internal_email', Date.now() - startTime)
       return
     }
 
@@ -591,11 +592,18 @@ async function processNotification(
       return
     }
 
-    // Insérer l'email dans tracked_emails
+    // Vérifier si c'est une réponse à un email tracké
+    if (detectIsReply(messageDetails)) {
+      console.log(`Detected reply email: ${messageDetails.subject}`)
+      await handleEmailResponse(supabase, messageDetails, startTime)
+      return
+    }
+
+    // Sinon, traiter comme un nouvel email à tracker
     await insertTrackedEmail(supabase, messageDetails, mailbox.id)
 
     // Log de la détection réussie
-    await logDetectionAttempt(supabase, messageDetails, true, null, 'conversation_id', null)
+    await logDetectionAttempt(supabase, messageDetails, true, null, 'conversation_id', null, Date.now() - startTime)
 
     console.log(`Successfully tracked new email: ${messageDetails.subject}`)
 
@@ -886,8 +894,8 @@ async function insertTrackedEmail(supabase: EdgeSupabaseClient, message: EmailMe
         importance: message.importance,
         status: 'pending',
         sent_at: message.sentDateTime,
-        is_reply: false, // TODO: Détecter si c'est une réponse
-        thread_position: 1 // TODO: Calculer la position dans le thread
+        is_reply: detectIsReply(message),
+        thread_position: calculateThreadPosition(message.conversationIndex)
       })
 
     if (error) {
@@ -960,7 +968,8 @@ async function logDetectionAttempt(
   isResponse: boolean,
   trackedEmailId: string | null,
   detectionMethod: string,
-  rejectionReason: string | null
+  rejectionReason: string | null,
+  detectionTimeMs: number
 ): Promise<void> {
   try {
     await supabase
@@ -972,9 +981,290 @@ async function logDetectionAttempt(
         tracked_email_id: trackedEmailId,
         detection_method: detectionMethod,
         rejection_reason: rejectionReason,
-        detection_time_ms: 0 // TODO: Mesurer le temps de détection
+        detection_time_ms: detectionTimeMs
       })
   } catch (error) {
     console.warn('Failed to log detection attempt:', error)
+  }
+}
+
+/**
+ * Détermine le type de réponse d'un email
+ */
+function determineResponseType(message: EmailMessage): 'direct_reply' | 'forward' | 'auto_reply' | 'bounce' {
+  // Vérifier les auto-replies en premier
+  if (message.internetMessageHeaders && message.internetMessageHeaders.length > 0) {
+    for (const header of message.internetMessageHeaders) {
+      const headerName = header.name.toLowerCase()
+      const headerValue = header.value?.toLowerCase() || ''
+
+      // Headers d'auto-reply
+      if (headerName === 'auto-submitted' && headerValue.includes('auto-replied')) {
+        return 'auto_reply'
+      }
+      if (headerName === 'x-autoreply' || headerName === 'x-autorespond') {
+        return 'auto_reply'
+      }
+      if (headerName === 'x-mailer' && headerValue.includes('auto')) {
+        return 'auto_reply'
+      }
+
+      // Headers de bounce
+      if (headerName === 'x-failed-recipients' || headerName === 'x-delivery-status') {
+        return 'bounce'
+      }
+    }
+  }
+
+  // Vérifier le sujet pour forward
+  if (message.subject) {
+    const subject = message.subject.toLowerCase()
+    const forwardPrefixes = ['fw:', 'fwd:', 'tr:', 'enc:', 'weiterleitung:']
+
+    for (const prefix of forwardPrefixes) {
+      if (subject.startsWith(prefix)) {
+        return 'forward'
+      }
+    }
+  }
+
+  // Par défaut, c'est une réponse directe
+  return 'direct_reply'
+}
+
+/**
+ * Trouve l'email original tracké correspondant à une réponse
+ */
+async function findOriginalTrackedEmail(
+  supabase: EdgeSupabaseClient,
+  responseMessage: EmailMessage
+): Promise<{ id: string; subject: string; [key: string]: unknown } | null> {
+  try {
+    console.log(`Searching for original tracked email for response: ${responseMessage.id}`)
+
+    // Méthode 1: Recherche par conversationId + inReplyTo (le plus fiable)
+    if (responseMessage.conversationId && responseMessage.inReplyTo) {
+      console.log(`Searching by conversationId + inReplyTo: ${responseMessage.conversationId} / ${responseMessage.inReplyTo}`)
+
+      const { data, error } = await supabase
+        .from('tracked_emails')
+        .select('*')
+        .eq('conversation_id', responseMessage.conversationId)
+        .eq('internet_message_id', responseMessage.inReplyTo)
+        .eq('status', 'pending')
+        .single()
+
+      if (!error && data) {
+        console.log(`Found original email by inReplyTo: ${data.id}`)
+        return data
+      }
+    }
+
+    // Méthode 2: Recherche par conversationId + references
+    if (responseMessage.conversationId && responseMessage.references) {
+      console.log(`Searching by conversationId + references: ${responseMessage.conversationId}`)
+
+      const references = responseMessage.references.split(' ').filter(ref => ref.trim())
+
+      for (const ref of references) {
+        const { data, error } = await supabase
+          .from('tracked_emails')
+          .select('*')
+          .eq('conversation_id', responseMessage.conversationId)
+          .eq('internet_message_id', ref.trim())
+          .eq('status', 'pending')
+          .single()
+
+        if (!error && data) {
+          console.log(`Found original email by reference: ${data.id}`)
+          return data
+        }
+      }
+    }
+
+    // Méthode 3: Fallback par conversationId seul (dernière tentative)
+    if (responseMessage.conversationId) {
+      console.log(`Fallback search by conversationId only: ${responseMessage.conversationId}`)
+
+      const { data, error } = await supabase
+        .from('tracked_emails')
+        .select('*')
+        .eq('conversation_id', responseMessage.conversationId)
+        .eq('status', 'pending')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!error && data) {
+        console.log(`Found original email by conversationId fallback: ${data.id}`)
+        return data
+      }
+    }
+
+    console.log('No original tracked email found')
+    return null
+
+  } catch (error) {
+    console.error('Error finding original tracked email:', error)
+    return null
+  }
+}
+
+/**
+ * Gère les emails de réponse (ne les tracke pas, mais marque l'original comme responded)
+ */
+async function handleEmailResponse(
+  supabase: EdgeSupabaseClient,
+  responseMessage: EmailMessage,
+  startTime: number
+): Promise<void> {
+  try {
+    console.log(`Handling email response: ${responseMessage.subject}`)
+
+    // Trouver l'email original
+    const originalEmail = await findOriginalTrackedEmail(supabase, responseMessage)
+
+    if (!originalEmail) {
+      console.log('No original tracked email found for this response, logging as orphaned response')
+      await logDetectionAttempt(
+        supabase,
+        responseMessage,
+        false,
+        null,
+        'response_orphaned',
+        'original_not_found',
+        Date.now() - startTime
+      )
+      return
+    }
+
+    // Déterminer le type de réponse
+    const responseType = determineResponseType(responseMessage)
+
+    // Insérer dans email_responses (le trigger se chargera de mettre à jour le statut)
+    const { error } = await supabase
+      .from('email_responses')
+      .insert({
+        tracked_email_id: originalEmail.id,
+        microsoft_message_id: responseMessage.id,
+        sender_email: responseMessage.sender.emailAddress.address,
+        subject: responseMessage.subject,
+        body_preview: responseMessage.bodyPreview,
+        received_at: responseMessage.sentDateTime,
+        response_type: responseType,
+        is_auto_response: responseType === 'auto_reply'
+      })
+
+    if (error) {
+      console.error('Error inserting email response:', error)
+      throw error
+    }
+
+    // Logger la détection réussie
+    await logDetectionAttempt(
+      supabase,
+      responseMessage,
+      true,
+      originalEmail.id,
+      'response_detected',
+      null,
+      Date.now() - startTime
+    )
+
+    console.log(`Successfully processed response: ${responseMessage.subject} -> Original: ${originalEmail.subject}`)
+
+  } catch (error) {
+    console.error('Error handling email response:', error)
+
+    // Logger l'erreur
+    await logDetectionAttempt(
+      supabase,
+      responseMessage,
+      false,
+      null,
+      'response_error',
+      error instanceof Error ? error.message : 'unknown_error',
+      Date.now() - startTime
+    )
+
+    throw error
+  }
+}
+
+/**
+ * Détecte si un email est une réponse à un autre email
+ * Basé sur les headers et le sujet
+ */
+function detectIsReply(message: EmailMessage): boolean {
+  // 1. Vérifier les headers de threading
+  if (message.internetMessageHeaders && message.internetMessageHeaders.length > 0) {
+    const replyHeaders = ['In-Reply-To', 'References']
+    for (const header of message.internetMessageHeaders) {
+      if (replyHeaders.includes(header.name) && header.value) {
+        console.log(`Email detected as reply based on header: ${header.name}`)
+        return true
+      }
+    }
+  }
+
+  // 2. Vérifier le sujet pour les préfixes de réponse
+  const replyPrefixes = [
+    'RE:', 'Re:', 're:', 'Réf:', 'REF:',
+    'FW:', 'Fw:', 'fw:', 'TR:', 'Tr:',
+    'RES:', 'Res:', 'res:'
+  ]
+
+  const subject = message.subject.trim()
+  for (const prefix of replyPrefixes) {
+    if (subject.startsWith(prefix)) {
+      console.log(`Email detected as reply based on subject prefix: ${prefix}`)
+      return true
+    }
+  }
+
+  // 3. Vérifier la profondeur du conversationIndex
+  // Un conversationIndex plus long que la base indique une réponse
+  if (message.conversationIndex) {
+    // Base = 22 bytes (44 caractères hex), chaque réponse ajoute 5 bytes (10 caractères)
+    const isReply = message.conversationIndex.length > 44
+    if (isReply) {
+      console.log(`Email detected as reply based on conversationIndex length: ${message.conversationIndex.length}`)
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Calcule la position d'un message dans un thread de conversation
+ * Basé sur le conversationIndex Microsoft
+ */
+function calculateThreadPosition(conversationIndex?: string): number {
+  if (!conversationIndex) {
+    return 1
+  }
+
+  try {
+    // Le conversationIndex Microsoft utilise un format spécifique :
+    // - 22 bytes (44 caractères hex) pour le message initial
+    // - 5 bytes supplémentaires (10 caractères) pour chaque réponse
+    const baseLength = 44
+    const replyLength = 10
+
+    if (conversationIndex.length <= baseLength) {
+      return 1 // Message initial
+    }
+
+    // Calculer le nombre de réponses
+    const additionalLength = conversationIndex.length - baseLength
+    const position = Math.floor(additionalLength / replyLength) + 1
+
+    console.log(`Thread position calculated: ${position} (index length: ${conversationIndex.length})`)
+    return position
+
+  } catch (error) {
+    console.warn('Error calculating thread position:', error)
+    return 1
   }
 }

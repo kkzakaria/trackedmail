@@ -59,7 +59,6 @@ export interface Database {
           change_type: string
           notification_url: string
           expiration_date_time: string
-          client_state: string
           mailbox_id: string
           include_resource_data: boolean
           is_active: boolean

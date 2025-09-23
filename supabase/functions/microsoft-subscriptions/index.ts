@@ -265,7 +265,6 @@ async function createSubscription(
         change_type: graphSubscription.changeType,
         notification_url: graphSubscription.notificationUrl,
         expiration_date_time: graphSubscription.expirationDateTime,
-        client_state: graphSubscription.clientState,
         mailbox_id: request.mailboxId,
         include_resource_data: graphSubscription.includeResourceData,
         is_active: true,
