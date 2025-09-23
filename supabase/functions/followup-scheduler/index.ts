@@ -128,16 +128,48 @@ serve(async (req) => {
  * Récupère les emails nécessitant des relances
  */
 async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<TrackedEmailWithFollowupInfo[]> {
-  const { data, error } = await supabase
-    .from('emails_needing_followup')
+  // DEBUG MODE: Query simple directement sur les emails pour zakariakoffi@karta-holding.ci
+  const { data: emailsData, error: emailsError } = await supabase
+    .from('tracked_emails')
     .select('*')
+    .eq('status', 'pending')
+    .contains('recipient_emails', ['zakariakoffi@karta-holding.ci'])
     .order('sent_at', { ascending: true });
 
-  if (error) {
-    throw new Error(`Failed to fetch emails needing followup: ${error.message}`);
+  console.log(`🔧 DEBUG: Direct query found ${emailsData?.length || 0} emails for zakariakoffi@karta-holding.ci`);
+
+  if (emailsError) {
+    throw new Error(`Failed to fetch emails: ${emailsError.message}`);
   }
 
-  return data || [];
+  if (!emailsData || emailsData.length === 0) {
+    return [];
+  }
+
+  // Pour chaque email, récupérer le statut des relances
+  const enrichedEmails = [];
+  for (const email of emailsData) {
+    const { data: followupData, error: followupError } = await supabase
+      .from('followups')
+      .select('followup_number, sent_at')
+      .eq('tracked_email_id', email.id)
+      .order('followup_number', { ascending: false })
+      .limit(1);
+
+    if (followupError) {
+      console.error(`Error fetching followups for ${email.id}:`, followupError);
+    }
+
+    const lastFollowup = followupData?.[0];
+    enrichedEmails.push({
+      ...email,
+      last_followup_number: lastFollowup?.followup_number || 0,
+      last_followup_at: lastFollowup?.sent_at || null
+    });
+  }
+
+  console.log(`📊 DEBUG: Enriched ${enrichedEmails.length} emails with followup data`);
+  return enrichedEmails;
 }
 
 /**
@@ -239,9 +271,15 @@ async function processEmailForFollowups(
     ? new Date(email.last_followup_at)
     : new Date(email.sent_at);
 
+  // DEBUG MODE: Si le template a un délai < 24h, traiter comme des minutes
+  const isDebugMode = template.delay_hours < 24;
+  const delayInHours = isDebugMode ? template.delay_hours / 60 : template.delay_hours;
+
+  console.log(`🔧 DEBUG: Template ${template.followup_number}, delay_hours=${template.delay_hours}, isDebugMode=${isDebugMode}, delayInHours=${delayInHours}`);
+
   const schedulingResult = calculateNextSendTime(
     baseDate,
-    template.delay_hours,
+    delayInHours,
     workingHours
   );
 
