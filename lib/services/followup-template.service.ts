@@ -424,6 +424,71 @@ export class FollowupTemplateService {
   }
 
   /**
+   * Récupère les statistiques d'un template
+   */
+  async getTemplateStats(templateId: string): Promise<{
+    total_sent: number;
+    success_rate: number;
+    last_used: string | null;
+  }> {
+    const { data: followupStats, error } = await this.supabase
+      .from("followups")
+      .select("status, created_at")
+      .eq("template_id", templateId);
+
+    if (error) {
+      throw new Error(
+        `Erreur lors de la récupération des stats: ${error.message}`
+      );
+    }
+
+    const totalSent =
+      followupStats?.filter(f => f.status === "sent").length || 0;
+    const totalFollowups = followupStats?.length || 0;
+    const successRate =
+      totalFollowups > 0 ? Math.round((totalSent / totalFollowups) * 100) : 0;
+
+    const lastUsed =
+      followupStats && followupStats.length > 0
+        ? followupStats.sort(
+            (a, b) =>
+              new Date(b.created_at || 0).getTime() -
+              new Date(a.created_at || 0).getTime()
+          )[0]?.created_at || null
+        : null;
+
+    return {
+      total_sent: totalSent,
+      success_rate: successRate,
+      last_used: lastUsed,
+    };
+  }
+
+  /**
+   * Duplique un template existant
+   */
+  async duplicateTemplate(
+    templateId: string
+  ): Promise<Database["public"]["Tables"]["followup_templates"]["Row"]> {
+    const originalTemplate = await this.getTemplateById(templateId);
+    if (!originalTemplate) {
+      throw new Error("Template non trouvé");
+    }
+
+    const duplicatedData = {
+      name: `${originalTemplate.name} (Copie)`,
+      subject: originalTemplate.subject,
+      body: originalTemplate.body,
+      followup_number: originalTemplate.followup_number,
+      delay_hours: originalTemplate.delay_hours,
+      is_active: false, // Les copies sont inactives par défaut
+      available_variables: originalTemplate.available_variables,
+    };
+
+    return this.createTemplate(duplicatedData);
+  }
+
+  /**
    * Récupère les templates par défaut pour l'initialisation
    */
   async getDefaultTemplates(): Promise<
