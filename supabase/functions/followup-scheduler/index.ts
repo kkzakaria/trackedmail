@@ -91,7 +91,7 @@ serve(async (req) => {
           console.log(`✅ Created ${followupsCreated.length} followups for email ${email.id}`);
         }
       } catch (error) {
-        const errorMsg = `Error processing email ${email.id}: ${error.message}`;
+        const errorMsg = `Error processing email ${email.id}: ${error instanceof Error ? error.message : String(error)}`;
         console.error(`❌ ${errorMsg}`);
         errors.push(errorMsg);
       }
@@ -115,7 +115,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString()
     }), {
       headers: { 'Content-Type': 'application/json' },
@@ -127,7 +127,7 @@ serve(async (req) => {
 /**
  * Récupère les emails nécessitant des relances
  */
-async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<TrackedEmailRow[]> {
+async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<TrackedEmailWithFollowupInfo[]> {
   const { data, error } = await supabase
     .from('emails_needing_followup')
     .select('*')
@@ -143,7 +143,7 @@ async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<T
 /**
  * Récupère les templates actifs
  */
-async function getActiveTemplates(supabase: any): Promise<FollowupTemplate[]> {
+async function getActiveTemplates(supabase: EdgeSupabaseClient): Promise<FollowupTemplateRow[]> {
   const { data, error } = await supabase
     .from('followup_templates')
     .select('*')
@@ -184,10 +184,15 @@ async function getWorkingHoursConfig(supabase: any): Promise<WorkingHoursConfig>
 /**
  * Traite un email pour créer les relances nécessaires
  */
+interface TrackedEmailWithFollowupInfo extends TrackedEmailRow {
+  last_followup_number?: number;
+  last_followup_at?: string;
+}
+
 async function processEmailForFollowups(
-  supabase: any,
-  email: TrackedEmail,
-  templates: FollowupTemplate[],
+  supabase: EdgeSupabaseClient,
+  email: TrackedEmailWithFollowupInfo,
+  templates: FollowupTemplateRow[],
   workingHours: WorkingHoursConfig
 ): Promise<any[]> {
   const followupsCreated = [];
@@ -402,7 +407,7 @@ function adjustTimeToWorkingHours(date: Date, workingHours: WorkingHoursConfig):
 /**
  * Rend un template avec les variables dynamiques
  */
-function renderTemplate(template: FollowupTemplate, email: TrackedEmail): { subject: string; body: string } {
+function renderTemplate(template: FollowupTemplateRow, email: TrackedEmailWithFollowupInfo): { subject: string; body: string } {
   // Variables disponibles
   const variables = {
     destinataire_nom: extractNameFromEmail(email.recipient_emails[0] || ''),

@@ -75,13 +75,13 @@ serve(async (req) => {
         sentCount++;
         console.log(`✅ Sent followup ${followup.id}`);
       } catch (error) {
-        const errorMsg = `Failed to send followup ${followup.id}: ${error.message}`;
+        const errorMsg = `Failed to send followup ${followup.id}: ${error instanceof Error ? error.message : String(error)}`;
         console.error(`❌ ${errorMsg}`);
         errors.push(errorMsg);
         failedCount++;
 
         // Marquer comme échec dans la base de données
-        await markFollowupAsFailed(supabase, followup.id, error.message);
+        await markFollowupAsFailed(supabase, followup.id, error instanceof Error ? error.message : String(error));
       }
     }
 
@@ -104,7 +104,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString()
     }), {
       headers: { 'Content-Type': 'application/json' },
