@@ -32,29 +32,27 @@ export class FollowupService {
     include_email_data?: boolean;
   }) {
     // Définir la requête selon le pattern officiel Supabase
-    const followupsQuery = this.supabase.from("followups").select(
-      `
+    const selectClause = params?.include_email_data
+      ? `
         *,
-        ${
-          params?.include_email_data
-            ? `
-          tracked_email:tracked_emails!inner(
-            id,
-            subject,
-            sender_email,
-            recipient_emails,
-            sent_at,
-            status
-          ),
-          template:followup_templates(
-            id,
-            name,
-            followup_number
-          )
-        `
-            : ""
-        }
-      `,
+        tracked_email:tracked_emails!inner(
+          id,
+          subject,
+          sender_email,
+          recipient_emails,
+          sent_at,
+          status
+        ),
+        template:followup_templates(
+          id,
+          name,
+          followup_number
+        )
+      `
+      : "*";
+
+    const followupsQuery = this.supabase.from("followups").select(
+      selectClause,
       { count: "exact" }
     );
 
