@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -17,8 +16,7 @@ import {
   Save,
   RotateCcw,
   AlertCircle,
-  CheckCircle,
-  Info
+  CheckCircle
 } from "lucide-react";
 
 import { WorkingHoursConfig } from "@/components/followups/WorkingHoursConfig";

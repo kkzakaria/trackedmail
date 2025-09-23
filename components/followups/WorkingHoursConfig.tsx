@@ -108,8 +108,13 @@ export function WorkingHoursConfig({ config, onChange }: WorkingHoursConfigProps
   };
 
   const calculateDailyHours = () => {
-    const [startHour, startMinute] = config.start.split(':').map(Number);
-    const [endHour, endMinute] = config.end.split(':').map(Number);
+    const startParts = config.start.split(':').map(Number);
+    const endParts = config.end.split(':').map(Number);
+
+    const startHour = startParts[0] || 0;
+    const startMinute = startParts[1] || 0;
+    const endHour = endParts[0] || 0;
+    const endMinute = endParts[1] || 0;
 
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;

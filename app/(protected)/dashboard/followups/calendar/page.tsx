@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { FollowupCalendar } from "@/components/followups/FollowupCalendar";
 import { FollowupMetrics } from "@/components/followups/FollowupMetrics";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,6 @@ import {
 import Link from "next/link";
 
 export default function FollowupCalendarPage() {
-  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const handleDateSelect = (date: Date) => {

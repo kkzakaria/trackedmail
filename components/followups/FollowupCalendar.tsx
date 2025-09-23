@@ -5,9 +5,7 @@ import { followupService } from "@/lib/services/followup.service";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +25,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -36,14 +33,12 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
-  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Clock,
   Send,
   AlertTriangle,
   Ban,
-  Filter,
   List,
   Grid,
   Eye,
@@ -60,7 +55,6 @@ import {
   startOfWeek,
   endOfWeek,
   isToday,
-  getDay,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
@@ -70,7 +64,6 @@ interface FollowupCalendarProps {
   className?: string;
   selectedMailboxId?: string;
   onDateSelect?: (date: Date) => void;
-  compactMode?: boolean;
 }
 
 interface CalendarDay {
@@ -100,7 +93,6 @@ export function FollowupCalendar({
   className = "",
   selectedMailboxId,
   onDateSelect,
-  compactMode = false
 }: FollowupCalendarProps) {
   // State management
   const [followups, setFollowups] = useState<FollowupWithEmail[]>([]);
@@ -148,7 +140,7 @@ export function FollowupCalendar({
         include_email_data: true,
       });
 
-      setFollowups(result.data as FollowupWithEmail[]);
+      setFollowups(result.data as unknown as FollowupWithEmail[]);
     } catch (error) {
       console.error("Erreur lors du chargement du calendrier:", error);
       toast.error("Impossible de charger le calendrier");
@@ -234,7 +226,7 @@ export function FollowupCalendar({
           id: followup.id,
           title: followup.tracked_email?.subject || "Sans sujet",
           time: eventDate ? format(new Date(eventDate), "HH:mm") : "—",
-          status: followup.status,
+          status: followup.status as FollowupStatus,
           followup,
         };
       })
@@ -283,7 +275,7 @@ export function FollowupCalendar({
 
     const config = {
       scheduled: { variant: "default" as const, label: count.toString() },
-      sent: { variant: "success" as const, label: count.toString() },
+      sent: { variant: "default" as const, label: count.toString() },
       failed: { variant: "destructive" as const, label: count.toString() },
       cancelled: { variant: "secondary" as const, label: count.toString() },
     };
@@ -577,7 +569,7 @@ export function FollowupCalendar({
                         <div className="flex items-center gap-2">
                           <Badge variant={
                             event.status === "scheduled" ? "default" :
-                            event.status === "sent" ? "success" :
+                            event.status === "sent" ? "default" :
                             event.status === "failed" ? "destructive" : "secondary"
                           }>
                             {event.status}

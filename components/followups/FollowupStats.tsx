@@ -373,7 +373,7 @@ export function FollowupStats({
                 <YAxis />
                 <Tooltip
                   content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
+                    if (active && payload?.length) {
                       const data = payload[0].payload;
                       return (
                         <div className="bg-white p-3 border rounded-lg shadow-lg">
@@ -549,8 +549,8 @@ export function FollowupStats({
                       <p className="text-xs text-gray-500">Taux de succès</p>
                     </div>
                     <Badge
-                      variant={template.success_rate > 25 ? "success" :
-                               template.success_rate > 15 ? "default" : "destructive"}
+                      variant={template.success_rate > 25 ? "default" :
+                               template.success_rate > 15 ? "secondary" : "destructive"}
                     >
                       {template.success_rate > 25 ? "Excellent" :
                        template.success_rate > 15 ? "Bon" : "À améliorer"}

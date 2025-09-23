@@ -64,6 +64,7 @@ export interface FollowupWithEmail extends Followup {
     recipient_emails: string[];
     sent_at: string;
     status: string;
+    responded_at?: string;
   };
   template?: {
     id: string;
@@ -195,13 +196,13 @@ export interface FollowupEvent {
 
 // Type pour les filtres de recherche
 export interface FollowupFilters {
-  status?: FollowupStatus[];
-  template_id?: string;
-  followup_number?: number;
-  date_from?: string;
-  date_to?: string;
-  mailbox_id?: string;
-  search_query?: string; // Recherche dans sujet/contenu
+  status?: FollowupStatus[] | undefined;
+  template_id?: string | undefined;
+  followup_number?: number | undefined;
+  date_from?: string | undefined;
+  date_to?: string | undefined;
+  mailbox_id?: string | undefined;
+  search_query?: string | undefined; // Recherche dans sujet/contenu
 }
 
 // Type pour la pagination

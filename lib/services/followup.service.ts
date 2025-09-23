@@ -764,14 +764,23 @@ export class FollowupService {
     // Valider la configuration
     this.validateFollowupSettings(settings);
 
+    const updateData: {
+      value: Database["public"]["Tables"]["system_config"]["Row"]["value"];
+      updated_by?: string | null;
+      updated_at: string;
+    } = {
+      value:
+        settings as unknown as Database["public"]["Tables"]["system_config"]["Row"]["value"],
+      updated_at: new Date().toISOString(),
+    };
+
+    if (userId) {
+      updateData.updated_by = userId;
+    }
+
     const { error } = await this.supabase
       .from("system_config")
-      .update({
-        value:
-          settings as unknown as Database["public"]["Tables"]["system_config"]["Row"]["value"],
-        updated_by: userId,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("key", "followup_settings");
 
     if (error) {

@@ -7,27 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   TestTube,
   Play,
   Calendar,
   Clock,
   Mail,
-  CheckCircle,
   AlertCircle,
   Info,
   ArrowRight
 } from "lucide-react";
-import { format, addHours, addDays, isWeekend, parseISO } from "date-fns";
+import { format, addHours, addDays, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
 import type { WorkingHoursConfig, FollowupSettings } from "@/lib/types/followup.types";
@@ -42,7 +33,7 @@ interface SimulationResult {
   original_scheduled: string;
   adjusted_scheduled: string;
   is_adjusted: boolean;
-  reason?: string;
+  reason: string | undefined;
   is_working_hour: boolean;
   is_working_day: boolean;
   is_holiday: boolean;
@@ -70,7 +61,7 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
     return timeString >= workingHours.start && timeString <= workingHours.end;
   };
 
-  const adjustToWorkingHours = (date: Date): { adjusted: Date; reason?: string } => {
+  const adjustToWorkingHours = (date: Date): { adjusted: Date; reason: string | undefined } => {
     let adjusted = new Date(date);
     let reason: string | undefined;
 
@@ -91,13 +82,17 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
     const timeString = format(adjusted, "HH:mm");
     if (timeString < workingHours.start) {
       // Set to start of working hours
-      const [hours, minutes] = workingHours.start.split(":").map(Number);
+      const timeParts = workingHours.start.split(":").map(Number);
+      const hours = timeParts[0] || 0;
+      const minutes = timeParts[1] || 0;
       adjusted.setHours(hours, minutes, 0, 0);
       reason = reason ? `${reason}, heure ajustée au début` : "Heure ajustée au début des heures ouvrables";
     } else if (timeString > workingHours.end) {
       // Move to next working day at start time
       adjusted = addDays(adjusted, 1);
-      const [hours, minutes] = workingHours.start.split(":").map(Number);
+      const timeParts = workingHours.start.split(":").map(Number);
+      const hours = timeParts[0] || 0;
+      const minutes = timeParts[1] || 0;
       adjusted.setHours(hours, minutes, 0, 0);
 
       // Recheck if new day is working day

@@ -168,20 +168,17 @@ export default function FollowupsPage() {
         scheduled_today: followupsData.filter(
           f =>
             f.status === "scheduled" &&
-            f.scheduled_for &&
-            f.scheduled_for.startsWith(today)
+            f.scheduled_for?.startsWith(today)
         ).length,
         sent_today: followupsData.filter(
           f =>
             f.status === "sent" &&
-            f.sent_at &&
-            f.sent_at.startsWith(today)
+            f.sent_at?.startsWith(today)
         ).length,
         next_scheduled_count: followupsData.filter(
           f =>
             f.status === "scheduled" &&
-            f.scheduled_for &&
-            f.scheduled_for.startsWith(tomorrow)
+            f.scheduled_for?.startsWith(tomorrow)
         ).length,
       };
 
@@ -226,7 +223,7 @@ export default function FollowupsPage() {
     try {
       for (const followupId of selectedFollowups) {
         const followup = followups.find(f => f.id === followupId);
-        if (followup && followup.tracked_email?.id) {
+        if (followup?.tracked_email?.id) {
           await followupService.cancelFollowups(
             followup.tracked_email.id,
             "Annulé manuellement depuis le dashboard"
@@ -578,7 +575,7 @@ export default function FollowupsPage() {
                             Relance {followup.followup_number}
                           </Badge>
                         </TableCell>
-                        <TableCell>{getStatusBadge(followup.status)}</TableCell>
+                        <TableCell>{getStatusBadge(followup.status as FollowupStatus)}</TableCell>
                         <TableCell>
                           {followup.scheduled_for ? (
                             <div className="flex flex-col">

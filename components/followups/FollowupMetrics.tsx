@@ -21,7 +21,6 @@ import {
 import {
   Clock,
   Send,
-  CheckCircle,
   XCircle,
   AlertTriangle,
   TrendingUp,
@@ -33,8 +32,7 @@ import {
   Bell,
   RefreshCw,
 } from "lucide-react";
-import { format, isToday, isTomorrow, addHours } from "date-fns";
-import { fr } from "date-fns/locale";
+import { format, isToday, isTomorrow } from "date-fns";
 import type { FollowupMetrics } from "@/lib/types/followup.types";
 
 interface FollowupMetricsProps {
@@ -83,9 +81,6 @@ export function FollowupMetrics({
       // Get current date ranges
       const now = new Date();
       const today = now.toISOString().split("T")[0];
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
 
       // Load followups for metrics calculation
       const allFollowups = await followupService.getFollowups({
@@ -101,20 +96,17 @@ export function FollowupMetrics({
         scheduled_today: followupsData.filter(
           f =>
             f.status === "scheduled" &&
-            f.scheduled_for &&
-            f.scheduled_for.startsWith(today)
+            f.scheduled_for?.startsWith(today)
         ).length,
         sent_today: followupsData.filter(
           f =>
             f.status === "sent" &&
-            f.sent_at &&
-            f.sent_at.startsWith(today)
+            f.sent_at?.startsWith(today)
         ).length,
         failed_today: followupsData.filter(
           f =>
             f.status === "failed" &&
-            f.failed_at &&
-            f.failed_at.startsWith(today)
+            f.failed_at?.startsWith(today)
         ).length,
         next_scheduled: getNextScheduled(followupsData),
         templates_performance: getTemplatesPerformance(followupsData),
@@ -504,8 +496,8 @@ export function FollowupMetrics({
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={template.success_rate_last_7_days > 25 ? "success" :
-                               template.success_rate_last_7_days > 15 ? "default" : "destructive"}
+                      variant={template.success_rate_last_7_days > 25 ? "default" :
+                               template.success_rate_last_7_days > 15 ? "secondary" : "destructive"}
                     >
                       {template.success_rate_last_7_days.toFixed(0)}%
                     </Badge>

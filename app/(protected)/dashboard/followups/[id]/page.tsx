@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,15 +44,10 @@ import {
   Calendar,
   Mail,
   User,
-  Building,
   CheckCircle,
   XCircle,
-  AlertTriangle,
   Copy,
   ExternalLink,
-  Edit,
-  Trash2,
-  RotateCcw,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -67,13 +61,13 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon: React.ComponentType<{ className?: string }>;
-  variant: "default" | "success" | "warning" | "destructive";
+  variant: "default" | "secondary" | "outline" | "destructive";
 }
 
 export default function FollowupDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { user } = useAuth();
+  const { } = useAuth();
   const followupId = params.id as string;
 
   // State management
@@ -90,15 +84,6 @@ export default function FollowupDetailPage() {
     newDate: "",
   });
 
-  const [editDialog, setEditDialog] = useState<{
-    open: boolean;
-    subject: string;
-    body: string;
-  }>({
-    open: false,
-    subject: "",
-    body: "",
-  });
 
   // Load followup data
   const loadFollowup = async () => {
@@ -120,11 +105,6 @@ export default function FollowupDetailPage() {
         newDate: data.scheduled_for || "",
       }));
 
-      setEditDialog(prev => ({
-        ...prev,
-        subject: data.subject || "",
-        body: data.body || "",
-      }));
 
       // Load timeline
       await loadTimeline(data);
@@ -177,7 +157,7 @@ export default function FollowupDetailPage() {
           description: "Relance envoyée avec succès",
           timestamp: followupData.sent_at,
           icon: Send,
-          variant: "success",
+          variant: "default",
         });
       }
 
@@ -203,7 +183,7 @@ export default function FollowupDetailPage() {
           description: followupData.failure_reason || "Relance annulée",
           timestamp: followupData.updated_at || followupData.created_at || new Date().toISOString(),
           icon: Ban,
-          variant: "warning",
+          variant: "outline",
         });
       }
 
@@ -216,7 +196,7 @@ export default function FollowupDetailPage() {
           description: "Le destinataire a répondu à l'email",
           timestamp: followupData.tracked_email.responded_at,
           icon: CheckCircle,
-          variant: "success",
+          variant: "default",
         });
       }
 
@@ -238,7 +218,7 @@ export default function FollowupDetailPage() {
   const getStatusConfig = (status: FollowupStatus) => {
     const config = {
       scheduled: { variant: "default" as const, label: "Programmé", icon: Clock },
-      sent: { variant: "success" as const, label: "Envoyé", icon: CheckCircle },
+      sent: { variant: "default" as const, label: "Envoyé", icon: CheckCircle },
       failed: { variant: "destructive" as const, label: "Échec", icon: XCircle },
       cancelled: { variant: "secondary" as const, label: "Annulé", icon: Ban },
     };
@@ -315,7 +295,7 @@ export default function FollowupDetailPage() {
     );
   }
 
-  const statusConfig = getStatusConfig(followup.status);
+  const statusConfig = getStatusConfig(followup.status as FollowupStatus);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -524,7 +504,7 @@ export default function FollowupDetailPage() {
                   <div>
                     <Label className="text-sm font-medium text-gray-600">Statut</Label>
                     <div className="mt-1">
-                      <Badge variant={followup.tracked_email?.status === "responded" ? "success" : "default"}>
+                      <Badge variant={followup.tracked_email?.status === "responded" ? "default" : "secondary"}>
                         {followup.tracked_email?.status === "responded" ? "Répondu" : "En attente"}
                       </Badge>
                     </div>
@@ -552,9 +532,9 @@ export default function FollowupDetailPage() {
                         <div className="flex flex-col items-center">
                           <div className={`
                             flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs
-                            ${event.variant === "success" ? "border-green-200 bg-green-50 text-green-600" :
+                            ${event.variant === "default" ? "border-green-200 bg-green-50 text-green-600" :
                               event.variant === "destructive" ? "border-red-200 bg-red-50 text-red-600" :
-                              event.variant === "warning" ? "border-yellow-200 bg-yellow-50 text-yellow-600" :
+                              event.variant === "outline" ? "border-yellow-200 bg-yellow-50 text-yellow-600" :
                               "border-gray-200 bg-gray-50 text-gray-600"}
                           `}>
                             <event.icon className="h-4 w-4" />

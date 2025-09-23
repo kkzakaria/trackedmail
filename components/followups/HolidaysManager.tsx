@@ -1,28 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Calendar,
   Plus,
   Trash2,
   Download,
-  Upload,
   AlertCircle,
   CheckCircle,
   ChevronLeft,
@@ -84,9 +74,7 @@ const PREDEFINED_HOLIDAYS = {
 
 export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManagerProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string>("");
   const [manualDate, setManualDate] = useState("");
-  const [holidayName, setHolidayName] = useState("");
 
   // Validate and parse holidays
   const validHolidays = useMemo(() => {
@@ -146,7 +134,6 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
     if (manualDate) {
       addHoliday(manualDate);
       setManualDate("");
-      setHolidayName("");
     }
   };
 
