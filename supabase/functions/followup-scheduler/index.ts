@@ -1,29 +1,11 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-
-// Types pour le système de relances
-interface TrackedEmail {
-  id: string;
-  microsoft_message_id: string;
-  subject: string;
-  sender_email: string;
-  recipient_emails: string[];
-  sent_at: string;
-  status: string;
-  last_followup_number: number;
-  last_followup_at: string | null;
-}
-
-interface FollowupTemplate {
-  id: string;
-  name: string;
-  subject: string;
-  body: string;
-  followup_number: number;
-  delay_hours: number;
-  is_active: boolean;
-  available_variables: string[];
-}
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  EdgeSupabaseClient,
+  TrackedEmailRow,
+  FollowupTemplateRow,
+  FollowupInsert
+} from '../_shared/types.ts';
 
 interface SchedulingResult {
   scheduled_for: string;
@@ -145,7 +127,7 @@ serve(async (req) => {
 /**
  * Récupère les emails nécessitant des relances
  */
-async function getEmailsNeedingFollowup(supabase: any): Promise<TrackedEmail[]> {
+async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<TrackedEmailRow[]> {
   const { data, error } = await supabase
     .from('emails_needing_followup')
     .select('*')

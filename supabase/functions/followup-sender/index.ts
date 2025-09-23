@@ -1,15 +1,13 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  EdgeSupabaseClient,
+  TrackedEmailRow,
+  FollowupRow
+} from '../_shared/types.ts';
 
 // Types pour le système de relances
-interface FollowupToSend {
-  id: string;
-  tracked_email_id: string;
-  template_id: string;
-  followup_number: number;
-  subject: string;
-  body: string;
-  scheduled_for: string;
+interface FollowupToSend extends FollowupRow {
   tracked_email: {
     id: string;
     sender_email: string;
@@ -118,7 +116,7 @@ serve(async (req) => {
 /**
  * Récupère les relances prêtes à être envoyées
  */
-async function getFollowupsToSend(supabase: any): Promise<FollowupToSend[]> {
+async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<FollowupToSend[]> {
   const now = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -185,7 +183,7 @@ async function getMicrosoftGraphToken(): Promise<string> {
  * Envoie une relance via Microsoft Graph
  */
 async function sendFollowup(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   followup: FollowupToSend,
   accessToken: string
 ): Promise<void> {
@@ -237,7 +235,7 @@ async function sendFollowup(
 /**
  * Marque une relance comme envoyée
  */
-async function markFollowupAsSent(supabase: any, followupId: string): Promise<void> {
+async function markFollowupAsSent(supabase: EdgeSupabaseClient, followupId: string): Promise<void> {
   const { error } = await supabase
     .from('followups')
     .update({
@@ -256,7 +254,7 @@ async function markFollowupAsSent(supabase: any, followupId: string): Promise<vo
  * Marque une relance comme échouée
  */
 async function markFollowupAsFailed(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   followupId: string,
   errorMessage: string
 ): Promise<void> {
@@ -289,7 +287,7 @@ function convertTextToHtml(text: string): string {
  * Fonction pour gérer les retry automatiques
  */
 async function handleRetryableError(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   followupId: string,
   error: Error,
   retryCount: number = 0
@@ -342,7 +340,7 @@ function isRetryableError(error: Error): boolean {
 /**
  * Fonction pour nettoyer les relances expirées
  */
-async function cleanupExpiredFollowups(supabase: any): Promise<void> {
+async function cleanupExpiredFollowups(supabase: EdgeSupabaseClient): Promise<void> {
   // Marquer comme expirées les relances programmées depuis plus de 7 jours
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
