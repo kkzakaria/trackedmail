@@ -527,7 +527,7 @@ async function checkFollowupSystemEnabled(supabase: EdgeSupabaseClient): Promise
       return false;
     }
 
-    const settings = JSON.parse(data.value);
+    const settings = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
     return settings.enabled !== false; // Par défaut activé si pas spécifié
   } catch (error) {
     console.error('Error parsing followup settings:', error);

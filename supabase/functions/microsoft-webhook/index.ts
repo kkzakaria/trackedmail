@@ -1370,27 +1370,37 @@ function isFollowupEmail(message: EmailMessage): boolean {
 }
 
 /**
- * Récupère le numéro de relance depuis les headers
+ * Récupère le numéro de relance depuis les headers (format condensé)
  */
 function getFollowupNumber(message: EmailMessage): number | null {
   if (!message.internetMessageHeaders) return null
 
-  const header = message.internetMessageHeaders.find(
-    h => h.name === 'X-TrackedMail-Followup-Number'
+  const dataHeader = message.internetMessageHeaders.find(
+    h => h.name === 'X-TrackedMail-Data'
   )
 
-  return header ? parseInt(header.value) : null
+  if (dataHeader) {
+    const parts = dataHeader.value.split(':')
+    return parts[0] ? parseInt(parts[0]) : null
+  }
+
+  return null
 }
 
 /**
- * Récupère l'ID de l'email original tracké depuis les headers
+ * Récupère l'ID de l'email original tracké depuis les headers (format condensé)
  */
 function getOriginalTrackedEmailId(message: EmailMessage): string | null {
   if (!message.internetMessageHeaders) return null
 
-  const header = message.internetMessageHeaders.find(
-    h => h.name === 'X-TrackedMail-Original-Id'
+  const dataHeader = message.internetMessageHeaders.find(
+    h => h.name === 'X-TrackedMail-Data'
   )
 
-  return header ? header.value : null
+  if (dataHeader) {
+    const parts = dataHeader.value.split(':')
+    return parts[1] || null
+  }
+
+  return null
 }

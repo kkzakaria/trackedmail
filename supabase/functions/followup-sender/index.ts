@@ -223,6 +223,7 @@ async function sendFollowup(
   console.log(`📨 Preparing followup ${followup.followup_number} for tracked email ${followup.tracked_email_id}`);
   console.log(`   Original conversation: ${originalEmail.conversation_id}`);
   console.log(`   Original message ID: ${originalEmail.internet_message_id}`);
+  console.log(`   Microsoft message ID: ${originalEmail.microsoft_message_id || 'NOT FOUND'}`);
 
   // Construire le message avec headers personnalisés pour le threading et l'identification
   const messageData = {
@@ -237,61 +238,41 @@ async function sendFollowup(
     from: {
       emailAddress: { address: followup.tracked_email.mailbox.email_address }
     },
-    // Headers pour maintenir le threading et identifier la relance
+    // Headers personnalisés pour identifier les relances (Microsoft Graph n'accepte que X- headers)
     internetMessageHeaders: [
-      {
-        name: 'In-Reply-To',
-        value: originalEmail.internet_message_id
-      },
-      {
-        name: 'References',
-        value: originalEmail.internet_message_id
-      },
       {
         name: 'X-TrackedMail-Followup',
         value: 'true'
-      },
-      {
-        name: 'X-TrackedMail-Followup-Number',
-        value: followup.followup_number.toString()
-      },
-      {
-        name: 'X-TrackedMail-Original-Id',
-        value: followup.tracked_email_id
       },
       {
         name: 'X-TrackedMail-System',
         value: 'automated-followup'
       },
       {
-        name: 'X-TrackedMail-Followup-Id',
-        value: followup.id
+        name: 'X-TrackedMail-Data',
+        value: `${followup.followup_number}:${followup.tracked_email_id}:${followup.id}`
+      },
+      {
+        name: 'X-TrackedMail-Threading',
+        value: `${originalEmail.conversation_id}:${originalEmail.internet_message_id}`
       }
     ],
     // Conserver le conversationId pour le threading
     conversationId: originalEmail.conversation_id
   };
 
-  // Déterminer quelle API utiliser selon le numéro de relance
+  // Utiliser l'API Reply pour un meilleur threading
   let graphUrl: string;
   let requestBody: any;
 
-  if (followup.followup_number === 1 && originalEmail.microsoft_message_id) {
-    // Première relance : utiliser l'API reply pour un threading natif optimal
-    console.log(`🔄 Using Reply API for first followup (threading with original message)`);
+  if (originalEmail.microsoft_message_id) {
+    // Utiliser l'API Reply pour maintenir le threading natif
+    console.log(`📮 Using Reply API with custom headers (followup #${followup.followup_number})`);
     graphUrl = `https://graph.microsoft.com/v1.0/users/${microsoftUserId}/messages/${originalEmail.microsoft_message_id}/reply`;
-
-    // Pour l'API reply, le format est différent
-    requestBody = {
-      message: {
-        toRecipients: messageData.toRecipients,
-        internetMessageHeaders: messageData.internetMessageHeaders
-      },
-      comment: followup.body // Le contenu de la relance va dans le comment
-    };
+    requestBody = { message: messageData };
   } else {
-    // Relances suivantes ou si pas de microsoft_message_id : utiliser sendMail avec headers de threading
-    console.log(`📮 Using SendMail API with threading headers (followup #${followup.followup_number})`);
+    // Fallback vers sendMail si pas de microsoft_message_id
+    console.log(`📮 Using SendMail API with custom headers (followup #${followup.followup_number}) - no message ID`);
     graphUrl = `https://graph.microsoft.com/v1.0/users/${microsoftUserId}/sendMail`;
     requestBody = { message: messageData };
   }
@@ -318,7 +299,7 @@ async function sendFollowup(
   await markFollowupAsSent(supabase, followup.id);
 
   console.log(`✅ Successfully sent followup ${followup.followup_number} for email ${followup.tracked_email_id}`);
-  console.log(`   Method used: ${followup.followup_number === 1 && originalEmail.microsoft_message_id ? 'Reply API' : 'SendMail with threading'}`);
+  console.log(`   Method used: ${originalEmail.microsoft_message_id ? 'Reply API with native threading' : 'SendMail with custom threading'}`);
   console.log(`   Threading maintained via: ${originalEmail.conversation_id}`);
 }
 
@@ -466,7 +447,7 @@ async function checkFollowupSystemEnabled(supabase: EdgeSupabaseClient): Promise
       return false;
     }
 
-    const settings = JSON.parse(data.value);
+    const settings = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
     return settings.enabled !== false; // Par défaut activé si pas spécifié
   } catch (error) {
     console.error('Error parsing followup settings:', error);
