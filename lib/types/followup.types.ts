@@ -166,7 +166,7 @@ export interface FollowupMetrics {
   next_scheduled?: {
     datetime: string;
     count: number;
-  };
+  } | undefined;
   templates_performance: Array<{
     template_id: string;
     name: string;

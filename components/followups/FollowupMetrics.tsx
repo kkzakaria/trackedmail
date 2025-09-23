@@ -203,7 +203,7 @@ export function FollowupMetrics({
     return Math.max(0, Math.min(100, score));
   };
 
-  const generateAlerts = (metrics: FollowupMetrics, followups: any[]): Alert[] => {
+  const generateAlerts = (metrics: FollowupMetrics, _followups: any[]): Alert[] => {
     const alerts: Alert[] = [];
 
     // High failure rate alert
@@ -274,6 +274,7 @@ export function FollowupMetrics({
       const interval = setInterval(loadMetrics, refreshInterval * 1000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [autoRefresh, refreshInterval]);
 
   // Render loading state
@@ -502,7 +503,7 @@ export function FollowupMetrics({
                       {template.success_rate_last_7_days.toFixed(0)}%
                     </Badge>
                     {template.usage_last_7_days > 10 && (
-                      <Zap className="h-4 w-4 text-yellow-500" title="Template très utilisé" />
+                      <Zap className="h-4 w-4 text-yellow-500" />
                     )}
                   </div>
                 </div>
