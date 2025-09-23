@@ -30,8 +30,10 @@ export interface FollowupSettings {
   max_followups: number;
   default_interval_hours: number;
   stop_after_days: number;
-  stop_on_bounce: boolean;
-  stop_on_unsubscribe: boolean;
+  rate_limit_per_hour: number;
+  system_enabled: boolean;
+  stop_on_bounce?: boolean;
+  stop_on_unsubscribe?: boolean;
 }
 
 // Variables disponibles dans les templates

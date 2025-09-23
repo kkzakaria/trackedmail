@@ -546,6 +546,8 @@ export class SchedulingService {
       max_followups: 3,
       default_interval_hours: 96, // 4 jours
       stop_after_days: 30,
+      rate_limit_per_hour: 100,
+      system_enabled: true,
       stop_on_bounce: true,
       stop_on_unsubscribe: true,
     };

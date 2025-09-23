@@ -11,6 +11,7 @@ import {
   SendContext,
   SchedulingResult,
   FollowupStatsItem,
+  FollowupSettings,
 } from "@/lib/types/followup.types";
 import { FollowupTemplateService } from "./followup-template.service";
 
@@ -733,6 +734,83 @@ export class FollowupService {
       by_template,
       by_followup_number,
     };
+  }
+
+  /**
+   * Récupère les paramètres globaux de relance
+   */
+  async getFollowupSettings(): Promise<FollowupSettings> {
+    const { data, error } = await this.supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", "followup_settings")
+      .single();
+
+    if (error || !data) {
+      // Retourner la configuration par défaut
+      return this.getDefaultFollowupSettings();
+    }
+
+    return data.value as unknown as FollowupSettings;
+  }
+
+  /**
+   * Met à jour les paramètres globaux de relance
+   */
+  async updateFollowupSettings(
+    settings: FollowupSettings,
+    userId?: string
+  ): Promise<void> {
+    // Valider la configuration
+    this.validateFollowupSettings(settings);
+
+    const { error } = await this.supabase
+      .from("system_config")
+      .update({
+        value:
+          settings as unknown as Database["public"]["Tables"]["system_config"]["Row"]["value"],
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("key", "followup_settings");
+
+    if (error) {
+      throw new Error(`Erreur lors de la mise à jour: ${error.message}`);
+    }
+  }
+
+  /**
+   * Configuration par défaut des paramètres de relance
+   */
+  private getDefaultFollowupSettings(): FollowupSettings {
+    return {
+      max_followups: 3,
+      default_interval_hours: 96, // 4 jours
+      stop_after_days: 30,
+      rate_limit_per_hour: 100,
+      system_enabled: true,
+    };
+  }
+
+  /**
+   * Validation des paramètres de relance
+   */
+  private validateFollowupSettings(settings: FollowupSettings): void {
+    if (settings.max_followups < 1 || settings.max_followups > 10) {
+      throw new Error("Le nombre maximum de relances doit être entre 1 et 10");
+    }
+
+    if (settings.default_interval_hours < 1 || settings.default_interval_hours > 720) {
+      throw new Error("L'intervalle par défaut doit être entre 1 heure et 30 jours");
+    }
+
+    if (settings.stop_after_days < 1 || settings.stop_after_days > 365) {
+      throw new Error("La durée d'expiration doit être entre 1 et 365 jours");
+    }
+
+    if (settings.rate_limit_per_hour < 1 || settings.rate_limit_per_hour > 1000) {
+      throw new Error("La limite de taux doit être entre 1 et 1000 emails par heure");
+    }
   }
 }
 
