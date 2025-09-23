@@ -247,7 +247,7 @@ async function createSubscription(
     const subscriptionPayload = {
       changeType: changeTypes.join(','),
       notificationUrl: webhookUrl,
-      resource: `/users/${request.userId}/mailFolders/sentitems/messages`,
+      resource: `/users/${request.userId}/messages`,
       expirationDateTime: expirationDateTime.toISOString(),
       clientState: clientState,
       includeResourceData: SUBSCRIPTION_CONFIG.includeResourceData

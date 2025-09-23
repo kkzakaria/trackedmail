@@ -570,14 +570,6 @@ async function processNotification(
       return
     }
 
-    // Vérifier si c'est un email depuis un dossier "Sent Items"
-    // En récupérant les informations du dossier parent depuis Microsoft Graph
-    const isSentEmail = await isFromSentFolder(userId, messageDetails.id, await getAccessToken())
-    if (!isSentEmail) {
-      console.log(`Email ${messageId} not from sent folder, skipping`)
-      return
-    }
-
     // Récupérer la mailbox correspondante
     const mailbox = await getMailboxByUserId(supabase, userId)
     if (!mailbox) {
@@ -585,27 +577,49 @@ async function processNotification(
       return
     }
 
-    // Vérifier si l'email n'existe pas déjà
-    const existingEmail = await getExistingTrackedEmail(supabase, messageDetails.internetMessageId)
-    if (existingEmail) {
-      console.log(`Email ${messageDetails.internetMessageId} already tracked`)
+    // Classifier le type d'email (sortant vs entrant)
+    const emailType = await classifyEmailType(supabase, messageDetails, mailbox)
+    console.log(`Email classified as: ${emailType}`)
+
+    if (emailType === 'unknown') {
+      console.log(`Unable to classify email ${messageId}, skipping`)
       return
     }
 
-    // Vérifier si c'est une réponse à un email tracké
-    if (detectIsReply(messageDetails)) {
-      console.log(`Detected reply email: ${messageDetails.subject}`)
-      await handleEmailResponse(supabase, messageDetails, startTime)
-      return
+    if (emailType === 'outgoing') {
+      // Traitement des emails sortants (à tracker)
+      console.log(`Processing outgoing email: ${messageDetails.subject}`)
+
+      // Vérifier si l'email n'existe pas déjà
+      const existingEmail = await getExistingTrackedEmail(supabase, messageDetails.internetMessageId)
+      if (existingEmail) {
+        console.log(`Email ${messageDetails.internetMessageId} already tracked`)
+        return
+      }
+
+      // Traiter comme un nouvel email à tracker
+      await insertTrackedEmail(supabase, messageDetails, mailbox.id)
+
+      // Log de la détection réussie
+      await logDetectionAttempt(supabase, messageDetails, true, null, 'outgoing_tracked', null, Date.now() - startTime)
+
+      console.log(`Successfully tracked new outgoing email: ${messageDetails.subject}`)
+
+    } else if (emailType === 'incoming') {
+      // Traitement des emails entrants (potentielles réponses)
+      console.log(`Processing incoming email: ${messageDetails.subject}`)
+
+      // Vérifier si c'est une réponse à un email tracké
+      if (detectIsReply(messageDetails)) {
+        console.log(`Detected reply email: ${messageDetails.subject}`)
+        await handleEmailResponse(supabase, messageDetails, startTime)
+        return
+      } else {
+        console.log(`Incoming email is not a reply, ignoring: ${messageDetails.subject}`)
+        await logDetectionAttempt(supabase, messageDetails, false, null, 'incoming_not_reply', 'not_a_reply', Date.now() - startTime)
+        return
+      }
     }
-
-    // Sinon, traiter comme un nouvel email à tracker
-    await insertTrackedEmail(supabase, messageDetails, mailbox.id)
-
-    // Log de la détection réussie
-    await logDetectionAttempt(supabase, messageDetails, true, null, 'conversation_id', null, Date.now() - startTime)
-
-    console.log(`Successfully tracked new email: ${messageDetails.subject}`)
 
   } catch (error) {
     console.error('Error processing notification:', error)
@@ -781,7 +795,51 @@ async function getAccessToken(): Promise<string | null> {
 }
 
 /**
+ * Classifie un email comme sortant, entrant ou inconnu
+ */
+async function classifyEmailType(
+  supabase: EdgeSupabaseClient,
+  messageDetails: EmailMessage,
+  mailbox: MailboxRow
+): Promise<'outgoing' | 'incoming' | 'unknown'> {
+  try {
+    const senderEmail = messageDetails.sender.emailAddress.address.toLowerCase()
+    const mailboxEmail = mailbox.email_address.toLowerCase()
+
+    // Méthode 1: Vérifier si l'expéditeur est la mailbox elle-même (email sortant)
+    if (senderEmail === mailboxEmail) {
+      console.log(`Email classified as outgoing (sender matches mailbox): ${senderEmail}`)
+      return 'outgoing'
+    }
+
+    // Méthode 2: Vérifier le domaine pour les emails internes
+    const senderDomain = senderEmail.split('@')[1]
+    const mailboxDomain = mailboxEmail.split('@')[1]
+
+    // Si même domaine et expéditeur différent, c'est probablement entrant
+    if (senderDomain === mailboxDomain && senderEmail !== mailboxEmail) {
+      console.log(`Email classified as incoming (same domain, different sender): ${senderEmail}`)
+      return 'incoming'
+    }
+
+    // Méthode 3: Email externe - probablement entrant (réponse)
+    if (senderDomain !== mailboxDomain) {
+      console.log(`Email classified as incoming (external sender): ${senderEmail}`)
+      return 'incoming'
+    }
+
+    console.log(`Unable to classify email: sender=${senderEmail}, mailbox=${mailboxEmail}`)
+    return 'unknown'
+
+  } catch (error) {
+    console.error('Error classifying email type:', error)
+    return 'unknown'
+  }
+}
+
+/**
  * Vérifie si l'email provient du dossier "Sent Items" via Microsoft Graph API
+ * @deprecated - Remplacé par classifyEmailType pour surveillance globale
  */
 async function isFromSentFolder(userId: string, messageId: string, accessToken: string | null): Promise<boolean> {
   if (!accessToken) {
