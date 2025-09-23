@@ -196,7 +196,7 @@ async function getMicrosoftGraphToken(): Promise<string> {
 }
 
 /**
- * Envoie une relance via Microsoft Graph
+ * Envoie une relance via Microsoft Graph avec threading et headers personnalisés
  */
 async function sendFollowup(
   supabase: EdgeSupabaseClient,
@@ -209,7 +209,22 @@ async function sendFollowup(
     throw new Error('Microsoft User ID not found for mailbox');
   }
 
-  // Construire le message
+  // Récupérer l'email original pour maintenir le threading
+  const { data: originalEmail, error: emailError } = await supabase
+    .from('tracked_emails')
+    .select('internet_message_id, conversation_id, microsoft_message_id')
+    .eq('id', followup.tracked_email_id)
+    .single();
+
+  if (emailError || !originalEmail) {
+    throw new Error(`Failed to fetch original email details: ${emailError?.message || 'Not found'}`);
+  }
+
+  console.log(`📨 Preparing followup ${followup.followup_number} for tracked email ${followup.tracked_email_id}`);
+  console.log(`   Original conversation: ${originalEmail.conversation_id}`);
+  console.log(`   Original message ID: ${originalEmail.internet_message_id}`);
+
+  // Construire le message avec headers personnalisés pour le threading et l'identification
   const messageData = {
     subject: followup.subject,
     body: {
@@ -221,11 +236,67 @@ async function sendFollowup(
     })),
     from: {
       emailAddress: { address: followup.tracked_email.mailbox.email_address }
-    }
+    },
+    // Headers pour maintenir le threading et identifier la relance
+    internetMessageHeaders: [
+      {
+        name: 'In-Reply-To',
+        value: originalEmail.internet_message_id
+      },
+      {
+        name: 'References',
+        value: originalEmail.internet_message_id
+      },
+      {
+        name: 'X-TrackedMail-Followup',
+        value: 'true'
+      },
+      {
+        name: 'X-TrackedMail-Followup-Number',
+        value: followup.followup_number.toString()
+      },
+      {
+        name: 'X-TrackedMail-Original-Id',
+        value: followup.tracked_email_id
+      },
+      {
+        name: 'X-TrackedMail-System',
+        value: 'automated-followup'
+      },
+      {
+        name: 'X-TrackedMail-Followup-Id',
+        value: followup.id
+      }
+    ],
+    // Conserver le conversationId pour le threading
+    conversationId: originalEmail.conversation_id
   };
 
-  // Envoyer via Microsoft Graph
-  const graphUrl = `https://graph.microsoft.com/v1.0/users/${microsoftUserId}/sendMail`;
+  // Déterminer quelle API utiliser selon le numéro de relance
+  let graphUrl: string;
+  let requestBody: any;
+
+  if (followup.followup_number === 1 && originalEmail.microsoft_message_id) {
+    // Première relance : utiliser l'API reply pour un threading natif optimal
+    console.log(`🔄 Using Reply API for first followup (threading with original message)`);
+    graphUrl = `https://graph.microsoft.com/v1.0/users/${microsoftUserId}/messages/${originalEmail.microsoft_message_id}/reply`;
+
+    // Pour l'API reply, le format est différent
+    requestBody = {
+      message: {
+        toRecipients: messageData.toRecipients,
+        internetMessageHeaders: messageData.internetMessageHeaders
+      },
+      comment: followup.body // Le contenu de la relance va dans le comment
+    };
+  } else {
+    // Relances suivantes ou si pas de microsoft_message_id : utiliser sendMail avec headers de threading
+    console.log(`📮 Using SendMail API with threading headers (followup #${followup.followup_number})`);
+    graphUrl = `https://graph.microsoft.com/v1.0/users/${microsoftUserId}/sendMail`;
+    requestBody = { message: messageData };
+  }
+
+  console.log(`🚀 Sending request to: ${graphUrl}`);
 
   const response = await fetch(graphUrl, {
     method: 'POST',
@@ -233,19 +304,22 @@ async function sendFollowup(
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ message: messageData }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Microsoft Graph API Error: ${response.status} ${errorText}`);
-    throw new Error(`Failed to send email via Microsoft Graph: ${response.status} ${errorText}`);
+    console.error(`❌ Microsoft Graph API Error: ${response.status}`);
+    console.error(`   Error details: ${errorText}`);
+    throw new Error(`Failed to send followup via Microsoft Graph: ${response.status} ${errorText}`);
   }
 
   // Marquer la relance comme envoyée
   await markFollowupAsSent(supabase, followup.id);
 
-  console.log(`📧 Successfully sent followup ${followup.followup_number} for email ${followup.tracked_email_id}`);
+  console.log(`✅ Successfully sent followup ${followup.followup_number} for email ${followup.tracked_email_id}`);
+  console.log(`   Method used: ${followup.followup_number === 1 && originalEmail.microsoft_message_id ? 'Reply API' : 'SendMail with threading'}`);
+  console.log(`   Threading maintained via: ${originalEmail.conversation_id}`);
 }
 
 /**

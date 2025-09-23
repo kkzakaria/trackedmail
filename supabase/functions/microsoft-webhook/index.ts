@@ -590,6 +590,25 @@ async function processNotification(
       // Traitement des emails sortants (à tracker)
       console.log(`Processing outgoing email: ${messageDetails.subject}`)
 
+      // NOUVEAU : Vérifier si c'est une relance automatique via les headers personnalisés
+      const isAutomatedFollowup = isFollowupEmail(messageDetails)
+      if (isAutomatedFollowup) {
+        console.log(`🔄 Automated followup detected, skipping tracking`)
+        console.log(`   Headers indicate followup #${getFollowupNumber(messageDetails)} for tracked email ${getOriginalTrackedEmailId(messageDetails)}`)
+
+        // Log pour monitoring mais pas de tracking
+        await logDetectionAttempt(
+          supabase,
+          messageDetails,
+          false,
+          getOriginalTrackedEmailId(messageDetails),
+          'followup_skipped',
+          'automated_followup',
+          Date.now() - startTime
+        )
+        return
+      }
+
       // Vérifier si l'email n'existe pas déjà
       const existingEmail = await getExistingTrackedEmail(supabase, messageDetails.internetMessageId)
       if (existingEmail) {
@@ -763,7 +782,7 @@ async function shouldExcludeEmail(supabase: EdgeSupabaseClient, message: EmailMe
 /**
  * Récupère un token d'accès depuis le service d'auth
  */
-async function getAccessToken(): Promise<string | null> {
+async function _getAccessToken(): Promise<string | null> {
   try {
     const tokenResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/microsoft-auth`, {
       method: 'POST',
@@ -797,11 +816,11 @@ async function getAccessToken(): Promise<string | null> {
 /**
  * Classifie un email comme sortant, entrant ou inconnu
  */
-async function classifyEmailType(
-  supabase: EdgeSupabaseClient,
+function classifyEmailType(
+  _supabase: EdgeSupabaseClient,
   messageDetails: EmailMessage,
   mailbox: MailboxRow
-): Promise<'outgoing' | 'incoming' | 'unknown'> {
+): 'outgoing' | 'incoming' | 'unknown' {
   try {
     const senderEmail = messageDetails.sender.emailAddress.address.toLowerCase()
     const mailboxEmail = mailbox.email_address.toLowerCase()
@@ -841,7 +860,7 @@ async function classifyEmailType(
  * Vérifie si l'email provient du dossier "Sent Items" via Microsoft Graph API
  * @deprecated - Remplacé par classifyEmailType pour surveillance globale
  */
-async function isFromSentFolder(userId: string, messageId: string, accessToken: string | null): Promise<boolean> {
+async function _isFromSentFolder(userId: string, messageId: string, accessToken: string | null): Promise<boolean> {
   if (!accessToken) {
     console.warn('No access token available for folder check')
     return false
@@ -1325,4 +1344,53 @@ function calculateThreadPosition(conversationIndex?: string): number {
     console.warn('Error calculating thread position:', error)
     return 1
   }
+}
+
+/**
+ * Vérifie si un email est une relance automatique via les headers personnalisés
+ */
+function isFollowupEmail(message: EmailMessage): boolean {
+  if (!message.internetMessageHeaders || message.internetMessageHeaders.length === 0) {
+    return false
+  }
+
+  // Rechercher les headers TrackedMail
+  for (const header of message.internetMessageHeaders) {
+    if (header.name === 'X-TrackedMail-Followup' && header.value === 'true') {
+      console.log('📌 Detected X-TrackedMail-Followup header')
+      return true
+    }
+    if (header.name === 'X-TrackedMail-System' && header.value === 'automated-followup') {
+      console.log('📌 Detected X-TrackedMail-System automated-followup header')
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Récupère le numéro de relance depuis les headers
+ */
+function getFollowupNumber(message: EmailMessage): number | null {
+  if (!message.internetMessageHeaders) return null
+
+  const header = message.internetMessageHeaders.find(
+    h => h.name === 'X-TrackedMail-Followup-Number'
+  )
+
+  return header ? parseInt(header.value) : null
+}
+
+/**
+ * Récupère l'ID de l'email original tracké depuis les headers
+ */
+function getOriginalTrackedEmailId(message: EmailMessage): string | null {
+  if (!message.internetMessageHeaders) return null
+
+  const header = message.internetMessageHeaders.find(
+    h => h.name === 'X-TrackedMail-Original-Id'
+  )
+
+  return header ? header.value : null
 }
