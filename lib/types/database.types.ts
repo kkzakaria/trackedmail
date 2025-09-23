@@ -779,7 +779,6 @@ export type Database = {
       webhook_subscriptions: {
         Row: {
           change_type: string;
-          client_state: string;
           created_at: string | null;
           expiration_date_time: string;
           id: string;
@@ -794,7 +793,6 @@ export type Database = {
         };
         Insert: {
           change_type: string;
-          client_state: string;
           created_at?: string | null;
           expiration_date_time: string;
           id?: string;
@@ -809,7 +807,6 @@ export type Database = {
         };
         Update: {
           change_type?: string;
-          client_state?: string;
           created_at?: string | null;
           expiration_date_time?: string;
           id?: string;
@@ -982,6 +979,10 @@ export type Database = {
       };
     };
     Functions: {
+      can_access_followup: {
+        Args: { tracked_email_id_param: string };
+        Returns: boolean;
+      };
       clean_email_subject: {
         Args: { subject: string };
         Returns: string;
@@ -989,6 +990,14 @@ export type Database = {
       cleanup_old_deleted_users: {
         Args: { older_than_days?: number };
         Returns: number;
+      };
+      current_user_mailbox_ids: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      current_user_role: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
       };
       disable_user_sync: {
         Args: Record<PropertyKey, never>;
@@ -1000,6 +1009,14 @@ export type Database = {
       };
       hard_delete_user: {
         Args: { user_id: string };
+        Returns: boolean;
+      };
+      is_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      is_manager_or_admin: {
+        Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
       is_user_deleted: {

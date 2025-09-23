@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -15,7 +15,7 @@ import {
   SortingState,
   useReactTable,
   VisibilityState,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 import {
   ChevronDownIcon,
   ChevronFirstIcon,
@@ -30,9 +30,9 @@ import {
   ListFilterIcon,
   MailIcon,
   StopCircleIcon,
-} from "lucide-react"
+} from "lucide-react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,35 +43,35 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
-} from "@/components/ui/pagination"
+} from "@/components/ui/pagination";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -79,73 +79,79 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
-import { TrackedEmailStatusBadge } from "./TrackedEmailStatusBadge"
-import { TrackedEmailActions } from "./TrackedEmailActions"
-import { useTrackedEmails } from "@/lib/hooks/useTrackedEmails"
-import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types"
+import { TrackedEmailStatusBadge } from "./TrackedEmailStatusBadge";
+import { TrackedEmailActions } from "./TrackedEmailActions";
+import { useTrackedEmails } from "@/lib/hooks/useTrackedEmails";
+import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types";
 
 // Custom filter function for multi-column searching
-const multiColumnFilterFn: FilterFn<TrackedEmailWithDetails> = (row, _columnId, filterValue) => {
-  const email = row.original
+const multiColumnFilterFn: FilterFn<TrackedEmailWithDetails> = (
+  row,
+  _columnId,
+  filterValue
+) => {
+  const email = row.original;
   const searchableContent = [
     email.subject,
     email.recipient_emails.join(" "),
     email.sender_email,
     email.mailbox?.email_address || "",
-  ].join(" ").toLowerCase()
+  ]
+    .join(" ")
+    .toLowerCase();
 
-  const searchTerm = (filterValue ?? "").toLowerCase()
-  return searchableContent.includes(searchTerm)
-}
+  const searchTerm = (filterValue ?? "").toLowerCase();
+  return searchableContent.includes(searchTerm);
+};
 
 const statusFilterFn: FilterFn<TrackedEmailWithDetails> = (
   row,
   columnId,
   filterValue: EmailStatus[]
 ) => {
-  if (!filterValue?.length) return true
-  const status = row.getValue(columnId) as EmailStatus
-  return filterValue.includes(status)
-}
+  if (!filterValue?.length) return true;
+  const status = row.getValue(columnId) as EmailStatus;
+  return filterValue.includes(status);
+};
 
 // Format date for display
 const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
+  const date = new Date(dateString);
   return date.toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  })
-}
+  });
+};
 
 // Format recipient list
 const formatRecipients = (recipients: string[], maxShow = 2) => {
   if (recipients.length <= maxShow) {
-    return recipients.join(", ")
+    return recipients.join(", ");
   }
-  return `${recipients.slice(0, maxShow).join(", ")} +${recipients.length - maxShow}`
-}
+  return `${recipients.slice(0, maxShow).join(", ")} +${recipients.length - maxShow}`;
+};
 
 export default function TrackedEmailsTable() {
-  const id = useId()
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const id = useId();
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
-  })
-  const inputRef = useRef<HTMLInputElement>(null)
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [sorting, setSorting] = useState<SortingState>([
     {
       id: "sent_at",
       desc: true,
     },
-  ])
+  ]);
 
   const {
     emails,
@@ -166,157 +172,172 @@ export default function TrackedEmailsTable() {
     pageSize: pagination.pageSize,
     sortBy: sorting[0]?.id || "sent_at",
     sortOrder: sorting[0]?.desc ? "desc" : "asc",
-  })
+  });
 
-  const columns: ColumnDef<TrackedEmailWithDetails>[] = useMemo(() => [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      size: 28,
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      header: "Destinataire",
-      accessorKey: "recipient_emails",
-      cell: ({ row }) => {
-        const email = row.original
-        return (
-          <div className="min-w-0">
-            <div className="font-medium truncate">{formatRecipients(email.recipient_emails)}</div>
-            <div className="text-sm text-muted-foreground truncate">{email.subject}</div>
-          </div>
-        )
+  const columns: ColumnDef<TrackedEmailWithDetails>[] = useMemo(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={value => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        size: 28,
+        enableSorting: false,
+        enableHiding: false,
       },
-      size: 250,
-      filterFn: multiColumnFilterFn,
-      enableHiding: false,
-    },
-    {
-      header: "Boîte mail",
-      accessorKey: "mailbox",
-      cell: ({ row }) => (
-        <div className="text-sm">
-          <div className="font-medium">{row.original.mailbox?.display_name || "N/A"}</div>
-          <div className="text-muted-foreground">{row.original.mailbox?.email_address}</div>
-        </div>
-      ),
-      size: 200,
-    },
-    {
-      header: "Statut",
-      accessorKey: "status",
-      cell: ({ row }) => (
-        <TrackedEmailStatusBadge status={row.getValue("status")} />
-      ),
-      size: 120,
-      filterFn: statusFilterFn,
-    },
-    {
-      header: "Envoyé le",
-      accessorKey: "sent_at",
-      cell: ({ row }) => {
-        const email = row.original
-        return (
+      {
+        header: "Destinataire",
+        accessorKey: "recipient_emails",
+        cell: ({ row }) => {
+          const email = row.original;
+          return (
+            <div className="min-w-0">
+              <div className="truncate font-medium">
+                {formatRecipients(email.recipient_emails)}
+              </div>
+              <div className="text-muted-foreground truncate text-sm">
+                {email.subject}
+              </div>
+            </div>
+          );
+        },
+        size: 250,
+        filterFn: multiColumnFilterFn,
+        enableHiding: false,
+      },
+      {
+        header: "Boîte mail",
+        accessorKey: "mailbox",
+        cell: ({ row }) => (
           <div className="text-sm">
-            <div>{formatDate(email.sent_at)}</div>
-            <div className="text-muted-foreground">
-              Il y a {email.days_since_sent} jour{email.days_since_sent > 1 ? "s" : ""}
-            </div>
-          </div>
-        )
-      },
-      size: 140,
-    },
-    {
-      header: "Suivi",
-      accessorKey: "followup_count",
-      cell: ({ row }) => {
-        const email = row.original
-        return (
-          <div className="text-sm text-center">
-            <div className="flex items-center justify-center gap-1">
-              <MailIcon className="h-3 w-3" />
-              <span>{email.response_count}</span>
+            <div className="font-medium">
+              {row.original.mailbox?.display_name || "N/A"}
             </div>
             <div className="text-muted-foreground">
-              {email.followup_count} relance{email.followup_count > 1 ? "s" : ""}
+              {row.original.mailbox?.email_address}
             </div>
           </div>
-        )
+        ),
+        size: 200,
       },
-      size: 100,
-    },
-    {
-      id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
-      cell: ({ row }) => (
-        <TrackedEmailActions
-          row={row}
-          onStatusUpdate={updateEmailStatus}
-          onViewDetails={(email) => {
-            console.warn("View details:", email)
-            // TODO: Implement details modal/page
-          }}
-          onSendFollowup={(email) => {
-            console.warn("Send followup:", email)
-            // TODO: Implement followup modal
-          }}
-        />
-      ),
-      size: 60,
-      enableHiding: false,
-    },
-  ], [updateEmailStatus])
+      {
+        header: "Statut",
+        accessorKey: "status",
+        cell: ({ row }) => (
+          <TrackedEmailStatusBadge status={row.getValue("status")} />
+        ),
+        size: 120,
+        filterFn: statusFilterFn,
+      },
+      {
+        header: "Envoyé le",
+        accessorKey: "sent_at",
+        cell: ({ row }) => {
+          const email = row.original;
+          return (
+            <div className="text-sm">
+              <div>{formatDate(email.sent_at)}</div>
+              <div className="text-muted-foreground">
+                Il y a {email.days_since_sent} jour
+                {email.days_since_sent > 1 ? "s" : ""}
+              </div>
+            </div>
+          );
+        },
+        size: 140,
+      },
+      {
+        header: "Suivi",
+        accessorKey: "followup_count",
+        cell: ({ row }) => {
+          const email = row.original;
+          return (
+            <div className="text-center text-sm">
+              <div className="flex items-center justify-center gap-1">
+                <MailIcon className="h-3 w-3" />
+                <span>{email.response_count}</span>
+              </div>
+              <div className="text-muted-foreground">
+                {email.followup_count} relance
+                {email.followup_count > 1 ? "s" : ""}
+              </div>
+            </div>
+          );
+        },
+        size: 100,
+      },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <TrackedEmailActions
+            row={row}
+            onStatusUpdate={updateEmailStatus}
+            onViewDetails={email => {
+              console.warn("View details:", email);
+              // TODO: Implement details modal/page
+            }}
+            onSendFollowup={email => {
+              console.warn("Send followup:", email);
+              // TODO: Implement followup modal
+            }}
+          />
+        ),
+        size: 60,
+        enableHiding: false,
+      },
+    ],
+    [updateEmailStatus]
+  );
 
   const handleBulkStop = async () => {
-    const selectedRows = table.getSelectedRowModel().rows
-    const emailIds = selectedRows.map(row => row.original.id)
+    const selectedRows = table.getSelectedRowModel().rows;
+    const emailIds = selectedRows.map(row => row.original.id);
 
     try {
-      await bulkUpdateStatus(emailIds, "stopped")
-      table.resetRowSelection()
+      await bulkUpdateStatus(emailIds, "stopped");
+      table.resetRowSelection();
     } catch (error) {
-      console.error("Failed to stop emails:", error)
+      console.error("Failed to stop emails:", error);
     }
-  }
+  };
 
   const table = useReactTable({
     data: emails,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    onSortingChange: (updater) => {
-      const newSorting = typeof updater === "function" ? updater(sorting) : updater
-      setSorting(newSorting)
+    onSortingChange: updater => {
+      const newSorting =
+        typeof updater === "function" ? updater(sorting) : updater;
+      setSorting(newSorting);
       if (newSorting[0]) {
-        setTableSorting(newSorting[0].id, newSorting[0].desc ? "desc" : "asc")
+        setTableSorting(newSorting[0].id, newSorting[0].desc ? "desc" : "asc");
       }
     },
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
-    onPaginationChange: (updater) => {
-      const newPagination = typeof updater === "function" ? updater(pagination) : updater
-      setPagination(newPagination)
-      setPage(newPagination.pageIndex)
+    onPaginationChange: updater => {
+      const newPagination =
+        typeof updater === "function" ? updater(pagination) : updater;
+      setPagination(newPagination);
+      setPage(newPagination.pageIndex);
       if (newPagination.pageSize !== pagination.pageSize) {
-        setPageSize(newPagination.pageSize)
+        setPageSize(newPagination.pageSize);
       }
     },
     onColumnFiltersChange: setColumnFilters,
@@ -331,57 +352,64 @@ export default function TrackedEmailsTable() {
     },
     manualPagination: true,
     pageCount: totalPages,
-  })
+  });
 
   // Update filters when search changes
   useEffect(() => {
-    const searchFilter = columnFilters.find(filter => filter.id === "recipient_emails")
-    const statusFilter = columnFilters.find(filter => filter.id === "status")
+    const searchFilter = columnFilters.find(
+      filter => filter.id === "recipient_emails"
+    );
+    const statusFilter = columnFilters.find(filter => filter.id === "status");
 
     setFilters({
       search: searchFilter?.value as string,
       status: statusFilter?.value as EmailStatus[],
-    })
-  }, [columnFilters, setFilters])
+    });
+  }, [columnFilters, setFilters]);
 
   // Get unique status values for filter
   const uniqueStatusValues = useMemo(() => {
-    return Object.keys(statusCounts) as EmailStatus[]
-  }, [statusCounts])
+    return Object.keys(statusCounts) as EmailStatus[];
+  }, [statusCounts]);
+
+  // Extract complex expression for React hooks dependencies
+  const statusColumn = table.getColumn("status");
+  const statusFilterValue = statusColumn?.getFilterValue() as EmailStatus[];
 
   const selectedStatuses = useMemo(() => {
-    const filterValue = table.getColumn("status")?.getFilterValue() as EmailStatus[]
-    return filterValue ?? []
-  }, [table.getColumn("status")?.getFilterValue()])
+    return statusFilterValue ?? [];
+  }, [statusFilterValue]);
 
   const handleStatusChange = (checked: boolean, value: EmailStatus) => {
-    const filterValue = table.getColumn("status")?.getFilterValue() as EmailStatus[]
-    const newFilterValue = filterValue ? [...filterValue] : []
+    const filterValue = table
+      .getColumn("status")
+      ?.getFilterValue() as EmailStatus[];
+    const newFilterValue = filterValue ? [...filterValue] : [];
 
     if (checked) {
-      newFilterValue.push(value)
+      newFilterValue.push(value);
     } else {
-      const index = newFilterValue.indexOf(value)
+      const index = newFilterValue.indexOf(value);
       if (index > -1) {
-        newFilterValue.splice(index, 1)
+        newFilterValue.splice(index, 1);
       }
     }
 
     table
       .getColumn("status")
-      ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined)
-  }
+      ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
+  };
 
   if (error) {
     return (
       <div className="p-8 text-center">
-        <div className="text-red-600 mb-2">Erreur de chargement</div>
-        <div className="text-sm text-muted-foreground">{error}</div>
+        <div className="mb-2 text-red-600">Erreur de chargement</div>
+        <div className="text-muted-foreground text-sm">{error}</div>
         <Button onClick={refetch} className="mt-4">
           Réessayer
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -396,13 +424,18 @@ export default function TrackedEmailsTable() {
               ref={inputRef}
               className={cn(
                 "peer min-w-60 ps-9",
-                Boolean(table.getColumn("recipient_emails")?.getFilterValue()) && "pe-9"
+                Boolean(
+                  table.getColumn("recipient_emails")?.getFilterValue()
+                ) && "pe-9"
               )}
               value={
-                (table.getColumn("recipient_emails")?.getFilterValue() ?? "") as string
+                (table.getColumn("recipient_emails")?.getFilterValue() ??
+                  "") as string
               }
-              onChange={(e) =>
-                table.getColumn("recipient_emails")?.setFilterValue(e.target.value)
+              onChange={e =>
+                table
+                  .getColumn("recipient_emails")
+                  ?.setFilterValue(e.target.value)
               }
               placeholder="Rechercher par destinataire ou sujet..."
               type="text"
@@ -416,9 +449,9 @@ export default function TrackedEmailsTable() {
                 className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Clear filter"
                 onClick={() => {
-                  table.getColumn("recipient_emails")?.setFilterValue("")
+                  table.getColumn("recipient_emails")?.setFilterValue("");
                   if (inputRef.current) {
-                    inputRef.current.focus()
+                    inputRef.current.focus();
                   }
                 }}
               >
@@ -491,21 +524,21 @@ export default function TrackedEmailsTable() {
               <DropdownMenuLabel>Afficher/masquer colonnes</DropdownMenuLabel>
               {table
                 .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
+                .filter(column => column.getCanHide())
+                .map(column => {
                   return (
                     <DropdownMenuCheckboxItem
                       key={column.id}
                       className="capitalize"
                       checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
+                      onCheckedChange={value =>
                         column.toggleVisibility(!!value)
                       }
-                      onSelect={(event) => event.preventDefault()}
+                      onSelect={event => event.preventDefault()}
                     >
                       {column.id}
                     </DropdownMenuCheckboxItem>
-                  )
+                  );
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -543,9 +576,12 @@ export default function TrackedEmailsTable() {
                     <AlertDialogDescription>
                       Cette action arrêtera le suivi de{" "}
                       {table.getSelectedRowModel().rows.length} email
-                      {table.getSelectedRowModel().rows.length === 1 ? "" : "s"} sélectionné
-                      {table.getSelectedRowModel().rows.length === 1 ? "" : "s"}.
-                      Aucune relance automatique ne sera envoyée.
+                      {table.getSelectedRowModel().rows.length === 1
+                        ? ""
+                        : "s"}{" "}
+                      sélectionné
+                      {table.getSelectedRowModel().rows.length === 1 ? "" : "s"}
+                      . Aucune relance automatique ne sera envoyée.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                 </div>
@@ -565,9 +601,9 @@ export default function TrackedEmailsTable() {
       <div className="bg-background overflow-hidden rounded-md border">
         <Table className="table-fixed">
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+            {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => {
+                {headerGroup.headers.map(header => {
                   return (
                     <TableHead
                       key={header.id}
@@ -581,13 +617,13 @@ export default function TrackedEmailsTable() {
                               "flex h-full cursor-pointer items-center justify-between gap-2 select-none"
                           )}
                           onClick={header.column.getToggleSortingHandler()}
-                          onKeyDown={(e) => {
+                          onKeyDown={e => {
                             if (
                               header.column.getCanSort() &&
                               (e.key === "Enter" || e.key === " ")
                             ) {
-                              e.preventDefault()
-                              header.column.getToggleSortingHandler()?.(e)
+                              e.preventDefault();
+                              header.column.getToggleSortingHandler()?.(e);
                             }
                           }}
                           tabIndex={header.column.getCanSort() ? 0 : undefined}
@@ -620,7 +656,7 @@ export default function TrackedEmailsTable() {
                         )
                       )}
                     </TableHead>
-                  )
+                  );
                 })}
               </TableRow>
             ))}
@@ -636,12 +672,12 @@ export default function TrackedEmailsTable() {
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map(row => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
+                  {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id} className="last:py-0">
                       {flexRender(
                         cell.column.columnDef.cell,
@@ -674,15 +710,15 @@ export default function TrackedEmailsTable() {
           </Label>
           <Select
             value={table.getState().pagination.pageSize.toString()}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value))
+            onValueChange={value => {
+              table.setPageSize(Number(value));
             }}
           >
             <SelectTrigger id={id} className="w-fit whitespace-nowrap">
               <SelectValue placeholder="Nombre de résultats" />
             </SelectTrigger>
             <SelectContent className="[&_*[role=option]]:ps-2 [&_*[role=option]]:pe-8 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:end-2">
-              {[5, 10, 25, 50].map((pageSize) => (
+              {[5, 10, 25, 50].map(pageSize => (
                 <SelectItem key={pageSize} value={pageSize.toString()}>
                   {pageSize}
                 </SelectItem>
@@ -708,10 +744,7 @@ export default function TrackedEmailsTable() {
                 count
               )}
             </span>{" "}
-            sur{" "}
-            <span className="text-foreground">
-              {count}
-            </span>
+            sur <span className="text-foreground">{count}</span>
           </p>
         </div>
 
@@ -776,5 +809,5 @@ export default function TrackedEmailsTable() {
         </div>
       </div>
     </div>
-  )
+  );
 }

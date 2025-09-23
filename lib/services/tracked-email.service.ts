@@ -1,10 +1,27 @@
 import { createClient } from "@/lib/supabase/client";
-import type { TrackedEmailWithDetails, EmailStatus, Database } from "@/lib/types";
+import type {
+  TrackedEmailWithDetails,
+  EmailStatus,
+  EmailImportance,
+  Database,
+} from "@/lib/types";
 
 const supabase = createClient();
 
+// Types de base de données
 type TrackedEmailRow = Database["public"]["Tables"]["tracked_emails"]["Row"];
 type MailboxRow = Database["public"]["Tables"]["mailboxes"]["Row"];
+
+// Type pour les emails avec mailbox jointe
+type TrackedEmailWithMailbox = TrackedEmailRow & {
+  mailbox: Pick<MailboxRow, "id" | "email_address" | "display_name"> | null;
+};
+
+// Type pour les mises à jour
+type EmailUpdateData = {
+  status: EmailStatus;
+  stopped_at?: string;
+};
 
 export interface TrackedEmailFilters {
   search?: string;
@@ -38,10 +55,8 @@ export class TrackedEmailService {
     } = options;
 
     // Build the base query with joins
-    let query = supabase
-      .from("tracked_emails")
-      .select(
-        `
+    let query = supabase.from("tracked_emails").select(
+      `
         *,
         mailbox:mailboxes!inner(
           id,
@@ -49,8 +64,8 @@ export class TrackedEmailService {
           display_name
         )
         `,
-        { count: "exact" }
-      );
+      { count: "exact" }
+    );
 
     // Apply filters
     if (filters.search) {
@@ -91,7 +106,7 @@ export class TrackedEmailService {
 
     // Enrich with calculated fields
     const enrichedEmails = await Promise.all(
-      (rawEmails || []).map(async (email) => {
+      (rawEmails || []).map(async email => {
         const enriched = await this.enrichTrackedEmail(email);
         return enriched;
       })
@@ -109,7 +124,9 @@ export class TrackedEmailService {
   /**
    * Enrich a tracked email with calculated data
    */
-  private static async enrichTrackedEmail(email: TrackedEmailRow & { mailbox: MailboxRow }): Promise<TrackedEmailWithDetails> {
+  private static async enrichTrackedEmail(
+    email: TrackedEmailWithMailbox
+  ): Promise<TrackedEmailWithDetails> {
     // Get response count
     const { count: responseCount } = await supabase
       .from("email_responses")
@@ -145,12 +162,12 @@ export class TrackedEmailService {
       cc_emails: email.cc_emails,
       bcc_emails: email.bcc_emails,
       body_preview: email.body_preview,
-      status: email.status,
+      status: email.status as EmailStatus,
       sent_at: email.sent_at,
       responded_at: email.responded_at,
       stopped_at: email.stopped_at,
       has_attachments: email.has_attachments,
-      importance: email.importance,
+      importance: email.importance as EmailImportance | null,
       mailbox: email.mailbox,
       response_count: responseCount || 0,
       followup_count: followupCount,
@@ -166,13 +183,16 @@ export class TrackedEmailService {
     const { data, error } = await supabase
       .from("tracked_emails")
       .select("status")
-      .then(async (result) => {
+      .then(async result => {
         if (result.error) throw result.error;
 
-        const counts = result.data.reduce((acc: Record<string, number>, email: { status: string }) => {
-          acc[email.status] = (acc[email.status] || 0) + 1;
-          return acc;
-        }, {});
+        const counts = result.data.reduce(
+          (acc: Record<string, number>, email: { status: string }) => {
+            acc[email.status] = (acc[email.status] || 0) + 1;
+            return acc;
+          },
+          {}
+        );
 
         return { data: counts, error: null };
       });
@@ -188,7 +208,7 @@ export class TrackedEmailService {
    * Update email status (stop tracking, resume, etc.)
    */
   static async updateEmailStatus(emailId: string, status: EmailStatus) {
-    const updateData: any = { status };
+    const updateData: EmailUpdateData = { status };
 
     if (status === "stopped") {
       updateData.stopped_at = new Date().toISOString();
@@ -212,7 +232,7 @@ export class TrackedEmailService {
    * Bulk update email statuses
    */
   static async bulkUpdateStatus(emailIds: string[], status: EmailStatus) {
-    const updateData: any = { status };
+    const updateData: EmailUpdateData = { status };
 
     if (status === "stopped") {
       updateData.stopped_at = new Date().toISOString();
@@ -234,7 +254,9 @@ export class TrackedEmailService {
   /**
    * Get tracked email details with full relations
    */
-  static async getTrackedEmailById(id: string): Promise<TrackedEmailWithDetails | null> {
+  static async getTrackedEmailById(
+    id: string
+  ): Promise<TrackedEmailWithDetails | null> {
     const { data, error } = await supabase
       .from("tracked_emails")
       .select(
@@ -279,7 +301,14 @@ export class TrackedEmailService {
   /**
    * Subscribe to real-time updates for tracked emails
    */
-  static subscribeToChanges(callback: (payload: any) => void) {
+  static subscribeToChanges(
+    callback: (payload: {
+      eventType: "INSERT" | "UPDATE" | "DELETE";
+      new: Record<string, unknown>;
+      old: Record<string, unknown>;
+      errors: string[] | null;
+    }) => void
+  ) {
     const subscription = supabase
       .channel("tracked_emails_changes")
       .on(

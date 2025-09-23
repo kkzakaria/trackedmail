@@ -272,27 +272,28 @@ export default function Component() {
   })
 
   // Get unique status values
-  const uniqueStatusValues = useMemo(() => {
-    const statusColumn = table.getColumn("status")
+  // Extract complex expressions for React hooks dependencies
+  const statusColumn = table.getColumn("status")
+  const statusFacetedValues = statusColumn?.getFacetedUniqueValues()
+  const statusFilterValue = statusColumn?.getFilterValue() as string[]
 
+  const uniqueStatusValues = useMemo(() => {
     if (!statusColumn) return []
 
     const values = Array.from(statusColumn.getFacetedUniqueValues().keys())
 
     return values.sort()
-  }, [table.getColumn("status")?.getFacetedUniqueValues()])
+  }, [table, statusFacetedValues])
 
   // Get counts for each status
   const statusCounts = useMemo(() => {
-    const statusColumn = table.getColumn("status")
     if (!statusColumn) return new Map()
     return statusColumn.getFacetedUniqueValues()
-  }, [table.getColumn("status")?.getFacetedUniqueValues()])
+  }, [table, statusFacetedValues])
 
   const selectedStatuses = useMemo(() => {
-    const filterValue = table.getColumn("status")?.getFilterValue() as string[]
-    return filterValue ?? []
-  }, [table.getColumn("status")?.getFilterValue()])
+    return statusFilterValue ?? []
+  }, [table, statusFilterValue])
 
   const handleStatusChange = (checked: boolean, value: string) => {
     const filterValue = table.getColumn("status")?.getFilterValue() as string[]
