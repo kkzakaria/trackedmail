@@ -34,12 +34,9 @@ const DEFAULT_CONFIG: MicrosoftGraphConfig = {
 
 /**
  * Scopes nécessaires pour l'application (Application Permissions)
+ * Pour Client Credentials flow, on utilise /.default
  */
-const REQUIRED_SCOPES = [
-  "https://graph.microsoft.com/Mail.ReadWrite",
-  "https://graph.microsoft.com/Mail.Send",
-  "https://graph.microsoft.com/User.Read.All",
-];
+const REQUIRED_SCOPES = ["https://graph.microsoft.com/.default"];
 
 /**
  * Service principal pour Microsoft Graph
@@ -91,6 +88,13 @@ export class MicrosoftGraphService {
           if (!this.credential) {
             throw new Error("Credential not initialized");
           }
+
+          // Debug logs for development
+          if (process.env.NODE_ENV === "development") {
+            console.warn("🔍 Microsoft Graph Service - Acquiring token...");
+            console.warn("- Requested scopes:", requestedScopes);
+          }
+
           const tokenResponse = await this.credential.getToken(requestedScopes);
 
           if (!tokenResponse) {
@@ -139,6 +143,14 @@ export class MicrosoftGraphService {
     const clientId = process.env.MICROSOFT_CLIENT_ID;
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
     const tenantId = process.env.MICROSOFT_TENANT_ID;
+
+    // Debug logs for development
+    if (process.env.NODE_ENV === "development") {
+      console.warn("🔍 Microsoft Graph Service - Auth Config:");
+      console.warn("- Client ID present:", !!clientId);
+      console.warn("- Client Secret present:", !!clientSecret);
+      console.warn("- Tenant ID present:", !!tenantId);
+    }
 
     if (!clientId || !clientSecret || !tenantId) {
       throw new Error(
@@ -243,6 +255,46 @@ export class MicrosoftGraphService {
     } catch (error) {
       console.warn(`Failed to resolve email ${email} to user ID:`, error);
       return null;
+    }
+  }
+
+  /**
+   * Récupère les informations complètes d'un utilisateur par son email
+   */
+  async getUserByEmail(email: string): Promise<MicrosoftGraphUser | null> {
+    try {
+      const client = await this.initializeClient();
+
+      const users = await client
+        .api("/users")
+        .filter(`mail eq '${email}' or userPrincipalName eq '${email}'`)
+        .select([
+          "id",
+          "userPrincipalName",
+          "displayName",
+          "givenName",
+          "surname",
+          "mail",
+          "mobilePhone",
+          "officeLocation",
+          "preferredLanguage",
+          "jobTitle",
+          "department",
+        ])
+        .get();
+
+      if (users.value && users.value.length > 0) {
+        return users.value[0] as MicrosoftGraphUser;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn(`Failed to get user info for email ${email}:`, error);
+      throw this.createGraphError(
+        "USER_NOT_FOUND",
+        `Failed to get user info for email ${email}`,
+        error
+      );
     }
   }
 

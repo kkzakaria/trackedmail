@@ -10,12 +10,16 @@
     "app/**/*.tsx",
     "lib/**/*.ts",
     "lib/**/*.tsx",
+    "components/mailboxes/**/*.ts",
+    "components/mailboxes/**/*.tsx",
+    "components/followups/**/*.ts",
+    "components/followups/**/*.tsx",
     "components/tracked-emails/**/*.ts",
     "components/tracked-emails/**/*.tsx"
   ],
   "exclude": [
     "node_modules",
-    "components/ui/**",
+    "components/ui/**/*",
     ".next/**",
     "out/**",
     "build/**",

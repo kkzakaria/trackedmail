@@ -89,7 +89,7 @@ function DropdownMenuCheckboxItem({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
   return (
-    // @ts-expect-error - Shadcn/UI component with acceptable type flexibility
+    // @ts-ignore - Disable strict type checking for exactOptionalPropertyTypes
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
