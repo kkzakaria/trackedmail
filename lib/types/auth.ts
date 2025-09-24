@@ -14,9 +14,8 @@ export interface AuthUser {
   email: string;
   full_name?: string | null;
   role: UserRole;
-  mailbox_address?: string | null;
   timezone: string;
-  pause_relances: boolean;
+  is_active: boolean;
 }
 
 // Auth context type

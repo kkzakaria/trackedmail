@@ -395,6 +395,7 @@ export type Database = {
           is_active: boolean | null;
           last_sync: string | null;
           microsoft_user_id: string | null;
+          pause_followups: boolean;
           updated_at: string | null;
         };
         Insert: {
@@ -405,6 +406,7 @@ export type Database = {
           is_active?: boolean | null;
           last_sync?: string | null;
           microsoft_user_id?: string | null;
+          pause_followups?: boolean;
           updated_at?: string | null;
         };
         Update: {
@@ -415,6 +417,7 @@ export type Database = {
           is_active?: boolean | null;
           last_sync?: string | null;
           microsoft_user_id?: string | null;
+          pause_followups?: boolean;
           updated_at?: string | null;
         };
         Relationships: [];
@@ -801,8 +804,7 @@ export type Database = {
           email: string;
           full_name: string | null;
           id: string;
-          mailbox_address: string | null;
-          pause_relances: boolean | null;
+          is_active: boolean;
           role: string;
           timezone: string | null;
           updated_at: string | null;
@@ -813,8 +815,7 @@ export type Database = {
           email: string;
           full_name?: string | null;
           id?: string;
-          mailbox_address?: string | null;
-          pause_relances?: boolean | null;
+          is_active?: boolean;
           role: string;
           timezone?: string | null;
           updated_at?: string | null;
@@ -825,8 +826,7 @@ export type Database = {
           email?: string;
           full_name?: string | null;
           id?: string;
-          mailbox_address?: string | null;
-          pause_relances?: boolean | null;
+          is_active?: boolean;
           role?: string;
           timezone?: string | null;
           updated_at?: string | null;
@@ -940,8 +940,7 @@ export type Database = {
           email: string | null;
           full_name: string | null;
           id: string | null;
-          mailbox_address: string | null;
-          pause_relances: boolean | null;
+          is_active: boolean | null;
           role: string | null;
           timezone: string | null;
           updated_at: string | null;
@@ -951,8 +950,7 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           id?: string | null;
-          mailbox_address?: string | null;
-          pause_relances?: boolean | null;
+          is_active?: boolean | null;
           role?: string | null;
           timezone?: string | null;
           updated_at?: string | null;
@@ -962,8 +960,7 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           id?: string | null;
-          mailbox_address?: string | null;
-          pause_relances?: boolean | null;
+          is_active?: boolean | null;
           role?: string | null;
           timezone?: string | null;
           updated_at?: string | null;
