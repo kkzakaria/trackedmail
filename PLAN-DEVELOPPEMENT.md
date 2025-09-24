@@ -131,6 +131,19 @@
 - **Sécurité Webhook OWASP** : Validation JWT, HMAC-SHA256, protection replay attacks
 - **Tests Réels Concluants** : Système validé en conditions réelles avec ngrok tunnel
 
+### ✅ Système de Relances avec Coordination Manuel/Automatique (24 septembre 2025)
+
+- **Architecture Complète** : Système de relances automatiques avec coordination intelligente ✅
+- **Détection Relances Manuelles** : Via conversationId Microsoft Graph pour détecter Reply Outlook ✅
+- **Coordination Intelligente** : Replanification automatique des relances auto après relance manuelle ✅
+- **Base de Données Étendue** : Table `manual_followups`, vue `followup_activity_summary`, fonctions SQL ✅
+- **Edge Functions Adaptées** : `microsoft-webhook` détecte, `followup-scheduler` coordonne ✅
+- **Respect Limites** : Maximum 3 relances total (manuel + automatique) avec séquençage ✅
+- **Configuration Heures Ouvrables** : 7h-18h UTC configurable avec report automatique ✅
+- **Interface Dashboard** : Components React pour métriques et gestion des relances ✅
+- **Documentation Technique** : 3 documents complets (architecture, API, guide) ✅
+- **Tests Validés** : Scénarios complets testés en local avec debug logging ✅
+
 ## 🎯 Plan de Développement Structuré
 
 ### Phase 1: Fondations Techniques (1-2 semaines)
@@ -222,17 +235,21 @@
 - [x] Webhook receiver pour Microsoft Graph ✅ Fonctionnel avec validation OWASP
 - [x] Logique de détection des réponses (threading) ✅ Multi-méthodes (conversationId, references)
 - [x] Gestion automatique des abonnements webhook ✅ Surveillance globale /messages
-- [ ] Fonctions de planification des relances
+- [x] Fonctions de planification des relances ✅ Edge Function followup-scheduler complète
 
 ### Phase 3: Relances et Analytics (1-2 semaines)
 
-#### 3.1 Système de Relances
+#### 3.1 Système de Relances ✅ COMPLÉTÉE
 
-- [ ] Templates de relances personnalisables
-- [ ] Planification automatique avec intervalles
-- [ ] Respect des heures ouvrables (7h-18h UTC)
-- [ ] Interface de gestion des relances
-- [ ] Maximum 3 relances par email
+- [x] Templates de relances personnalisables ✅ Base de données + types TypeScript
+- [x] Planification automatique avec intervalles ✅ Scheduler avec coordination manuel/auto
+- [x] Respect des heures ouvrables (7h-18h UTC) ✅ Configuration working_hours complète
+- [x] Interface de gestion des relances ✅ Components React dashboard
+- [x] Maximum 3 relances par email ✅ Limite appliquée avec coordination intelligente
+- [x] Détection relances manuelles ✅ Via conversationId Microsoft Graph
+- [x] Coordination manuel/automatique ✅ Replanification intelligente
+- [x] Base de données complète ✅ Tables, vues, fonctions SQL
+- [x] Documentation technique complète ✅ 3 documents de référence
 
 #### 3.2 Dashboard et Analytics
 
@@ -348,12 +365,20 @@
 - [x] Edge Functions déployées et testées ✅ Webhook + subscriptions opérationnelles
 - [x] Interface utilisateur pour le suivi ✅ Interface complète avec détails et actions admin
 
-### Phase 3 - Critères de Complétion
+### Phase 3.1 - Critères de Complétion ✅ 100% COMPLÉTÉ
 
-- [ ] Système de relances automatiques fonctionnel
+- [x] Système de relances automatiques fonctionnel ✅ Edge Functions opérationnelles
+- [x] Détection et coordination relances manuelles ✅ ConversationId + replanification
+- [x] Configuration heures ouvrables ✅ Interface et respect automatique
+- [x] Base de données optimisée ✅ Tables, vues, fonctions complètes
+- [x] Documentation technique complète ✅ Architecture, API, guide utilisation
+- [x] Tests et validation ✅ Scénarios complets validés en local
+
+### Phase 3.2 - Critères de Complétion
+
 - [ ] Dashboard avec métriques temps réel
 - [ ] Configuration globale complète
-- [ ] Documentation utilisateur finalisée
+- [ ] Interface utilisateur finalistes
 
 ## 🚀 Points d'Attention
 
@@ -396,6 +421,6 @@
 
 ---
 
-**Dernière mise à jour**: 23 septembre 2025 - 12h30
-**Version**: 1.6
-**Statut**: Phase 1 & 2 100% complètes - Interface de suivi des emails avec actions administrateur terminée - Prêt pour Phase 3 (Système de relances automatiques)
+**Dernière mise à jour**: 24 septembre 2025 - 14h45
+**Version**: 1.7
+**Statut**: Phase 1, 2 & 3.1 100% complètes - Système de relances avec coordination manuel/automatique terminé - Documentation complète disponible - Prêt pour Phase 3.2 (Dashboard et Analytics)
