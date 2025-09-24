@@ -1,50 +1,36 @@
-'use client';
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { MailboxesPageClient } from "./mailboxes-page-client";
 
-import { useState } from 'react';
-import { MailboxList } from '@/components/mailboxes/mailbox-list';
-import { MailboxForm } from '@/components/mailboxes/mailbox-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAuth } from '@/lib/hooks/use-auth';
-import { redirect } from 'next/navigation';
+export default async function MailboxesPage() {
+  // Server-side authentication check
+  const supabase = await createClient();
 
-export default function MailboxesPage() {
-  const { user, loading: isLoading } = useAuth();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  // Redirect if not authorized
-  if (!isLoading && (!user || (user.role !== 'administrateur' && user.role !== 'manager'))) {
-    redirect('/dashboard');
+  // Redirect if not authenticated
+  if (error || !user) {
+    redirect("/login");
   }
 
-  if (isLoading) {
-    return <div>Chargement...</div>;
+  // Check user role from the database
+  const { data: userData } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  // Redirect if not authorized (admin or manager only)
+  if (
+    !userData ||
+    (userData.role !== "administrateur" && userData.role !== "manager")
+  ) {
+    redirect("/dashboard");
   }
 
-  const handleCreateSuccess = () => {
-    setShowCreateDialog(false);
-    // The list will automatically update thanks to react-query
-  };
-
-  const handleOpenCreate = () => {
-    setShowCreateDialog(true);
-  };
-
-  return (
-    <div className="container mx-auto py-6">
-      <MailboxList onCreateNew={handleOpenCreate} />
-
-      {/* Create dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Nouvelle boîte mail</DialogTitle>
-          </DialogHeader>
-          <MailboxForm
-            onSuccess={handleCreateSuccess}
-            onCancel={() => setShowCreateDialog(false)}
-          />
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  // Render the client component with proper authorization
+  return <MailboxesPageClient />;
 }
