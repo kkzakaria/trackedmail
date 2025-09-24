@@ -135,6 +135,44 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['system_config']['Row'], 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['system_config']['Insert']>
       }
+      followup_templates: {
+        Row: {
+          id: string
+          name: string
+          subject: string
+          body: string
+          followup_number: number
+          delay_hours: number
+          is_active: boolean
+          version: number
+          available_variables: string[]
+          created_by?: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['followup_templates']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['followup_templates']['Insert']>
+      }
+      followups: {
+        Row: {
+          id: string
+          tracked_email_id: string
+          template_id: string
+          followup_number: number
+          subject: string
+          body: string
+          scheduled_for: string
+          sent_at?: string
+          status: 'scheduled' | 'sent' | 'failed' | 'cancelled'
+          microsoft_message_id?: string
+          failed_at?: string
+          failure_reason?: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['followups']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['followups']['Insert']>
+      }
     }
   }
 }
@@ -160,6 +198,8 @@ export type WebhookEventRow = Database['public']['Tables']['webhook_events']['Ro
 export type DetectionLogRow = Database['public']['Tables']['detection_logs']['Row']
 export type MessageHeaderRow = Database['public']['Tables']['message_headers']['Row']
 export type SystemConfigRow = Database['public']['Tables']['system_config']['Row']
+export type FollowupTemplateRow = Database['public']['Tables']['followup_templates']['Row']
+export type FollowupRow = Database['public']['Tables']['followups']['Row']
 
 /**
  * Types pour les insertions en base de données
@@ -172,6 +212,8 @@ export type WebhookEventInsert = Database['public']['Tables']['webhook_events'][
 export type DetectionLogInsert = Database['public']['Tables']['detection_logs']['Insert']
 export type MessageHeaderInsert = Database['public']['Tables']['message_headers']['Insert']
 export type SystemConfigInsert = Database['public']['Tables']['system_config']['Insert']
+export type FollowupTemplateInsert = Database['public']['Tables']['followup_templates']['Insert']
+export type FollowupInsert = Database['public']['Tables']['followups']['Insert']
 
 /**
  * Interface pour les tokens Microsoft Graph avec status
