@@ -157,6 +157,50 @@ Tracked emails progress through: `pending` → `responded`/`stopped`/`max_reache
    - `Mail.Send` (Application)
    - `User.Read.All` (Application)
 
+### Page Architecture Pattern
+
+**Server Component + Client Component Pattern:**
+All protected pages follow this architecture to ensure proper authentication and performance:
+
+```typescript
+// Server Component (page.tsx) - Handles authentication and data fetching
+export default async function Page() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    redirect('/login');
+  }
+
+  // Role-based authorization
+  const { data: userData } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData || !hasRequiredRole(userData.role)) {
+    redirect('/dashboard');
+  }
+
+  return <PageClient user={userData} />;
+}
+
+// Client Component (*-page-client.tsx) - Handles interactivity only
+'use client';
+
+export function PageClient({ user }: Props) {
+  // Interactive logic, state management, event handlers
+}
+```
+
+**Benefits:**
+
+- Server-side authentication prevents race conditions
+- Improved performance with server-side rendering
+- Secure access control before page renders
+- Clear separation between auth logic and UI logic
+
 ## Key Features to Implement
 
 ### Email Tracking
