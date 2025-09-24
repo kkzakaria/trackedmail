@@ -36,6 +36,7 @@ import {
   Plus,
 } from "lucide-react";
 import Link from "next/link";
+import type { Tables } from "@/lib/types/database.types";
 
 interface MailboxListProps {
   onCreateNew?: () => void;
@@ -189,7 +190,7 @@ export function MailboxList({ onCreateNew }: MailboxListProps) {
             </Card>
           ))
         ) : mailboxes.length > 0 ? (
-          mailboxes.map(mailbox => (
+          mailboxes.map((mailbox: Tables<"mailboxes">) => (
             <Card key={mailbox.id}>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">

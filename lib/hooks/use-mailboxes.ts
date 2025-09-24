@@ -1,10 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MailboxService } from "@/lib/services/mailbox.service";
 import type { TablesInsert, TablesUpdate } from "@/lib/types/database.types";
-
-const mailboxService = new MailboxService();
 
 // Query keys
 export const mailboxKeys = {
@@ -30,7 +27,25 @@ export function useMailboxes(filters?: {
 }) {
   return useQuery({
     queryKey: mailboxKeys.list(filters || {}),
-    queryFn: () => mailboxService.getMailboxes(filters),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters?.isActive !== undefined)
+        params.set("isActive", String(filters.isActive));
+      if (filters?.search) params.set("search", filters.search);
+      if (filters?.limit) params.set("limit", String(filters.limit));
+      if (filters?.offset) params.set("offset", String(filters.offset));
+
+      const response = await fetch(`/api/mailboxes?${params}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la récupération"
+        );
+      }
+
+      return data.data;
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -41,7 +56,18 @@ export function useMailboxes(filters?: {
 export function useMailbox(id: string) {
   return useQuery({
     queryKey: mailboxKeys.detail(id),
-    queryFn: () => mailboxService.getMailboxById(id),
+    queryFn: async () => {
+      const response = await fetch(`/api/mailboxes/${id}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la récupération"
+        );
+      }
+
+      return data.data;
+    },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -53,7 +79,20 @@ export function useMailbox(id: string) {
 export function useMailboxStatistics(id: string) {
   return useQuery({
     queryKey: mailboxKeys.statistics(id),
-    queryFn: () => mailboxService.getMailboxStatistics(id),
+    queryFn: async () => {
+      const response = await fetch(`/api/mailboxes/${id}/statistics`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details ||
+            data.error ||
+            "Erreur lors de la récupération des statistiques"
+        );
+      }
+
+      return data.data;
+    },
     enabled: !!id,
     staleTime: 2 * 60 * 1000, // 2 minutes for stats
   });
@@ -65,7 +104,19 @@ export function useMailboxStatistics(id: string) {
 export function useUserMailboxes(userId: string) {
   return useQuery({
     queryKey: mailboxKeys.userMailboxes(userId),
-    queryFn: () => mailboxService.getUserMailboxes(userId),
+    queryFn: async () => {
+      const params = new URLSearchParams({ userId });
+      const response = await fetch(`/api/mailboxes?${params}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la récupération"
+        );
+      }
+
+      return data.data;
+    },
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
   });
@@ -78,8 +129,25 @@ export function useCreateMailbox() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (mailbox: TablesInsert<"mailboxes">) =>
-      mailboxService.createMailbox(mailbox),
+    mutationFn: async (mailbox: TablesInsert<"mailboxes">) => {
+      const response = await fetch("/api/mailboxes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(mailbox),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la création"
+        );
+      }
+
+      return data.data;
+    },
     onSuccess: () => {
       // Invalidate mailbox lists
       queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });
@@ -94,13 +162,31 @@ export function useUpdateMailbox() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       updates,
     }: {
       id: string;
       updates: TablesUpdate<"mailboxes">;
-    }) => mailboxService.updateMailbox(id, updates),
+    }) => {
+      const response = await fetch(`/api/mailboxes/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la mise à jour"
+        );
+      }
+
+      return data.data;
+    },
     onSuccess: data => {
       // Invalidate mailbox lists and specific mailbox
       queryClient.invalidateQueries({ queryKey: mailboxKeys.lists() });
@@ -119,7 +205,21 @@ export function useDeleteMailbox() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => mailboxService.deleteMailbox(id),
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/mailboxes/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la suppression"
+        );
+      }
+
+      return data;
+    },
     onSuccess: (_, deletedId) => {
       // Remove from cache and invalidate lists
       queryClient.removeQueries({ queryKey: mailboxKeys.detail(deletedId) });
@@ -135,7 +235,23 @@ export function useToggleMailboxStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => mailboxService.toggleMailboxStatus(id),
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/mailboxes/${id}/toggle-status`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details ||
+            data.error ||
+            "Erreur lors de la modification du statut"
+        );
+      }
+
+      return data.data;
+    },
     onSuccess: data => {
       // Update cache optimistically
       queryClient.setQueryData(mailboxKeys.detail(data.id), data);
@@ -151,7 +267,21 @@ export function useSyncMailbox() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => mailboxService.syncWithMicrosoft(id),
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/mailboxes/${id}/sync`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details || data.error || "Erreur lors de la synchronisation"
+        );
+      }
+
+      return data;
+    },
     onSuccess: response => {
       if (response.success && response.data?.mailbox) {
         // Update last sync time

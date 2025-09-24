@@ -1,5 +1,10 @@
-import { createClient } from "@/lib/supabase/client";
-import type { TablesInsert, TablesUpdate } from "@/lib/types/database.types";
+import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  TablesInsert,
+  TablesUpdate,
+  Database,
+} from "@/lib/types/database.types";
 import { microsoftGraphService } from "./microsoft-graph.service";
 import { webhookService } from "./webhook.service";
 import type {
@@ -15,7 +20,18 @@ type MailboxInsert = TablesInsert<"mailboxes">;
 type MailboxUpdate = TablesUpdate<"mailboxes">;
 
 export class MailboxService {
-  private supabase = createClient();
+  private supabase: SupabaseClient<Database> | null;
+
+  constructor(supabaseClient?: SupabaseClient<Database>) {
+    this.supabase = supabaseClient || null;
+  }
+
+  private async getSupabase() {
+    if (this.supabase) {
+      return this.supabase;
+    }
+    return await createClient();
+  }
 
   /**
    * Get all mailboxes with optional filters
@@ -26,7 +42,8 @@ export class MailboxService {
     limit?: number;
     offset?: number;
   }) {
-    let query = this.supabase
+    const supabase = await this.getSupabase();
+    let query = supabase
       .from("mailboxes")
       .select("*, user_mailbox_assignments(count)", { count: "exact" })
       .order("email_address", { ascending: true });
@@ -62,7 +79,8 @@ export class MailboxService {
    * Get a single mailbox by ID
    */
   async getMailboxById(id: string) {
-    const { data, error } = await this.supabase
+    const supabase = await this.getSupabase();
+    const { data, error } = await supabase
       .from("mailboxes")
       .select(
         `
@@ -92,7 +110,8 @@ export class MailboxService {
    * Get mailboxes by email address
    */
   async getMailboxByEmail(email: string) {
-    const { data, error } = await this.supabase
+    const supabase = await this.getSupabase();
+    const { data, error } = await supabase
       .from("mailboxes")
       .select("*")
       .eq("email_address", email)
@@ -112,14 +131,51 @@ export class MailboxService {
       throw new Error("Une boîte mail avec cette adresse existe déjà");
     }
 
-    const { data, error } = await this.supabase
-      .from("mailboxes")
-      .insert(mailbox)
-      .select()
-      .single();
+    // Résoudre l'email vers un ID Microsoft et récupérer les infos
+    try {
+      const userInfo = await microsoftGraphService.getUserByEmail(
+        mailbox.email_address
+      );
 
-    if (error) throw error;
-    return data;
+      if (!userInfo) {
+        throw new Error(
+          "L'adresse email n'existe pas dans le tenant Microsoft ou n'est pas accessible"
+        );
+      }
+
+      // Préparer les données avec les infos Microsoft
+      const mailboxData: MailboxInsert = {
+        ...mailbox,
+        microsoft_user_id: userInfo.id,
+        // Utiliser le display_name fourni ou celui de Microsoft
+        display_name:
+          mailbox.display_name ||
+          userInfo.displayName ||
+          `${userInfo.givenName || ""} ${userInfo.surname || ""}`.trim() ||
+          null,
+        // S'assurer que l'email est correct (parfois mail != userPrincipalName)
+        email_address:
+          userInfo.mail || userInfo.userPrincipalName || mailbox.email_address,
+      };
+
+      const supabase = await this.getSupabase();
+      const { data, error } = await supabase
+        .from("mailboxes")
+        .insert(mailboxData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      // Si c'est une erreur de Microsoft Graph, la propager
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(
+        "Erreur lors de la validation de l'email avec Microsoft Graph"
+      );
+    }
   }
 
   /**
@@ -134,7 +190,8 @@ export class MailboxService {
       }
     }
 
-    const { data, error } = await this.supabase
+    const supabase = await this.getSupabase();
+    const { data, error } = await supabase
       .from("mailboxes")
       .update({
         ...updates,
@@ -152,10 +209,8 @@ export class MailboxService {
    * Delete a mailbox (cascade deletes assignments)
    */
   async deleteMailbox(id: string) {
-    const { error } = await this.supabase
-      .from("mailboxes")
-      .delete()
-      .eq("id", id);
+    const supabase = await this.getSupabase();
+    const { error } = await supabase.from("mailboxes").delete().eq("id", id);
 
     if (error) throw error;
   }
@@ -223,7 +278,8 @@ export class MailboxService {
         }
       }
 
-      const { data, error } = await this.supabase
+      const supabase = await this.getSupabase();
+      const { data, error } = await supabase
         .from("mailboxes")
         .update(updates)
         .eq("id", id)
@@ -262,7 +318,8 @@ export class MailboxService {
       const userInfo = await microsoftGraphService.getUser(microsoftUserId);
 
       // Mettre à jour la mailbox avec l'ID utilisateur Microsoft
-      const { data, error } = await this.supabase
+      const supabase = await this.getSupabase();
+      const { data, error } = await supabase
         .from("mailboxes")
         .update({
           microsoft_user_id: microsoftUserId,
@@ -456,7 +513,8 @@ export class MailboxService {
    * Get mailbox statistics
    */
   async getMailboxStatistics(id: string) {
-    const { data, error } = await this.supabase
+    const supabase = await this.getSupabase();
+    const { data, error } = await supabase
       .from("mailbox_statistics")
       .select("*")
       .eq("id", id)
@@ -470,7 +528,8 @@ export class MailboxService {
    * Get user's assigned mailboxes
    */
   async getUserMailboxes(userId: string) {
-    const { data: user, error: userError } = await this.supabase
+    const supabase = await this.getSupabase();
+    const { data: user, error: userError } = await supabase
       .from("active_users")
       .select("role")
       .eq("id", userId)
@@ -480,7 +539,7 @@ export class MailboxService {
 
     // Managers and admins can see all mailboxes
     if (user.role === "manager" || user.role === "administrateur") {
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from("mailboxes")
         .select("*")
         .order("email_address");
@@ -490,7 +549,7 @@ export class MailboxService {
     }
 
     // Regular users only see assigned mailboxes
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from("user_mailbox_assignments")
       .select(
         `

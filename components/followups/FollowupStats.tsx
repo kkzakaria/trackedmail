@@ -151,7 +151,12 @@ export function FollowupStats({
       total_followups,
       success_rate: statistics.success_rate,
       average_response_time_hours: statistics.average_response_time_hours,
-      templates_performance: statistics.by_template,
+      templates_performance: statistics.by_template.map(template => ({
+        template_id: template.template_id,
+        name: template.template_name,
+        sent_count: template.sent_count,
+        success_rate: template.success_rate,
+      })),
       trends,
     };
   }, [statistics, timeRange]);
@@ -406,7 +411,7 @@ export function FollowupStats({
                 <YAxis />
                 <Tooltip
                   content={({ active, payload }) => {
-                    if (active && payload?.length) {
+                    if (active && payload?.length && payload[0]) {
                       const data = payload[0].payload;
                       return (
                         <div className="rounded-lg border bg-white p-3 shadow-lg">
