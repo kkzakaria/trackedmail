@@ -104,7 +104,11 @@ import {
 import type { UserRole } from "@/lib/types/auth";
 import type { UserWithDetails, UserFilters } from "@/lib/types/user-management";
 import { USER_ROLES, USER_STATUSES } from "@/lib/types/user-management";
-import { useUsers, useSoftDeleteUser } from "@/lib/hooks/use-users";
+import {
+  useUsers,
+  useSoftDeleteUser,
+  useRestoreUser,
+} from "@/lib/hooks/use-users";
 
 // Custom filter function for multi-column searching
 const multiColumnFilterFn: FilterFn<UserWithDetails> = (
@@ -950,12 +954,19 @@ function UserRowActions({
   currentUserId?: string | undefined;
 }) {
   const softDeleteUser = useSoftDeleteUser();
+  const restoreUser = useRestoreUser();
 
-  const handleSoftDelete = async () => {
+  const handleToggleStatus = async () => {
     try {
-      await softDeleteUser.mutateAsync(user.id);
+      if (user.is_active) {
+        // Désactiver l'utilisateur
+        await softDeleteUser.mutateAsync(user.id);
+      } else {
+        // Activer l'utilisateur
+        await restoreUser.mutateAsync(user.id);
+      }
     } catch (error) {
-      console.error("Error soft deleting user:", error);
+      console.error("Error toggling user status:", error);
     }
   };
 
@@ -1016,7 +1027,11 @@ function UserRowActions({
                     <TooltipTrigger asChild>
                       <div>
                         <DropdownMenuItem
-                          className="text-destructive focus:text-destructive cursor-not-allowed opacity-50"
+                          className={
+                            user.is_active
+                              ? "text-destructive focus:text-destructive cursor-not-allowed opacity-50"
+                              : "cursor-not-allowed text-green-600 opacity-50 focus:text-green-600"
+                          }
                           disabled={true}
                         >
                           <span>
@@ -1033,9 +1048,13 @@ function UserRowActions({
                 </TooltipProvider>
               ) : (
                 <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={handleSoftDelete}
-                  disabled={softDeleteUser.isPending}
+                  className={
+                    user.is_active
+                      ? "text-destructive focus:text-destructive"
+                      : "text-green-600 focus:text-green-600"
+                  }
+                  onClick={handleToggleStatus}
+                  disabled={softDeleteUser.isPending || restoreUser.isPending}
                 >
                   <span>{user.is_active ? "Désactiver" : "Activer"}</span>
                   <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
