@@ -93,7 +93,7 @@ export function TemplateEditor({
     }
 
     if (formData.delay_hours < 1) {
-      newErrors.delay_hours = "Le délai doit être d'au moins 1 heure";
+      newErrors.delay_hours = "Le délai doit être d&apos;au moins 1 heure";
     }
 
     setErrors(newErrors);

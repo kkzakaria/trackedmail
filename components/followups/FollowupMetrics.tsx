@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { followupService } from "@/lib/services/followup.service";
 import {
   Card,
@@ -13,11 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Clock,
   Send,
@@ -33,7 +29,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { format, isToday, isTomorrow } from "date-fns";
-import type { FollowupMetrics } from "@/lib/types/followup.types";
+import type {
+  FollowupMetrics,
+  FollowupWithEmail,
+} from "@/lib/types/followup.types";
 
 interface FollowupMetricsProps {
   className?: string;
@@ -66,7 +65,7 @@ export function FollowupMetrics({
   autoRefresh = true,
   refreshInterval = 30,
   showAlerts = true,
-  compactMode = false
+  compactMode = false,
 }: FollowupMetricsProps) {
   // State management
   const [metrics, setMetrics] = useState<ExtendedMetrics | null>(null);
@@ -74,13 +73,13 @@ export function FollowupMetrics({
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   // Load real-time metrics
-  const loadMetrics = async () => {
+  const loadMetrics = useCallback(async () => {
     try {
       setLoading(true);
 
       // Get current date ranges
       const now = new Date();
-      const today = now.toISOString().split("T")[0];
+      const today = now.toISOString().split("T")[0] || "";
 
       // Load followups for metrics calculation
       const allFollowups = await followupService.getFollowups({
@@ -88,25 +87,21 @@ export function FollowupMetrics({
         include_email_data: true,
       });
 
-      const followupsData = allFollowups.data as any[];
+      const followupsData = (allFollowups.data ||
+        []) as unknown as FollowupWithEmail[];
 
       // Calculate base metrics
       const baseMetrics: FollowupMetrics = {
-        pending_count: followupsData.filter(f => f.status === "scheduled").length,
+        pending_count: followupsData.filter(f => f.status === "scheduled")
+          .length,
         scheduled_today: followupsData.filter(
-          f =>
-            f.status === "scheduled" &&
-            f.scheduled_for?.startsWith(today)
+          f => f.status === "scheduled" && f.scheduled_for?.startsWith(today)
         ).length,
         sent_today: followupsData.filter(
-          f =>
-            f.status === "sent" &&
-            f.sent_at?.startsWith(today)
+          f => f.status === "sent" && f.sent_at?.startsWith(today)
         ).length,
         failed_today: followupsData.filter(
-          f =>
-            f.status === "failed" &&
-            f.failed_at?.startsWith(today)
+          f => f.status === "failed" && f.failed_at?.startsWith(today)
         ).length,
         next_scheduled: getNextScheduled(followupsData),
         templates_performance: getTemplatesPerformance(followupsData),
@@ -127,19 +122,28 @@ export function FollowupMetrics({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Helper functions
-  const getNextScheduled = (followups: any[]) => {
+  const getNextScheduled = (followups: FollowupWithEmail[]) => {
     const scheduledFollowups = followups
       .filter(f => f.status === "scheduled" && f.scheduled_for)
-      .sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+      .sort(
+        (a, b) =>
+          new Date(a.scheduled_for).getTime() -
+          new Date(b.scheduled_for).getTime()
+      );
 
     if (scheduledFollowups.length === 0) return undefined;
 
-    const nextDate = scheduledFollowups[0].scheduled_for;
+    const firstFollowup = scheduledFollowups[0];
+    if (!firstFollowup) return undefined;
+
+    const nextDate = firstFollowup.scheduled_for;
+    if (!nextDate) return undefined;
+
     const count = scheduledFollowups.filter(f =>
-      f.scheduled_for.startsWith(nextDate.split("T")[0])
+      f.scheduled_for?.startsWith(nextDate.split("T")[0] || "")
     ).length;
 
     return {
@@ -148,18 +152,23 @@ export function FollowupMetrics({
     };
   };
 
-  const getTemplatesPerformance = (followups: any[]) => {
+  const getTemplatesPerformance = (followups: FollowupWithEmail[]) => {
     const templateStats = new Map();
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const sevenDaysAgo = new Date(
+      Date.now() - 7 * 24 * 60 * 60 * 1000
+    ).toISOString();
 
     followups
       .filter(f => f.template_id && f.sent_at && f.sent_at >= sevenDaysAgo)
       .forEach(f => {
-        const key = f.template_id;
+        const templateId = f.template_id;
+        if (!templateId) return;
+
+        const key = templateId;
         if (!templateStats.has(key)) {
           templateStats.set(key, {
-            template_id: f.template_id,
-            name: `Template ${f.template_id.slice(0, 8)}`,
+            template_id: templateId,
+            name: `Template ${templateId.slice(0, 8)}`,
             usage_last_7_days: 0,
             success_rate_last_7_days: 0,
             responses: 0,
@@ -177,13 +186,17 @@ export function FollowupMetrics({
 
     return Array.from(templateStats.values()).map(stats => ({
       ...stats,
-      success_rate_last_7_days: stats.usage_last_7_days > 0
-        ? (stats.responses / stats.usage_last_7_days) * 100
-        : 0,
+      success_rate_last_7_days:
+        stats.usage_last_7_days > 0
+          ? (stats.responses / stats.usage_last_7_days) * 100
+          : 0,
     }));
   };
 
-  const calculateHealthScore = (metrics: FollowupMetrics, followups: any[]): number => {
+  const calculateHealthScore = (
+    metrics: FollowupMetrics,
+    followups: FollowupWithEmail[]
+  ): number => {
     let score = 100;
 
     // Penalize high failure rate
@@ -203,7 +216,10 @@ export function FollowupMetrics({
     return Math.max(0, Math.min(100, score));
   };
 
-  const generateAlerts = (metrics: FollowupMetrics, _followups: any[]): Alert[] => {
+  const generateAlerts = (
+    metrics: FollowupMetrics,
+    _followups: FollowupWithEmail[]
+  ): Alert[] => {
     const alerts: Alert[] = [];
 
     // High failure rate alert
@@ -212,7 +228,7 @@ export function FollowupMetrics({
         id: "high_failure",
         type: "error",
         title: "Taux d'échec élevé",
-        message: `${metrics.failed_today} relances ont échoué aujourd'hui`,
+        message: `${metrics.failed_today} relances ont échoué aujourd&apos;hui`,
         action: "Vérifier les logs",
       });
     }
@@ -223,7 +239,8 @@ export function FollowupMetrics({
         id: "no_activity",
         type: "warning",
         title: "Aucune relance envoyée",
-        message: "Aucune relance n'a été envoyée aujourd'hui malgré le planning",
+        message:
+          "Aucune relance n&apos;a été envoyée aujourd&apos;hui malgré le planning",
         action: "Vérifier le système",
       });
     }
@@ -241,28 +258,36 @@ export function FollowupMetrics({
     return alerts;
   };
 
-  const calculateTrends = (followups: any[]) => {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const today = new Date().toISOString().split("T")[0];
+  const calculateTrends = (followups: FollowupWithEmail[]) => {
+    const yesterday =
+      new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0] ||
+      "";
+    const today = new Date().toISOString().split("T")[0] || "";
 
-    const sentYesterday = followups.filter(f =>
-      f.status === "sent" && f.sent_at?.startsWith(yesterday)
+    const sentYesterday = followups.filter(
+      f => f.status === "sent" && f.sent_at?.startsWith(yesterday)
     ).length;
-    const sentToday = followups.filter(f =>
-      f.status === "sent" && f.sent_at?.startsWith(today)
+    const sentToday = followups.filter(
+      f => f.status === "sent" && f.sent_at?.startsWith(today)
     ).length;
 
-    const failedYesterday = followups.filter(f =>
-      f.status === "failed" && f.failed_at?.startsWith(yesterday)
+    const failedYesterday = followups.filter(
+      f => f.status === "failed" && f.failed_at?.startsWith(yesterday)
     ).length;
-    const failedToday = followups.filter(f =>
-      f.status === "failed" && f.failed_at?.startsWith(today)
+    const failedToday = followups.filter(
+      f => f.status === "failed" && f.failed_at?.startsWith(today)
     ).length;
 
     return {
-      sent_trend: sentYesterday > 0 ? ((sentToday - sentYesterday) / sentYesterday) * 100 : 0,
+      sent_trend:
+        sentYesterday > 0
+          ? ((sentToday - sentYesterday) / sentYesterday) * 100
+          : 0,
       success_trend: 0, // Would calculate from actual response data
-      failure_trend: failedYesterday > 0 ? ((failedToday - failedYesterday) / failedYesterday) * 100 : 0,
+      failure_trend:
+        failedYesterday > 0
+          ? ((failedToday - failedYesterday) / failedYesterday) * 100
+          : 0,
     };
   };
 
@@ -275,7 +300,7 @@ export function FollowupMetrics({
       return () => clearInterval(interval);
     }
     return undefined;
-  }, [autoRefresh, refreshInterval]);
+  }, [loadMetrics, autoRefresh, refreshInterval]);
 
   // Render loading state
   if (loading && !metrics) {
@@ -288,7 +313,7 @@ export function FollowupMetrics({
                 <Skeleton className="h-4 w-24" />
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="mb-2 h-8 w-16" />
                 <Skeleton className="h-3 w-32" />
               </CardContent>
             </Card>
@@ -301,15 +326,19 @@ export function FollowupMetrics({
   if (!metrics) {
     return (
       <Card className={className}>
-        <CardContent className="flex items-center justify-center h-32">
+        <CardContent className="flex h-32 items-center justify-center">
           <p className="text-gray-500">Aucune métrique disponible</p>
         </CardContent>
       </Card>
     );
   }
 
-  const healthColor = metrics.health_score >= 80 ? "text-green-600" :
-                     metrics.health_score >= 60 ? "text-yellow-600" : "text-red-600";
+  const healthColor =
+    metrics.health_score >= 80
+      ? "text-green-600"
+      : metrics.health_score >= 60
+        ? "text-yellow-600"
+        : "text-red-600";
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -327,7 +356,9 @@ export function FollowupMetrics({
           onClick={loadMetrics}
           disabled={loading}
         >
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+          />
           Actualiser
         </Button>
       </div>
@@ -341,7 +372,7 @@ export function FollowupMetrics({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium">Score de Santé</span>
             <span className={`text-2xl font-bold ${healthColor}`}>
               {metrics.health_score}%
@@ -354,11 +385,14 @@ export function FollowupMetrics({
               <span className="ml-2 font-medium">{metrics.pending_count}</span>
             </div>
             <div>
-              <span className="text-gray-600">Envoyées aujourd'hui:</span>
+              <span className="text-gray-600">Envoyées aujourd&apos;hui:</span>
               <span className="ml-2 font-medium">{metrics.sent_today}</span>
               {metrics.trends.sent_trend !== 0 && (
-                <span className={`ml-1 text-xs ${metrics.trends.sent_trend > 0 ? "text-green-600" : "text-red-600"}`}>
-                  ({metrics.trends.sent_trend > 0 ? "+" : ""}{metrics.trends.sent_trend.toFixed(1)}%)
+                <span
+                  className={`ml-1 text-xs ${metrics.trends.sent_trend > 0 ? "text-green-600" : "text-red-600"}`}
+                >
+                  ({metrics.trends.sent_trend > 0 ? "+" : ""}
+                  {metrics.trends.sent_trend.toFixed(1)}%)
                 </span>
               )}
             </div>
@@ -370,13 +404,15 @@ export function FollowupMetrics({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Programmées Aujourd'hui</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Programmées Aujourd&apos;hui
+            </CardTitle>
+            <Clock className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.scheduled_today}</div>
-            <p className="text-xs text-muted-foreground">
-              À envoyer aujourd'hui
+            <p className="text-muted-foreground text-xs">
+              À envoyer aujourd&apos;hui
             </p>
           </CardContent>
         </Card>
@@ -384,54 +420,69 @@ export function FollowupMetrics({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Envoyées</CardTitle>
-            <Send className="h-4 w-4 text-muted-foreground" />
+            <Send className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
               <div className="text-2xl font-bold">{metrics.sent_today}</div>
               {metrics.trends.sent_trend !== 0 && (
-                <div className={`flex items-center text-xs ${
-                  metrics.trends.sent_trend > 0 ? "text-green-600" : "text-red-600"
-                }`}>
+                <div
+                  className={`flex items-center text-xs ${
+                    metrics.trends.sent_trend > 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
                   {metrics.trends.sent_trend > 0 ? (
-                    <TrendingUp className="h-3 w-3 mr-1" />
+                    <TrendingUp className="mr-1 h-3 w-3" />
                   ) : (
-                    <TrendingDown className="h-3 w-3 mr-1" />
+                    <TrendingDown className="mr-1 h-3 w-3" />
                   )}
                   {Math.abs(metrics.trends.sent_trend).toFixed(1)}%
                 </div>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">Depuis ce matin</p>
+            <p className="text-muted-foreground text-xs">Depuis ce matin</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Échecs</CardTitle>
-            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <XCircle className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{metrics.failed_today}</div>
-            <p className="text-xs text-muted-foreground">
-              Erreurs aujourd'hui
+            <div className="text-2xl font-bold text-red-600">
+              {metrics.failed_today}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Erreurs aujourd&apos;hui
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Prochaine Vague</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Prochaine Vague
+            </CardTitle>
+            <Calendar className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             {metrics.next_scheduled ? (
               <>
-                <div className="text-2xl font-bold">{metrics.next_scheduled.count}</div>
-                <p className="text-xs text-muted-foreground">
-                  {isToday(new Date(metrics.next_scheduled.datetime)) ? "Aujourd'hui" :
-                   isTomorrow(new Date(metrics.next_scheduled.datetime)) ? "Demain" :
-                   format(new Date(metrics.next_scheduled.datetime), "dd/MM")}
+                <div className="text-2xl font-bold">
+                  {metrics.next_scheduled.count}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {isToday(new Date(metrics.next_scheduled.datetime))
+                    ? "Aujourd&apos;hui"
+                    : isTomorrow(new Date(metrics.next_scheduled.datetime))
+                      ? "Demain"
+                      : format(
+                          new Date(metrics.next_scheduled.datetime),
+                          "dd/MM"
+                        )}
                   {" à "}
                   {format(new Date(metrics.next_scheduled.datetime), "HH:mm")}
                 </p>
@@ -439,7 +490,9 @@ export function FollowupMetrics({
             ) : (
               <>
                 <div className="text-2xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">Aucune programmation</p>
+                <p className="text-muted-foreground text-xs">
+                  Aucune programmation
+                </p>
               </>
             )}
           </CardContent>
@@ -449,12 +502,15 @@ export function FollowupMetrics({
       {/* Alerts */}
       {showAlerts && metrics.alerts.length > 0 && (
         <div className="space-y-3">
-          <h4 className="font-medium flex items-center gap-2">
+          <h4 className="flex items-center gap-2 font-medium">
             <Bell className="h-4 w-4" />
             Alertes Système
           </h4>
-          {metrics.alerts.map((alert) => (
-            <Alert key={alert.id} variant={alert.type === "error" ? "destructive" : "default"}>
+          {metrics.alerts.map(alert => (
+            <Alert
+              key={alert.id}
+              variant={alert.type === "error" ? "destructive" : "default"}
+            >
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>{alert.title}</AlertTitle>
               <AlertDescription className="flex items-center justify-between">
@@ -484,21 +540,26 @@ export function FollowupMetrics({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {metrics.templates_performance.slice(0, 5).map((template) => (
+              {metrics.templates_performance.slice(0, 5).map(template => (
                 <div
                   key={template.template_id}
                   className="flex items-center justify-between"
                 >
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{template.name}</p>
+                    <p className="text-sm font-medium">{template.name}</p>
                     <p className="text-xs text-gray-500">
                       {template.usage_last_7_days} utilisations
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={template.success_rate_last_7_days > 25 ? "default" :
-                               template.success_rate_last_7_days > 15 ? "secondary" : "destructive"}
+                      variant={
+                        template.success_rate_last_7_days > 25
+                          ? "default"
+                          : template.success_rate_last_7_days > 15
+                            ? "secondary"
+                            : "destructive"
+                      }
                     >
                       {template.success_rate_last_7_days.toFixed(0)}%
                     </Badge>

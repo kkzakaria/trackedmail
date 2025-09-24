@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,7 +23,7 @@ import {
   Info,
   Zap,
   Shield,
-  Target
+  Target,
 } from "lucide-react";
 
 import type { FollowupSettings } from "@/lib/types/followup.types";
@@ -27,35 +33,50 @@ interface FollowupGlobalSettingsProps {
   onChange: (settings: FollowupSettings) => void;
 }
 
-export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSettingsProps) {
+export function FollowupGlobalSettings({
+  settings,
+  onChange,
+}: FollowupGlobalSettingsProps) {
   const [errors, setErrors] = useState<string[]>([]);
 
   // Validate settings
-  useEffect(() => {
-    validateSettings();
-  }, [settings]);
-
-  const validateSettings = () => {
+  const validateSettings = useCallback(() => {
     const newErrors: string[] = [];
 
     if (settings.max_followups < 1 || settings.max_followups > 10) {
       newErrors.push("Le nombre maximum de relances doit être entre 1 et 10");
     }
 
-    if (settings.default_interval_hours < 1 || settings.default_interval_hours > 720) {
-      newErrors.push("L'intervalle par défaut doit être entre 1 heure et 30 jours");
+    if (
+      settings.default_interval_hours < 1 ||
+      settings.default_interval_hours > 720
+    ) {
+      newErrors.push(
+        "L&apos;intervalle par défaut doit être entre 1 heure et 30 jours"
+      );
     }
 
     if (settings.stop_after_days < 1 || settings.stop_after_days > 365) {
-      newErrors.push("La durée d'expiration doit être entre 1 et 365 jours");
+      newErrors.push(
+        "La durée d&apos;expiration doit être entre 1 et 365 jours"
+      );
     }
 
-    if (settings.rate_limit_per_hour < 1 || settings.rate_limit_per_hour > 1000) {
-      newErrors.push("La limite de taux doit être entre 1 et 1000 emails par heure");
+    if (
+      settings.rate_limit_per_hour < 1 ||
+      settings.rate_limit_per_hour > 1000
+    ) {
+      newErrors.push(
+        "La limite de taux doit être entre 1 et 1000 emails par heure"
+      );
     }
 
     setErrors(newErrors);
-  };
+  }, [settings]);
+
+  useEffect(() => {
+    validateSettings();
+  }, [validateSettings]);
 
   const updateSettings = (updates: Partial<FollowupSettings>) => {
     onChange({ ...settings, ...updates });
@@ -74,18 +95,30 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
 
     // Max followups (optimal: 3)
     if (settings.max_followups === 3) score += 25;
-    else if (settings.max_followups === 2 || settings.max_followups === 4) score += 20;
-    else if (settings.max_followups === 1 || settings.max_followups === 5) score += 15;
+    else if (settings.max_followups === 2 || settings.max_followups === 4)
+      score += 20;
+    else if (settings.max_followups === 1 || settings.max_followups === 5)
+      score += 15;
     else score += 10;
 
     // Interval (optimal: 72-120 hours)
-    if (settings.default_interval_hours >= 72 && settings.default_interval_hours <= 120) score += 25;
-    else if (settings.default_interval_hours >= 48 && settings.default_interval_hours <= 168) score += 20;
+    if (
+      settings.default_interval_hours >= 72 &&
+      settings.default_interval_hours <= 120
+    )
+      score += 25;
+    else if (
+      settings.default_interval_hours >= 48 &&
+      settings.default_interval_hours <= 168
+    )
+      score += 20;
     else score += 10;
 
     // Stop after days (optimal: 14-30 days)
-    if (settings.stop_after_days >= 14 && settings.stop_after_days <= 30) score += 25;
-    else if (settings.stop_after_days >= 7 && settings.stop_after_days <= 60) score += 20;
+    if (settings.stop_after_days >= 14 && settings.stop_after_days <= 30)
+      score += 25;
+    else if (settings.stop_after_days >= 7 && settings.stop_after_days <= 60)
+      score += 20;
     else score += 10;
 
     // System enabled
@@ -113,14 +146,22 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
   return (
     <div className="space-y-6">
       {/* System Status */}
-      <Card className={settings.system_enabled ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+      <Card
+        className={
+          settings.system_enabled
+            ? "border-green-200 bg-green-50"
+            : "border-red-200 bg-red-50"
+        }
+      >
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Shield className="w-5 h-5" />
+              <Shield className="h-5 w-5" />
               <span>État du Système</span>
             </div>
-            <Badge variant={settings.system_enabled ? "default" : "destructive"}>
+            <Badge
+              variant={settings.system_enabled ? "default" : "destructive"}
+            >
               {settings.system_enabled ? "Actif" : "Inactif"}
             </Badge>
           </CardTitle>
@@ -129,30 +170,33 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">
-                {settings.system_enabled ? "Système de relances activé" : "Système de relances désactivé"}
+                {settings.system_enabled
+                  ? "Système de relances activé"
+                  : "Système de relances désactivé"}
               </div>
-              <div className="text-sm text-gray-600 mt-1">
+              <div className="mt-1 text-sm text-gray-600">
                 {settings.system_enabled
                   ? "Les relances automatiques sont opérationnelles"
-                  : "Aucune relance ne sera envoyée automatiquement"
-                }
+                  : "Aucune relance ne sera envoyée automatiquement"}
               </div>
             </div>
             <Switch
               checked={settings.system_enabled}
-              onCheckedChange={(checked) => updateSettings({ system_enabled: checked })}
+              onCheckedChange={checked =>
+                updateSettings({ system_enabled: checked })
+              }
             />
           </div>
         </CardContent>
       </Card>
 
       {/* Core Settings */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Max Followups */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-lg">
-              <Target className="w-4 h-4" />
+              <Target className="h-4 w-4" />
               <span>Nombre Maximum de Relances</span>
             </CardTitle>
             <CardDescription>
@@ -162,24 +206,32 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
-                <Label htmlFor="max-followups" className="min-w-[60px]">Maximum</Label>
+                <Label htmlFor="max-followups" className="min-w-[60px]">
+                  Maximum
+                </Label>
                 <Input
                   id="max-followups"
                   type="number"
                   min="1"
                   max="10"
                   value={settings.max_followups}
-                  onChange={(e) => updateSettings({ max_followups: parseInt(e.target.value) || 3 })}
+                  onChange={e =>
+                    updateSettings({
+                      max_followups: parseInt(e.target.value) || 3,
+                    })
+                  }
                   className="w-20 text-center"
                 />
                 <span className="text-sm text-gray-500">relances</span>
               </div>
 
               <div className="grid grid-cols-5 gap-1">
-                {[1, 2, 3, 4, 5].map((num) => (
+                {[1, 2, 3, 4, 5].map(num => (
                   <Button
                     key={num}
-                    variant={settings.max_followups === num ? "default" : "outline"}
+                    variant={
+                      settings.max_followups === num ? "default" : "outline"
+                    }
                     size="sm"
                     onClick={() => updateSettings({ max_followups: num })}
                   >
@@ -191,7 +243,8 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertDescription className="text-sm">
-                  Recommandé : 3 relances (compromis optimal entre efficacité et respect)
+                  Recommandé : 3 relances (compromis optimal entre efficacité et
+                  respect)
                 </AlertDescription>
               </Alert>
             </div>
@@ -202,7 +255,7 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-lg">
-              <Clock className="w-4 h-4" />
+              <Clock className="h-4 w-4" />
               <span>Intervalle Par Défaut</span>
             </CardTitle>
             <CardDescription>
@@ -212,14 +265,20 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
-                <Label htmlFor="interval-hours" className="min-w-[60px]">Heures</Label>
+                <Label htmlFor="interval-hours" className="min-w-[60px]">
+                  Heures
+                </Label>
                 <Input
                   id="interval-hours"
                   type="number"
                   min="1"
                   max="720"
                   value={settings.default_interval_hours}
-                  onChange={(e) => updateSettings({ default_interval_hours: parseInt(e.target.value) || 96 })}
+                  onChange={e =>
+                    updateSettings({
+                      default_interval_hours: parseInt(e.target.value) || 96,
+                    })
+                  }
                   className="w-20 text-center"
                 />
                 <span className="text-sm text-gray-500">
@@ -245,7 +304,9 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => updateSettings({ default_interval_hours: 168 })}
+                  onClick={() =>
+                    updateSettings({ default_interval_hours: 168 })
+                  }
                 >
                   1 semaine
                 </Button>
@@ -264,7 +325,7 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
         {/* Stop After Days */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Durée d'Expiration</CardTitle>
+            <CardTitle className="text-lg">Durée d&apos;Expiration</CardTitle>
             <CardDescription>
               Arrêt automatique des relances après ce délai
             </CardDescription>
@@ -272,14 +333,20 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
-                <Label htmlFor="stop-days" className="min-w-[60px]">Jours</Label>
+                <Label htmlFor="stop-days" className="min-w-[60px]">
+                  Jours
+                </Label>
                 <Input
                   id="stop-days"
                   type="number"
                   min="1"
                   max="365"
                   value={settings.stop_after_days}
-                  onChange={(e) => updateSettings({ stop_after_days: parseInt(e.target.value) || 30 })}
+                  onChange={e =>
+                    updateSettings({
+                      stop_after_days: parseInt(e.target.value) || 30,
+                    })
+                  }
                   className="w-20 text-center"
                 />
                 <span className="text-sm text-gray-500">jours</span>
@@ -316,24 +383,30 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-lg">
-              <Zap className="w-4 h-4" />
+              <Zap className="h-4 w-4" />
               <span>Limitation de Taux</span>
             </CardTitle>
             <CardDescription>
-              Nombre maximum d'emails envoyés par heure
+              Nombre maximum d&apos;emails envoyés par heure
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
-                <Label htmlFor="rate-limit" className="min-w-[60px]">Limite</Label>
+                <Label htmlFor="rate-limit" className="min-w-[60px]">
+                  Limite
+                </Label>
                 <Input
                   id="rate-limit"
                   type="number"
                   min="1"
                   max="1000"
                   value={settings.rate_limit_per_hour}
-                  onChange={(e) => updateSettings({ rate_limit_per_hour: parseInt(e.target.value) || 100 })}
+                  onChange={e =>
+                    updateSettings({
+                      rate_limit_per_hour: parseInt(e.target.value) || 100,
+                    })
+                  }
                   className="w-20 text-center"
                 />
                 <span className="text-sm text-gray-500">emails/heure</span>
@@ -378,8 +451,8 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
       <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 text-blue-800">
-            <Target className="w-5 h-5" />
-            <span>Score d'Efficacité</span>
+            <Target className="h-5 w-5" />
+            <span>Score d&apos;Efficacité</span>
           </CardTitle>
           <CardDescription>
             Évaluation de votre configuration selon les meilleures pratiques
@@ -389,7 +462,9 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className={`text-3xl font-bold ${getScoreColor(efficiencyScore)}`}>
+                <div
+                  className={`text-3xl font-bold ${getScoreColor(efficiencyScore)}`}
+                >
                   {efficiencyScore}%
                 </div>
                 <div className={`text-sm ${getScoreColor(efficiencyScore)}`}>
@@ -403,21 +478,29 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
 
             <Separator />
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div className="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
               <div>
-                <div className="text-lg font-semibold">{settings.max_followups}</div>
+                <div className="text-lg font-semibold">
+                  {settings.max_followups}
+                </div>
                 <div className="text-sm text-gray-600">Max relances</div>
               </div>
               <div>
-                <div className="text-lg font-semibold">{getIntervalDisplay(settings.default_interval_hours)}</div>
+                <div className="text-lg font-semibold">
+                  {getIntervalDisplay(settings.default_interval_hours)}
+                </div>
                 <div className="text-sm text-gray-600">Intervalle</div>
               </div>
               <div>
-                <div className="text-lg font-semibold">{settings.stop_after_days}j</div>
+                <div className="text-lg font-semibold">
+                  {settings.stop_after_days}j
+                </div>
                 <div className="text-sm text-gray-600">Expiration</div>
               </div>
               <div>
-                <div className="text-lg font-semibold">{settings.rate_limit_per_hour}/h</div>
+                <div className="text-lg font-semibold">
+                  {settings.rate_limit_per_hour}/h
+                </div>
                 <div className="text-sm text-gray-600">Taux limite</div>
               </div>
             </div>
@@ -444,7 +527,8 @@ export function FollowupGlobalSettings({ settings, onChange }: FollowupGlobalSet
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            Configuration valide. Les paramètres seront appliqués à toutes les nouvelles relances.
+            Configuration valide. Les paramètres seront appliqués à toutes les
+            nouvelles relances.
           </AlertDescription>
         </Alert>
       )}

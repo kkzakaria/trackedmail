@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { followupService } from "@/lib/services/followup.service";
@@ -52,11 +52,20 @@ import {
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
-import type { FollowupWithEmail, FollowupStatus } from "@/lib/types/followup.types";
+import type {
+  FollowupWithEmail,
+  FollowupStatus,
+} from "@/lib/types/followup.types";
 
 interface TimelineEvent {
   id: string;
-  type: "email_sent" | "followup_scheduled" | "followup_sent" | "followup_failed" | "followup_cancelled" | "response_received";
+  type:
+    | "email_sent"
+    | "followup_scheduled"
+    | "followup_sent"
+    | "followup_failed"
+    | "followup_cancelled"
+    | "response_received";
   title: string;
   description: string;
   timestamp: string;
@@ -67,7 +76,7 @@ interface TimelineEvent {
 export default function FollowupDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { } = useAuth();
+  const {} = useAuth();
   const followupId = params.id as string;
 
   // State management
@@ -84,41 +93,8 @@ export default function FollowupDetailPage() {
     newDate: "",
   });
 
-
-  // Load followup data
-  const loadFollowup = async () => {
-    try {
-      setLoading(true);
-      const data = await followupService.getFollowupById(followupId);
-
-      if (!data) {
-        toast.error("Relance non trouvée");
-        router.push("/dashboard/followups");
-        return;
-      }
-
-      setFollowup(data);
-
-      // Initialize dialogs with current data
-      setRescheduleDialog(prev => ({
-        ...prev,
-        newDate: data.scheduled_for || "",
-      }));
-
-
-      // Load timeline
-      await loadTimeline(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement de la relance:", error);
-      toast.error("Impossible de charger la relance");
-      router.push("/dashboard/followups");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Load timeline events
-  const loadTimeline = async (followupData: FollowupWithEmail) => {
+  const loadTimeline = useCallback(async (followupData: FollowupWithEmail) => {
     try {
       const events: TimelineEvent[] = [];
 
@@ -167,7 +143,8 @@ export default function FollowupDetailPage() {
           id: "followup_failed",
           type: "followup_failed",
           title: `Échec de la relance ${followupData.followup_number}`,
-          description: followupData.failure_reason || "Erreur lors de l'envoi",
+          description:
+            followupData.failure_reason || "Erreur lors de l&apos;envoi",
           timestamp: followupData.failed_at,
           icon: XCircle,
           variant: "destructive",
@@ -181,7 +158,10 @@ export default function FollowupDetailPage() {
           type: "followup_cancelled",
           title: `Relance ${followupData.followup_number} annulée`,
           description: followupData.failure_reason || "Relance annulée",
-          timestamp: followupData.updated_at || followupData.created_at || new Date().toISOString(),
+          timestamp:
+            followupData.updated_at ||
+            followupData.created_at ||
+            new Date().toISOString(),
           icon: Ban,
           variant: "outline",
         });
@@ -193,7 +173,7 @@ export default function FollowupDetailPage() {
           id: "response_received",
           type: "response_received",
           title: "Réponse reçue",
-          description: "Le destinataire a répondu à l'email",
+          description: "Le destinataire a répondu à l&apos;email",
           timestamp: followupData.tracked_email.responded_at,
           icon: CheckCircle,
           variant: "default",
@@ -201,25 +181,67 @@ export default function FollowupDetailPage() {
       }
 
       // Sort events by timestamp
-      events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      events.sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
       setTimeline(events);
     } catch (error) {
       console.error("Erreur lors du chargement de la timeline:", error);
     }
-  };
+  }, []);
+
+  // Load followup data
+  const loadFollowup = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await followupService.getFollowupById(followupId);
+
+      if (!data) {
+        toast.error("Relance non trouvée");
+        router.push("/dashboard/followups");
+        return;
+      }
+
+      setFollowup(data);
+
+      // Initialize dialogs with current data
+      setRescheduleDialog(prev => ({
+        ...prev,
+        newDate: data.scheduled_for || "",
+      }));
+
+      // Load timeline
+      await loadTimeline(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement de la relance:", error);
+      toast.error("Impossible de charger la relance");
+      router.push("/dashboard/followups");
+    } finally {
+      setLoading(false);
+    }
+  }, [followupId, router, loadTimeline]);
 
   useEffect(() => {
     if (followupId) {
       loadFollowup();
     }
-  }, [followupId]);
+  }, [followupId, loadFollowup]);
 
   // Status configuration
   const getStatusConfig = (status: FollowupStatus) => {
     const config = {
-      scheduled: { variant: "default" as const, label: "Programmé", icon: Clock },
+      scheduled: {
+        variant: "default" as const,
+        label: "Programmé",
+        icon: Clock,
+      },
       sent: { variant: "default" as const, label: "Envoyé", icon: CheckCircle },
-      failed: { variant: "destructive" as const, label: "Échec", icon: XCircle },
+      failed: {
+        variant: "destructive" as const,
+        label: "Échec",
+        icon: XCircle,
+      },
       cancelled: { variant: "secondary" as const, label: "Annulé", icon: Ban },
     };
 
@@ -257,8 +279,8 @@ export default function FollowupDetailPage() {
       await loadFollowup();
       toast.success("Relance annulée avec succès");
     } catch (error) {
-      console.error("Erreur lors de l'annulation:", error);
-      toast.error("Impossible d'annuler la relance");
+      console.error("Erreur lors de l&apos;annulation:", error);
+      toast.error("Impossible d&apos;annuler la relance");
     }
   };
 
@@ -269,9 +291,9 @@ export default function FollowupDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <div className="border-primary mx-auto h-12 w-12 animate-spin rounded-full border-b-2"></div>
           <p className="mt-4 text-gray-600">Chargement...</p>
         </div>
       </div>
@@ -280,10 +302,14 @@ export default function FollowupDetailPage() {
 
   if (!followup) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Relance non trouvée</h1>
-          <p className="text-gray-600 mb-4">Cette relance n'existe pas ou a été supprimée.</p>
+          <h1 className="mb-2 text-2xl font-bold text-gray-900">
+            Relance non trouvée
+          </h1>
+          <p className="mb-4 text-gray-600">
+            Cette relance n&apos;existe pas ou a été supprimée.
+          </p>
           <Link href="/dashboard/followups">
             <Button>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -319,7 +345,10 @@ export default function FollowupDetailPage() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant={statusConfig.variant} className="flex items-center gap-1">
+              <Badge
+                variant={statusConfig.variant}
+                className="flex items-center gap-1"
+              >
                 <statusConfig.icon className="h-3 w-3" />
                 {statusConfig.label}
               </Badge>
@@ -332,7 +361,7 @@ export default function FollowupDetailPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6 lg:col-span-2">
               {/* Followup Details */}
               <Card>
                 <CardHeader>
@@ -344,7 +373,12 @@ export default function FollowupDetailPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setRescheduleDialog({ ...rescheduleDialog, open: true })}
+                            onClick={() =>
+                              setRescheduleDialog({
+                                ...rescheduleDialog,
+                                open: true,
+                              })
+                            }
                           >
                             <Calendar className="mr-2 h-4 w-4" />
                             Reprogrammer
@@ -358,15 +392,18 @@ export default function FollowupDetailPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Annuler la relance</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  Annuler la relance
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Êtes-vous sûr de vouloir annuler cette relance ? Cette action est irréversible.
+                                  Êtes-vous sûr de vouloir annuler cette relance
+                                  ? Cette action est irréversible.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Annuler</AlertDialogCancel>
                                 <AlertDialogAction onClick={handleCancel}>
-                                  Confirmer l'annulation
+                                  Confirmer l&apos;annulation
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -379,26 +416,44 @@ export default function FollowupDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Niveau de relance</Label>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Niveau de relance
+                      </Label>
                       <p className="mt-1">Relance {followup.followup_number}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Template utilisé</Label>
-                      <p className="mt-1">{followup.template?.name || "Template supprimé"}</p>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Template utilisé
+                      </Label>
+                      <p className="mt-1">
+                        {followup.template?.name || "Template supprimé"}
+                      </p>
                     </div>
                     {followup.scheduled_for && (
                       <div>
-                        <Label className="text-sm font-medium text-gray-600">Programmé pour</Label>
+                        <Label className="text-sm font-medium text-gray-600">
+                          Programmé pour
+                        </Label>
                         <p className="mt-1">
-                          {format(parseISO(followup.scheduled_for), "dd/MM/yyyy à HH:mm", { locale: fr })}
+                          {format(
+                            parseISO(followup.scheduled_for),
+                            "dd/MM/yyyy à HH:mm",
+                            { locale: fr }
+                          )}
                         </p>
                       </div>
                     )}
                     {followup.sent_at && (
                       <div>
-                        <Label className="text-sm font-medium text-gray-600">Envoyé le</Label>
+                        <Label className="text-sm font-medium text-gray-600">
+                          Envoyé le
+                        </Label>
                         <p className="mt-1">
-                          {format(parseISO(followup.sent_at), "dd/MM/yyyy à HH:mm", { locale: fr })}
+                          {format(
+                            parseISO(followup.sent_at),
+                            "dd/MM/yyyy à HH:mm",
+                            { locale: fr }
+                          )}
                         </p>
                       </div>
                     )}
@@ -406,8 +461,12 @@ export default function FollowupDetailPage() {
 
                   {followup.failure_reason && (
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Raison de l'échec</Label>
-                      <p className="mt-1 text-red-600">{followup.failure_reason}</p>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Raison de l&apos;échec
+                      </Label>
+                      <p className="mt-1 text-red-600">
+                        {followup.failure_reason}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -421,7 +480,9 @@ export default function FollowupDetailPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyToClipboard(followup.body || "", "Contenu")}
+                      onClick={() =>
+                        copyToClipboard(followup.body || "", "Contenu")
+                      }
                     >
                       <Copy className="mr-2 h-4 w-4" />
                       Copier
@@ -430,13 +491,17 @@ export default function FollowupDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Sujet</Label>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Sujet
+                    </Label>
                     <div className="mt-1 flex items-center gap-2">
                       <p className="flex-1">{followup.subject}</p>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => copyToClipboard(followup.subject || "", "Sujet")}
+                        onClick={() =>
+                          copyToClipboard(followup.subject || "", "Sujet")
+                        }
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -446,8 +511,10 @@ export default function FollowupDetailPage() {
                   <Separator />
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Corps du message</Label>
-                    <div className="mt-1 p-4 bg-gray-50 rounded-lg border">
+                    <Label className="text-sm font-medium text-gray-600">
+                      Corps du message
+                    </Label>
+                    <div className="mt-1 rounded-lg border bg-gray-50 p-4">
                       <div
                         className="prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{
@@ -472,48 +539,78 @@ export default function FollowupDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Sujet</Label>
-                    <p className="mt-1 text-sm">{followup.tracked_email?.subject}</p>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Sujet
+                    </Label>
+                    <p className="mt-1 text-sm">
+                      {followup.tracked_email?.subject}
+                    </p>
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Destinataire</Label>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Destinataire
+                    </Label>
                     <div className="mt-1 flex items-center gap-2">
                       <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">{followup.tracked_email?.recipient_emails?.[0]}</span>
+                      <span className="text-sm">
+                        {followup.tracked_email?.recipient_emails?.[0]}
+                      </span>
                     </div>
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Expéditeur</Label>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Expéditeur
+                    </Label>
                     <div className="mt-1 flex items-center gap-2">
                       <Mail className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">{followup.tracked_email?.sender_email}</span>
+                      <span className="text-sm">
+                        {followup.tracked_email?.sender_email}
+                      </span>
                     </div>
                   </div>
 
                   {followup.tracked_email?.sent_at && (
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Envoyé le</Label>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Envoyé le
+                      </Label>
                       <p className="mt-1 text-sm">
-                        {format(parseISO(followup.tracked_email.sent_at), "dd/MM/yyyy à HH:mm", { locale: fr })}
+                        {format(
+                          parseISO(followup.tracked_email.sent_at),
+                          "dd/MM/yyyy à HH:mm",
+                          { locale: fr }
+                        )}
                       </p>
                     </div>
                   )}
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Statut</Label>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Statut
+                    </Label>
                     <div className="mt-1">
-                      <Badge variant={followup.tracked_email?.status === "responded" ? "default" : "secondary"}>
-                        {followup.tracked_email?.status === "responded" ? "Répondu" : "En attente"}
+                      <Badge
+                        variant={
+                          followup.tracked_email?.status === "responded"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {followup.tracked_email?.status === "responded"
+                          ? "Répondu"
+                          : "En attente"}
                       </Badge>
                     </div>
                   </div>
 
-                  <Link href={`/dashboard/emails/${followup.tracked_email?.id}`}>
+                  <Link
+                    href={`/dashboard/emails/${followup.tracked_email?.id}`}
+                  >
                     <Button variant="outline" size="sm" className="w-full">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      Voir l'email
+                      Voir l&apos;email
                     </Button>
                   </Link>
                 </CardContent>
@@ -530,24 +627,34 @@ export default function FollowupDetailPage() {
                     {timeline.map((event, index) => (
                       <div key={event.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
-                          <div className={`
-                            flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs
-                            ${event.variant === "default" ? "border-green-200 bg-green-50 text-green-600" :
-                              event.variant === "destructive" ? "border-red-200 bg-red-50 text-red-600" :
-                              event.variant === "outline" ? "border-yellow-200 bg-yellow-50 text-yellow-600" :
-                              "border-gray-200 bg-gray-50 text-gray-600"}
-                          `}>
+                          <div
+                            className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs ${
+                              event.variant === "default"
+                                ? "border-green-200 bg-green-50 text-green-600"
+                                : event.variant === "destructive"
+                                  ? "border-red-200 bg-red-50 text-red-600"
+                                  : event.variant === "outline"
+                                    ? "border-yellow-200 bg-yellow-50 text-yellow-600"
+                                    : "border-gray-200 bg-gray-50 text-gray-600"
+                            } `}
+                          >
                             <event.icon className="h-4 w-4" />
                           </div>
                           {index < timeline.length - 1 && (
-                            <div className="w-px h-6 bg-gray-200 mt-1" />
+                            <div className="mt-1 h-6 w-px bg-gray-200" />
                           )}
                         </div>
                         <div className="flex-1 pb-4">
-                          <p className="font-medium text-sm">{event.title}</p>
-                          <p className="text-xs text-gray-500 mt-1">{event.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {format(parseISO(event.timestamp), "dd/MM/yyyy à HH:mm", { locale: fr })}
+                          <p className="text-sm font-medium">{event.title}</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {event.description}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {format(
+                              parseISO(event.timestamp),
+                              "dd/MM/yyyy à HH:mm",
+                              { locale: fr }
+                            )}
                           </p>
                         </div>
                       </div>
@@ -563,7 +670,9 @@ export default function FollowupDetailPage() {
       {/* Reschedule Dialog */}
       <Dialog
         open={rescheduleDialog.open}
-        onOpenChange={(open) => setRescheduleDialog({ ...rescheduleDialog, open })}
+        onOpenChange={open =>
+          setRescheduleDialog({ ...rescheduleDialog, open })
+        }
       >
         <DialogContent>
           <DialogHeader>
@@ -579,7 +688,7 @@ export default function FollowupDetailPage() {
                 id="new-date"
                 type="datetime-local"
                 value={rescheduleDialog.newDate.slice(0, 16)}
-                onChange={(e) =>
+                onChange={e =>
                   setRescheduleDialog({
                     ...rescheduleDialog,
                     newDate: e.target.value,

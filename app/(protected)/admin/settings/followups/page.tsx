@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,7 +22,7 @@ import {
   Save,
   RotateCcw,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
 } from "lucide-react";
 
 import { WorkingHoursConfig } from "@/components/followups/WorkingHoursConfig";
@@ -28,7 +34,7 @@ import { SchedulingService } from "@/lib/services/scheduling.service";
 import { FollowupService } from "@/lib/services/followup.service";
 import type {
   WorkingHoursConfig as WorkingHoursConfigType,
-  FollowupSettings
+  FollowupSettings,
 } from "@/lib/types/followup.types";
 
 export default function FollowupSettingsPage() {
@@ -37,26 +43,24 @@ export default function FollowupSettingsPage() {
   const [activeTab, setActiveTab] = useState("working-hours");
 
   // Configuration states
-  const [workingHours, setWorkingHours] = useState<WorkingHoursConfigType | null>(null);
-  const [globalSettings, setGlobalSettings] = useState<FollowupSettings | null>(null);
+  const [workingHours, setWorkingHours] =
+    useState<WorkingHoursConfigType | null>(null);
+  const [globalSettings, setGlobalSettings] = useState<FollowupSettings | null>(
+    null
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Services
-  const schedulingService = new SchedulingService();
-  const followupService = new FollowupService();
+  // Services - memoized to prevent re-instantiation on every render
+  const schedulingService = useMemo(() => new SchedulingService(), []);
+  const followupService = useMemo(() => new FollowupService(), []);
 
-  // Load initial configuration
-  useEffect(() => {
-    loadConfiguration();
-  }, []);
-
-  const loadConfiguration = async () => {
+  const loadConfiguration = useCallback(async () => {
     try {
       setLoading(true);
 
       const [workingHoursConfig, followupSettings] = await Promise.all([
         schedulingService.getWorkingHoursConfig(),
-        followupService.getFollowupSettings()
+        followupService.getFollowupSettings(),
       ]);
 
       setWorkingHours(workingHoursConfig);
@@ -68,7 +72,12 @@ export default function FollowupSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [followupService, schedulingService]);
+
+  // Load initial configuration
+  useEffect(() => {
+    loadConfiguration();
+  }, [loadConfiguration]);
 
   const saveConfiguration = async () => {
     if (!workingHours || !globalSettings) return;
@@ -78,7 +87,7 @@ export default function FollowupSettingsPage() {
 
       await Promise.all([
         schedulingService.updateWorkingHoursConfig(workingHours),
-        followupService.updateFollowupSettings(globalSettings)
+        followupService.updateFollowupSettings(globalSettings),
       ]);
 
       setHasChanges(false);
@@ -112,7 +121,7 @@ export default function FollowupSettingsPage() {
         <div className="space-y-6">
           <div>
             <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-96 mt-2" />
+            <Skeleton className="mt-2 h-4 w-96" />
           </div>
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-96 w-full" />
@@ -130,15 +139,19 @@ export default function FollowupSettingsPage() {
             <h1 className="text-3xl font-bold text-gray-900">
               Configuration des Relances
             </h1>
-            <p className="text-gray-600 mt-1">
-              Gérez les heures ouvrables, jours fériés et paramètres globaux du système de relances
+            <p className="mt-1 text-gray-600">
+              Gérez les heures ouvrables, jours fériés et paramètres globaux du
+              système de relances
             </p>
           </div>
 
           <div className="flex items-center space-x-3">
             {hasChanges && (
-              <Badge variant="outline" className="text-orange-600 border-orange-200">
-                <AlertCircle className="w-3 h-3 mr-1" />
+              <Badge
+                variant="outline"
+                className="border-orange-200 text-orange-600"
+              >
+                <AlertCircle className="mr-1 h-3 w-3" />
                 Modifications non sauvegardées
               </Badge>
             )}
@@ -148,7 +161,7 @@ export default function FollowupSettingsPage() {
               onClick={resetConfiguration}
               disabled={saving || !hasChanges}
             >
-              <RotateCcw className="w-4 h-4 mr-2" />
+              <RotateCcw className="mr-2 h-4 w-4" />
               Annuler
             </Button>
 
@@ -156,7 +169,7 @@ export default function FollowupSettingsPage() {
               onClick={saveConfiguration}
               disabled={saving || !hasChanges}
             >
-              <Save className="w-4 h-4 mr-2" />
+              <Save className="mr-2 h-4 w-4" />
               {saving ? "Sauvegarde..." : "Sauvegarder"}
             </Button>
           </div>
@@ -167,28 +180,45 @@ export default function FollowupSettingsPage() {
           <Alert>
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>
-              La configuration est à jour. Toute modification sera automatiquement détectée.
+              La configuration est à jour. Toute modification sera
+              automatiquement détectée.
             </AlertDescription>
           </Alert>
         )}
 
         {/* Main Configuration Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="working-hours" className="flex items-center space-x-2">
-              <Clock className="w-4 h-4" />
+            <TabsTrigger
+              value="working-hours"
+              className="flex items-center space-x-2"
+            >
+              <Clock className="h-4 w-4" />
               <span>Heures Ouvrables</span>
             </TabsTrigger>
-            <TabsTrigger value="holidays" className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4" />
+            <TabsTrigger
+              value="holidays"
+              className="flex items-center space-x-2"
+            >
+              <Calendar className="h-4 w-4" />
               <span>Jours Fériés</span>
             </TabsTrigger>
-            <TabsTrigger value="global-settings" className="flex items-center space-x-2">
-              <Settings className="w-4 h-4" />
+            <TabsTrigger
+              value="global-settings"
+              className="flex items-center space-x-2"
+            >
+              <Settings className="h-4 w-4" />
               <span>Paramètres Globaux</span>
             </TabsTrigger>
-            <TabsTrigger value="test-scheduler" className="flex items-center space-x-2">
-              <TestTube className="w-4 h-4" />
+            <TabsTrigger
+              value="test-scheduler"
+              className="flex items-center space-x-2"
+            >
+              <TestTube className="h-4 w-4" />
               <span>Test Planification</span>
             </TabsTrigger>
           </TabsList>
@@ -197,11 +227,12 @@ export default function FollowupSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5" />
+                  <Clock className="h-5 w-5" />
                   <span>Configuration des Heures Ouvrables</span>
                 </CardTitle>
                 <CardDescription>
-                  Définissez les créneaux horaires pendant lesquels les relances peuvent être envoyées
+                  Définissez les créneaux horaires pendant lesquels les relances
+                  peuvent être envoyées
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -219,11 +250,12 @@ export default function FollowupSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="w-5 h-5" />
+                  <Calendar className="h-5 w-5" />
                   <span>Gestion des Jours Fériés</span>
                 </CardTitle>
                 <CardDescription>
-                  Configurez les jours fériés pendant lesquels aucune relance ne sera envoyée
+                  Configurez les jours fériés pendant lesquels aucune relance ne
+                  sera envoyée
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -231,7 +263,7 @@ export default function FollowupSettingsPage() {
                   <HolidaysManager
                     holidays={workingHours.holidays}
                     timezone={workingHours.timezone}
-                    onChange={(holidays) =>
+                    onChange={holidays =>
                       handleWorkingHoursChange({ ...workingHours, holidays })
                     }
                   />
@@ -244,11 +276,12 @@ export default function FollowupSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Settings className="w-5 h-5" />
+                  <Settings className="h-5 w-5" />
                   <span>Paramètres Globaux des Relances</span>
                 </CardTitle>
                 <CardDescription>
-                  Configurez les règles générales du système de relances automatiques
+                  Configurez les règles générales du système de relances
+                  automatiques
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -266,11 +299,12 @@ export default function FollowupSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <TestTube className="w-5 h-5" />
+                  <TestTube className="h-5 w-5" />
                   <span>Test de Planification</span>
                 </CardTitle>
                 <CardDescription>
-                  Simulez la planification des relances avec la configuration actuelle
+                  Simulez la planification des relances avec la configuration
+                  actuelle
                 </CardDescription>
               </CardHeader>
               <CardContent>

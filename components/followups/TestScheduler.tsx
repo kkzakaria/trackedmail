@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,12 +22,15 @@ import {
   Mail,
   AlertCircle,
   Info,
-  ArrowRight
+  ArrowRight,
 } from "lucide-react";
 import { format, addHours, addDays, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
-import type { WorkingHoursConfig, FollowupSettings } from "@/lib/types/followup.types";
+import type {
+  WorkingHoursConfig,
+  FollowupSettings,
+} from "@/lib/types/followup.types";
 
 interface TestSchedulerProps {
   workingHours: WorkingHoursConfig;
@@ -39,15 +48,31 @@ interface SimulationResult {
   is_holiday: boolean;
 }
 
-export function TestScheduler({ workingHours, globalSettings }: TestSchedulerProps) {
+export function TestScheduler({
+  workingHours,
+  globalSettings,
+}: TestSchedulerProps) {
   const [testDate, setTestDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [testTime, setTestTime] = useState("09:00");
-  const [simulationResults, setSimulationResults] = useState<SimulationResult[]>([]);
+  const [simulationResults, setSimulationResults] = useState<
+    SimulationResult[]
+  >([]);
   const [isRunning, setIsRunning] = useState(false);
 
   const isWorkingDay = (date: Date): boolean => {
-    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const dayName = dayNames[date.getDay()] as any;
+    const dayNames = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ] as const;
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek < 0 || dayOfWeek >= dayNames.length) return false;
+    const dayName = dayNames[dayOfWeek];
+    if (!dayName) return false;
     return workingHours.working_days.includes(dayName);
   };
 
@@ -61,7 +86,9 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
     return timeString >= workingHours.start && timeString <= workingHours.end;
   };
 
-  const adjustToWorkingHours = (date: Date): { adjusted: Date; reason: string | undefined } => {
+  const adjustToWorkingHours = (
+    date: Date
+  ): { adjusted: Date; reason: string | undefined } => {
     let adjusted = new Date(date);
     let reason: string | undefined;
 
@@ -86,7 +113,9 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
       const hours = timeParts[0] || 0;
       const minutes = timeParts[1] || 0;
       adjusted.setHours(hours, minutes, 0, 0);
-      reason = reason ? `${reason}, heure ajustée au début` : "Heure ajustée au début des heures ouvrables";
+      reason = reason
+        ? `${reason}, heure ajustée au début`
+        : "Heure ajustée au début des heures ouvrables";
     } else if (timeString > workingHours.end) {
       // Move to next working day at start time
       adjusted = addDays(adjusted, 1);
@@ -100,7 +129,9 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
         adjusted = addDays(adjusted, 1);
       }
 
-      reason = reason ? `${reason}, reporté au jour suivant` : "Reporté au jour ouvrable suivant";
+      reason = reason
+        ? `${reason}, reporté au jour suivant`
+        : "Reporté au jour ouvrable suivant";
     }
 
     return { adjusted, reason };
@@ -117,14 +148,19 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
 
       for (let i = 1; i <= globalSettings.max_followups; i++) {
         // Calculate original schedule time
-        currentScheduleTime = addHours(currentScheduleTime, globalSettings.default_interval_hours);
+        currentScheduleTime = addHours(
+          currentScheduleTime,
+          globalSettings.default_interval_hours
+        );
 
         const originalScheduled = new Date(currentScheduleTime);
 
         // Check if adjustment is needed
-        const { adjusted: adjustedScheduled, reason } = adjustToWorkingHours(currentScheduleTime);
+        const { adjusted: adjustedScheduled, reason } =
+          adjustToWorkingHours(currentScheduleTime);
 
-        const isAdjusted = originalScheduled.getTime() !== adjustedScheduled.getTime();
+        const isAdjusted =
+          originalScheduled.getTime() !== adjustedScheduled.getTime();
 
         results.push({
           followup_number: i,
@@ -134,7 +170,7 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
           reason,
           is_working_hour: isWorkingHour(originalScheduled),
           is_working_day: isWorkingDay(originalScheduled),
-          is_holiday: isHoliday(originalScheduled)
+          is_holiday: isHoliday(originalScheduled),
         });
 
         // Use adjusted time for next calculation
@@ -166,22 +202,23 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <TestTube className="w-4 h-4" />
+            <TestTube className="h-4 w-4" />
             <span>Configuration du Test</span>
           </CardTitle>
           <CardDescription>
-            Simulez la planification des relances à partir d'une date et heure données
+            Simulez la planification des relances à partir d&apos;une date et
+            heure données
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="test-date">Date de Test</Label>
               <Input
                 id="test-date"
                 type="date"
                 value={testDate}
-                onChange={(e) => setTestDate(e.target.value)}
+                onChange={e => setTestDate(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -190,7 +227,7 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
                 id="test-time"
                 type="time"
                 value={testTime}
-                onChange={(e) => setTestTime(e.target.value)}
+                onChange={e => setTestTime(e.target.value)}
               />
             </div>
             <div className="flex items-end">
@@ -199,7 +236,7 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
                 disabled={isRunning}
                 className="w-full"
               >
-                <Play className="w-4 h-4 mr-2" />
+                <Play className="mr-2 h-4 w-4" />
                 {isRunning ? "Simulation..." : "Lancer la Simulation"}
               </Button>
             </div>
@@ -213,15 +250,19 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
           {/* Summary */}
           <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
-              <CardTitle className="text-blue-800">Résumé de la Simulation</CardTitle>
+              <CardTitle className="text-blue-800">
+                Résumé de la Simulation
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+              <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-4">
                 <div>
                   <div className="text-2xl font-bold text-blue-600">
                     {globalSettings.max_followups}
                   </div>
-                  <div className="text-sm text-blue-700">Relances planifiées</div>
+                  <div className="text-sm text-blue-700">
+                    Relances planifiées
+                  </div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-600">
@@ -257,8 +298,8 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
               <ScrollArea className="h-96">
                 <div className="space-y-4">
                   {simulationResults.map((result, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
+                    <div key={index} className="rounded-lg border p-4">
+                      <div className="mb-3 flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <Badge variant="outline">
                             Relance #{result.followup_number}
@@ -266,45 +307,69 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
                           {getStatusBadge(result)}
                         </div>
                         <div className="flex items-center space-x-2 text-sm text-gray-500">
-                          <Mail className="w-4 h-4" />
+                          <Mail className="h-4 w-4" />
                           <span>
-                            {format(parseISO(result.adjusted_scheduled), "EEEE d MMMM", { locale: fr })}
+                            {format(
+                              parseISO(result.adjusted_scheduled),
+                              "EEEE d MMMM",
+                              { locale: fr }
+                            )}
                           </span>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         {/* Original Schedule */}
                         <div className="space-y-2">
                           <div className="text-sm font-medium text-gray-700">
                             Planification Initiale
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <Calendar className="h-4 w-4 text-gray-400" />
                             <span className="text-sm">
-                              {format(parseISO(result.original_scheduled), "dd/MM/yyyy", { locale: fr })}
+                              {format(
+                                parseISO(result.original_scheduled),
+                                "dd/MM/yyyy",
+                                { locale: fr }
+                              )}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4 text-gray-400" />
+                            <Clock className="h-4 w-4 text-gray-400" />
                             <span className="text-sm">
-                              {format(parseISO(result.original_scheduled), "HH:mm", { locale: fr })}
+                              {format(
+                                parseISO(result.original_scheduled),
+                                "HH:mm",
+                                { locale: fr }
+                              )}
                             </span>
                           </div>
 
                           {/* Status indicators */}
-                          <div className="flex flex-wrap gap-1 mt-2">
+                          <div className="mt-2 flex flex-wrap gap-1">
                             <Badge
-                              variant={result.is_working_day ? "default" : "destructive"}
+                              variant={
+                                result.is_working_day
+                                  ? "default"
+                                  : "destructive"
+                              }
                               className="text-xs"
                             >
-                              {result.is_working_day ? "Jour ouvrable" : "Jour non ouvrable"}
+                              {result.is_working_day
+                                ? "Jour ouvrable"
+                                : "Jour non ouvrable"}
                             </Badge>
                             <Badge
-                              variant={result.is_working_hour ? "default" : "destructive"}
+                              variant={
+                                result.is_working_hour
+                                  ? "default"
+                                  : "destructive"
+                              }
                               className="text-xs"
                             >
-                              {result.is_working_hour ? "Heure ouvrable" : "Heure non ouvrable"}
+                              {result.is_working_hour
+                                ? "Heure ouvrable"
+                                : "Heure non ouvrable"}
                             </Badge>
                             {result.is_holiday && (
                               <Badge variant="destructive" className="text-xs">
@@ -320,15 +385,23 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
                             Planification Finale
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Calendar className="w-4 h-4 text-green-600" />
+                            <Calendar className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium">
-                              {format(parseISO(result.adjusted_scheduled), "dd/MM/yyyy", { locale: fr })}
+                              {format(
+                                parseISO(result.adjusted_scheduled),
+                                "dd/MM/yyyy",
+                                { locale: fr }
+                              )}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4 text-green-600" />
+                            <Clock className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium">
-                              {format(parseISO(result.adjusted_scheduled), "HH:mm", { locale: fr })}
+                              {format(
+                                parseISO(result.adjusted_scheduled),
+                                "HH:mm",
+                                { locale: fr }
+                              )}
                             </span>
                           </div>
 
@@ -346,10 +419,12 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
 
                       {/* Arrow indicator for adjustments */}
                       {result.is_adjusted && (
-                        <div className="flex justify-center mt-3">
+                        <div className="mt-3 flex justify-center">
                           <div className="flex items-center space-x-2 text-orange-600">
-                            <ArrowRight className="w-4 h-4" />
-                            <span className="text-xs font-medium">Ajustement appliqué</span>
+                            <ArrowRight className="h-4 w-4" />
+                            <span className="text-xs font-medium">
+                              Ajustement appliqué
+                            </span>
                           </div>
                         </div>
                       )}
@@ -368,12 +443,13 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
           <CardTitle>Configuration Utilisée</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <h4 className="font-medium mb-3">Heures Ouvrables</h4>
+              <h4 className="mb-3 font-medium">Heures Ouvrables</h4>
               <div className="space-y-2 text-sm">
                 <div>
-                  <strong>Plage horaire :</strong> {workingHours.start} - {workingHours.end}
+                  <strong>Plage horaire :</strong> {workingHours.start} -{" "}
+                  {workingHours.end}
                 </div>
                 <div>
                   <strong>Fuseau horaire :</strong> {workingHours.timezone}
@@ -383,25 +459,32 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
                   {workingHours.working_days.join(", ")}
                 </div>
                 <div>
-                  <strong>Jours fériés :</strong> {workingHours.holidays.length} configurés
+                  <strong>Jours fériés :</strong> {workingHours.holidays.length}{" "}
+                  configurés
                 </div>
               </div>
             </div>
             <div>
-              <h4 className="font-medium mb-3">Paramètres de Relance</h4>
+              <h4 className="mb-3 font-medium">Paramètres de Relance</h4>
               <div className="space-y-2 text-sm">
                 <div>
                   <strong>Max relances :</strong> {globalSettings.max_followups}
                 </div>
                 <div>
-                  <strong>Intervalle :</strong> {globalSettings.default_interval_hours}h
+                  <strong>Intervalle :</strong>{" "}
+                  {globalSettings.default_interval_hours}h
                 </div>
                 <div>
-                  <strong>Expiration :</strong> {globalSettings.stop_after_days} jours
+                  <strong>Expiration :</strong> {globalSettings.stop_after_days}{" "}
+                  jours
                 </div>
                 <div>
                   <strong>Système :</strong>{" "}
-                  <Badge variant={globalSettings.system_enabled ? "default" : "destructive"}>
+                  <Badge
+                    variant={
+                      globalSettings.system_enabled ? "default" : "destructive"
+                    }
+                  >
                     {globalSettings.system_enabled ? "Activé" : "Désactivé"}
                   </Badge>
                 </div>
@@ -415,8 +498,10 @@ export function TestScheduler({ workingHours, globalSettings }: TestSchedulerPro
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          Cette simulation vous permet de vérifier comment vos paramètres affectent la planification des relances.
-          Les ajustements automatiques garantissent que les relances sont envoyées uniquement pendant les heures ouvrables.
+          Cette simulation vous permet de vérifier comment vos paramètres
+          affectent la planification des relances. Les ajustements automatiques
+          garantissent que les relances sont envoyées uniquement pendant les
+          heures ouvrables.
         </AlertDescription>
       </Alert>
     </div>

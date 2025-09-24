@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +23,10 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
 } from "lucide-react";
-import { format,
+import {
+  format,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -28,7 +35,7 @@ import { format,
   addMonths,
   subMonths,
   isValid,
-  parseISO
+  parseISO,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -40,7 +47,7 @@ interface HolidaysManagerProps {
 
 // Jours fériés prédéfinis pour la France
 const FRENCH_HOLIDAYS_2024 = [
-  { date: "2024-01-01", name: "Jour de l'An" },
+  { date: "2024-01-01", name: "Jour de l&apos;An" },
   { date: "2024-04-01", name: "Lundi de Pâques" },
   { date: "2024-05-01", name: "Fête du Travail" },
   { date: "2024-05-08", name: "Victoire 1945" },
@@ -54,7 +61,7 @@ const FRENCH_HOLIDAYS_2024 = [
 ];
 
 const FRENCH_HOLIDAYS_2025 = [
-  { date: "2025-01-01", name: "Jour de l'An" },
+  { date: "2025-01-01", name: "Jour de l&apos;An" },
   { date: "2025-04-21", name: "Lundi de Pâques" },
   { date: "2025-05-01", name: "Fête du Travail" },
   { date: "2025-05-08", name: "Victoire 1945" },
@@ -72,20 +79,26 @@ const PREDEFINED_HOLIDAYS = {
   "france-2025": FRENCH_HOLIDAYS_2025,
 };
 
-export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManagerProps) {
+export function HolidaysManager({
+  holidays,
+  timezone,
+  onChange,
+}: HolidaysManagerProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [manualDate, setManualDate] = useState("");
 
   // Validate and parse holidays
   const validHolidays = useMemo(() => {
-    return holidays.filter(holiday => {
-      try {
-        const date = parseISO(holiday);
-        return isValid(date);
-      } catch {
-        return false;
-      }
-    }).sort();
+    return holidays
+      .filter(holiday => {
+        try {
+          const date = parseISO(holiday);
+          return isValid(date);
+        } catch {
+          return false;
+        }
+      })
+      .sort();
   }, [holidays]);
 
   // Calendar generation
@@ -112,7 +125,7 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
         onChange([...holidays, formattedDate]);
       }
     } catch (error) {
-      console.error("Erreur lors de l'ajout du jour férié:", error);
+      console.error("Erreur lors de l&apos;ajout du jour férié:", error);
     }
   };
 
@@ -138,7 +151,8 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
   };
 
   const importPredefinedHolidays = (key: string) => {
-    const predefined = PREDEFINED_HOLIDAYS[key as keyof typeof PREDEFINED_HOLIDAYS];
+    const predefined =
+      PREDEFINED_HOLIDAYS[key as keyof typeof PREDEFINED_HOLIDAYS];
     if (predefined) {
       const newHolidays = predefined.map(h => h.date);
       const combinedHolidays = [...new Set([...holidays, ...newHolidays])];
@@ -165,7 +179,7 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="h-4 w-4" />
                   <span>Calendrier des Jours Fériés</span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -174,9 +188,9 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                     size="sm"
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-lg font-medium min-w-[150px] text-center">
+                  <span className="min-w-[150px] text-center text-lg font-medium">
                     {format(currentMonth, "MMMM yyyy", { locale: fr })}
                   </span>
                   <Button
@@ -184,18 +198,22 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                     size="sm"
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </CardTitle>
               <CardDescription>
-                Cliquez sur une date pour l'ajouter ou la retirer des jours fériés
+                Cliquez sur une date pour l&apos;ajouter ou la retirer des jours
+                fériés
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day) => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+              <div className="mb-2 grid grid-cols-7 gap-1">
+                {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(day => (
+                  <div
+                    key={day}
+                    className="p-2 text-center text-sm font-medium text-gray-500"
+                  >
                     {day}
                   </div>
                 ))}
@@ -212,15 +230,11 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                       key={index}
                       onClick={() => handleDayClick(date)}
                       disabled={!isCurrentMonth}
-                      className={`
-                        p-2 text-sm border rounded transition-colors
-                        ${!isCurrentMonth ? "text-gray-300 cursor-not-allowed" : "cursor-pointer"}
-                        ${isToday ? "border-blue-500 font-bold" : "border-gray-200"}
-                        ${isHolidayDate
-                          ? "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
+                      className={`rounded border p-2 text-sm transition-colors ${!isCurrentMonth ? "cursor-not-allowed text-gray-300" : "cursor-pointer"} ${isToday ? "border-blue-500 font-bold" : "border-gray-200"} ${
+                        isHolidayDate
+                          ? "border-red-300 bg-red-100 text-red-800 hover:bg-red-200"
                           : "hover:bg-gray-100"
-                        }
-                      `}
+                      } `}
                     >
                       {format(date, "d")}
                     </button>
@@ -248,13 +262,13 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                     id="manual-date"
                     type="date"
                     value={manualDate}
-                    onChange={(e) => setManualDate(e.target.value)}
+                    onChange={e => setManualDate(e.target.value)}
                     placeholder="2024-12-25"
                   />
                 </div>
                 <div className="flex items-end">
                   <Button onClick={handleManualAdd} disabled={!manualDate}>
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="mr-2 h-4 w-4" />
                     Ajouter
                   </Button>
                 </div>
@@ -272,7 +286,7 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                   onClick={clearAllHolidays}
                   disabled={validHolidays.length === 0}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Tout supprimer
                 </Button>
               </CardTitle>
@@ -280,7 +294,7 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
             <CardContent>
               <ScrollArea className="h-64">
                 {validHolidays.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
+                  <div className="py-8 text-center text-gray-500">
                     Aucun jour férié configuré
                   </div>
                 ) : (
@@ -291,20 +305,24 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                         return (
                           <div
                             key={index}
-                            className="flex items-center justify-between p-3 border rounded-lg"
+                            className="flex items-center justify-between rounded-lg border p-3"
                           >
                             <div>
                               <div className="font-medium">
-                                {format(date, "EEEE d MMMM yyyy", { locale: fr })}
+                                {format(date, "EEEE d MMMM yyyy", {
+                                  locale: fr,
+                                })}
                               </div>
-                              <div className="text-sm text-gray-500">{holiday}</div>
+                              <div className="text-sm text-gray-500">
+                                {holiday}
+                              </div>
                             </div>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => removeHoliday(holiday)}
                             >
-                              <X className="w-4 h-4" />
+                              <X className="h-4 w-4" />
                             </Button>
                           </div>
                         );
@@ -312,18 +330,22 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                         return (
                           <div
                             key={index}
-                            className="flex items-center justify-between p-3 border rounded-lg border-red-200 bg-red-50"
+                            className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3"
                           >
                             <div>
-                              <div className="font-medium text-red-600">Date invalide</div>
-                              <div className="text-sm text-red-500">{holiday}</div>
+                              <div className="font-medium text-red-600">
+                                Date invalide
+                              </div>
+                              <div className="text-sm text-red-500">
+                                {holiday}
+                              </div>
                             </div>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => removeHoliday(holiday)}
                             >
-                              <X className="w-4 h-4" />
+                              <X className="h-4 w-4" />
                             </Button>
                           </div>
                         );
@@ -341,7 +363,7 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Download className="w-4 h-4" />
+                <Download className="h-4 w-4" />
                 <span>Import de Jours Fériés Prédéfinis</span>
               </CardTitle>
               <CardDescription>
@@ -350,15 +372,17 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Button
                     variant="outline"
                     onClick={() => importPredefinedHolidays("france-2024")}
                     className="h-auto p-4 text-left"
                   >
                     <div>
-                      <div className="font-medium">Jours Fériés France 2024</div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="font-medium">
+                        Jours Fériés France 2024
+                      </div>
+                      <div className="mt-1 text-sm text-gray-500">
                         {FRENCH_HOLIDAYS_2024.length} jours fériés officiels
                       </div>
                     </div>
@@ -370,8 +394,10 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
                     className="h-auto p-4 text-left"
                   >
                     <div>
-                      <div className="font-medium">Jours Fériés France 2025</div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="font-medium">
+                        Jours Fériés France 2025
+                      </div>
+                      <div className="mt-1 text-sm text-gray-500">
                         {FRENCH_HOLIDAYS_2025.length} jours fériés officiels
                       </div>
                     </div>
@@ -386,7 +412,7 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
               <CardTitle>Informations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+              <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-3">
                 <div>
                   <div className="text-2xl font-bold text-blue-600">
                     {validHolidays.length}
@@ -416,8 +442,9 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {holidays.length - validHolidays.length} date(s) invalide(s) détectée(s).
-            Utilisez l'onglet "Liste" pour les supprimer.
+            {holidays.length - validHolidays.length} date(s) invalide(s)
+            détectée(s). Utilisez l&apos;onglet &quot;Liste&quot; pour les
+            supprimer.
           </AlertDescription>
         </Alert>
       )}
@@ -426,8 +453,8 @@ export function HolidaysManager({ holidays, timezone, onChange }: HolidaysManage
       <Alert>
         <CheckCircle className="h-4 w-4" />
         <AlertDescription>
-          Les relances programmées pendant les jours fériés seront automatiquement reportées
-          au prochain jour ouvrable disponible.
+          Les relances programmées pendant les jours fériés seront
+          automatiquement reportées au prochain jour ouvrable disponible.
         </AlertDescription>
       </Alert>
     </div>

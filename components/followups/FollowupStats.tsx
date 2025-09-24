@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { followupService } from "@/lib/services/followup.service";
 import {
   Card,
@@ -29,7 +29,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
   Line,
   AreaChart,
   Area,
@@ -42,10 +41,7 @@ import {
   Target,
   Clock,
   Send,
-  CheckCircle,
-  XCircle,
   AlertTriangle,
-  Calendar,
   Filter,
 } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
@@ -90,7 +86,7 @@ const CHART_COLORS = [
 export function FollowupStats({
   className = "",
   showFilters = true,
-  compactMode = false
+  compactMode = false,
 }: FollowupStatsProps) {
   // State management
   const [statistics, setStatistics] = useState<FollowupStatistics | null>(null);
@@ -99,7 +95,7 @@ export function FollowupStats({
   const [selectedTemplate, setSelectedTemplate] = useState<string>("all");
 
   // Load statistics
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -118,22 +114,28 @@ export function FollowupStats({
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
 
   useEffect(() => {
     loadStatistics();
-  }, [timeRange]);
+  }, [loadStatistics]);
 
   // Computed metrics
   const metrics = useMemo((): PerformanceMetrics | null => {
     if (!statistics) return null;
 
-    const total_followups = statistics.total_sent + statistics.total_scheduled +
-                          statistics.total_failed + statistics.total_cancelled;
+    const total_followups =
+      statistics.total_sent +
+      statistics.total_scheduled +
+      statistics.total_failed +
+      statistics.total_cancelled;
 
     // Simulate trend data (in a real app, this would come from the backend)
     const trends = Array.from({ length: parseInt(timeRange) }, (_, i) => {
-      const date = format(subDays(new Date(), parseInt(timeRange) - i - 1), "yyyy-MM-dd");
+      const date = format(
+        subDays(new Date(), parseInt(timeRange) - i - 1),
+        "yyyy-MM-dd"
+      );
       const sent = Math.floor(Math.random() * 20) + 5;
       const responses = Math.floor(sent * (statistics.success_rate / 100));
 
@@ -159,9 +161,16 @@ export function FollowupStats({
     if (!metrics) return [];
 
     return metrics.templates_performance
-      .filter(template => selectedTemplate === "all" || template.template_id === selectedTemplate)
+      .filter(
+        template =>
+          selectedTemplate === "all" ||
+          template.template_id === selectedTemplate
+      )
       .map((template, index) => ({
-        name: template.name.length > 20 ? template.name.substring(0, 20) + "..." : template.name,
+        name:
+          template.name.length > 20
+            ? template.name.substring(0, 20) + "..."
+            : template.name,
         fullName: template.name,
         sent: template.sent_count,
         success_rate: template.success_rate,
@@ -185,9 +194,21 @@ export function FollowupStats({
 
     return [
       { name: "Envoyés", value: statistics.total_sent, color: CHART_COLORS[1] },
-      { name: "Programmés", value: statistics.total_scheduled, color: CHART_COLORS[0] },
-      { name: "Échecs", value: statistics.total_failed, color: CHART_COLORS[3] },
-      { name: "Annulés", value: statistics.total_cancelled, color: CHART_COLORS[2] },
+      {
+        name: "Programmés",
+        value: statistics.total_scheduled,
+        color: CHART_COLORS[0],
+      },
+      {
+        name: "Échecs",
+        value: statistics.total_failed,
+        color: CHART_COLORS[3],
+      },
+      {
+        name: "Annulés",
+        value: statistics.total_cancelled,
+        color: CHART_COLORS[2],
+      },
     ].filter(item => item.value > 0);
   }, [statistics]);
 
@@ -201,7 +222,7 @@ export function FollowupStats({
                 <Skeleton className="h-4 w-24" />
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="mb-2 h-8 w-16" />
                 <Skeleton className="h-3 w-32" />
               </CardContent>
             </Card>
@@ -215,7 +236,7 @@ export function FollowupStats({
     return (
       <div className={`${className}`}>
         <Card>
-          <CardContent className="flex items-center justify-center h-32">
+          <CardContent className="flex h-32 items-center justify-center">
             <p className="text-gray-500">Aucune donnée disponible</p>
           </CardContent>
         </Card>
@@ -231,14 +252,14 @@ export function FollowupStats({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Filter className="h-5 w-5" />
-              Filtres d'Analyse
+              Filtres d&apos;Analyse
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Période d'analyse
+                <label className="mb-2 block text-sm font-medium">
+                  Période d&apos;analyse
                 </label>
                 <Select value={timeRange} onValueChange={setTimeRange}>
                   <SelectTrigger>
@@ -254,17 +275,23 @@ export function FollowupStats({
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">
+                <label className="mb-2 block text-sm font-medium">
                   Template spécifique
                 </label>
-                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                <Select
+                  value={selectedTemplate}
+                  onValueChange={setSelectedTemplate}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les templates</SelectItem>
-                    {metrics.templates_performance.map((template) => (
-                      <SelectItem key={template.template_id} value={template.template_id}>
+                    {metrics.templates_performance.map(template => (
+                      <SelectItem
+                        key={template.template_id}
+                        value={template.template_id}
+                      >
                         {template.name}
                       </SelectItem>
                     ))}
@@ -290,12 +317,14 @@ export function FollowupStats({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Relances</CardTitle>
-            <Send className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Total Relances
+            </CardTitle>
+            <Send className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.total_followups}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {statistics.total_sent} envoyées avec succès
             </p>
           </CardContent>
@@ -303,14 +332,16 @@ export function FollowupStats({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taux de Succès</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Taux de Succès
+            </CardTitle>
+            <Target className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {metrics.success_rate.toFixed(1)}%
             </div>
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="text-muted-foreground flex items-center text-xs">
               {metrics.success_rate > 20 ? (
                 <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
               ) : (
@@ -323,14 +354,16 @@ export function FollowupStats({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Temps de Réponse</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Temps de Réponse
+            </CardTitle>
+            <Clock className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {metrics.average_response_time_hours.toFixed(0)}h
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               Temps moyen de réponse
             </p>
           </CardContent>
@@ -339,11 +372,11 @@ export function FollowupStats({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Échecs</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statistics.total_failed}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {statistics.total_cancelled} annulées
             </p>
           </CardContent>
@@ -357,7 +390,7 @@ export function FollowupStats({
           <CardHeader>
             <CardTitle>Performance par Template</CardTitle>
             <CardDescription>
-              Nombre d'envois et taux de succès par template
+              Nombre d&apos;envois et taux de succès par template
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -372,17 +405,19 @@ export function FollowupStats({
                 />
                 <YAxis />
                 <Tooltip
-                  content={({ active, payload, label }) => {
+                  content={({ active, payload }) => {
                     if (active && payload?.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-white p-3 border rounded-lg shadow-lg">
+                        <div className="rounded-lg border bg-white p-3 shadow-lg">
                           <p className="font-medium">{data.fullName}</p>
                           <p className="text-sm">
-                            <span className="font-medium">Envois:</span> {data.sent}
+                            <span className="font-medium">Envois:</span>{" "}
+                            {data.sent}
                           </p>
                           <p className="text-sm">
-                            <span className="font-medium">Succès:</span> {data.success_rate.toFixed(1)}%
+                            <span className="font-medium">Succès:</span>{" "}
+                            {data.success_rate.toFixed(1)}%
                           </p>
                         </div>
                       );
@@ -390,11 +425,7 @@ export function FollowupStats({
                     return null;
                   }}
                 />
-                <Bar
-                  dataKey="sent"
-                  fill="#3b82f6"
-                  radius={[4, 4, 0, 0]}
-                />
+                <Bar dataKey="sent" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -487,14 +518,20 @@ export function FollowupStats({
                 <XAxis
                   dataKey="date"
                   fontSize={12}
-                  tickFormatter={(value) => format(new Date(value), "dd/MM")}
+                  tickFormatter={value => format(new Date(value), "dd/MM")}
                 />
                 <YAxis />
                 <Tooltip
-                  labelFormatter={(value) => format(new Date(value), "dd MMMM yyyy", { locale: fr })}
+                  labelFormatter={value =>
+                    format(new Date(value), "dd MMMM yyyy", { locale: fr })
+                  }
                   formatter={(value: number, name: string) => [
                     value,
-                    name === "sent" ? "Envois" : name === "responses" ? "Réponses" : name
+                    name === "sent"
+                      ? "Envois"
+                      : name === "responses"
+                        ? "Réponses"
+                        : name,
                   ]}
                 />
                 <Area
@@ -530,10 +567,10 @@ export function FollowupStats({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {metrics.templates_performance.map((template) => (
+              {metrics.templates_performance.map(template => (
                 <div
                   key={template.template_id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  className="flex items-center justify-between rounded-lg border p-4"
                 >
                   <div className="flex-1">
                     <h4 className="font-medium">{template.name}</h4>
@@ -549,11 +586,19 @@ export function FollowupStats({
                       <p className="text-xs text-gray-500">Taux de succès</p>
                     </div>
                     <Badge
-                      variant={template.success_rate > 25 ? "default" :
-                               template.success_rate > 15 ? "secondary" : "destructive"}
+                      variant={
+                        template.success_rate > 25
+                          ? "default"
+                          : template.success_rate > 15
+                            ? "secondary"
+                            : "destructive"
+                      }
                     >
-                      {template.success_rate > 25 ? "Excellent" :
-                       template.success_rate > 15 ? "Bon" : "À améliorer"}
+                      {template.success_rate > 25
+                        ? "Excellent"
+                        : template.success_rate > 15
+                          ? "Bon"
+                          : "À améliorer"}
                     </Badge>
                   </div>
                 </div>

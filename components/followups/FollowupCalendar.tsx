@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { followupService } from "@/lib/services/followup.service";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,7 +54,10 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
-import type { FollowupWithEmail, FollowupStatus } from "@/lib/types/followup.types";
+import type {
+  FollowupWithEmail,
+  FollowupStatus,
+} from "@/lib/types/followup.types";
 
 interface FollowupCalendarProps {
   className?: string;
@@ -100,10 +99,12 @@ export function FollowupCalendar({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [statusFilter, setStatusFilter] = useState<FollowupStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<FollowupStatus | "all">(
+    "all"
+  );
 
   // Load followups for calendar period
-  const loadFollowups = async () => {
+  const loadFollowups = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -112,7 +113,9 @@ export function FollowupCalendar({
 
       switch (viewMode) {
         case "month":
-          startDate = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
+          startDate = startOfWeek(startOfMonth(currentDate), {
+            weekStartsOn: 1,
+          });
           endDate = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
           break;
         case "week":
@@ -147,7 +150,7 @@ export function FollowupCalendar({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentDate, viewMode, selectedMailboxId, statusFilter]);
 
   // Calendar data computation
   const calendarData = useMemo(() => {
@@ -221,7 +224,8 @@ export function FollowupCalendar({
 
     return dayFollowups
       .map((followup): CalendarEvent => {
-        const eventDate = followup.scheduled_for || followup.sent_at || followup.created_at;
+        const eventDate =
+          followup.scheduled_for || followup.sent_at || followup.created_at;
         return {
           id: followup.id,
           title: followup.tracked_email?.subject || "Sans sujet",
@@ -236,11 +240,15 @@ export function FollowupCalendar({
   // Effects
   useEffect(() => {
     loadFollowups();
-  }, [currentDate, viewMode, selectedMailboxId, statusFilter]);
+  }, [currentDate, viewMode, selectedMailboxId, statusFilter, loadFollowups]);
 
   // Navigation handlers
   const navigateMonth = (direction: "prev" | "next") => {
-    setCurrentDate(direction === "next" ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
+    setCurrentDate(
+      direction === "next"
+        ? addMonths(currentDate, 1)
+        : subMonths(currentDate, 1)
+    );
   };
 
   const navigateWeek = (direction: "prev" | "next") => {
@@ -282,7 +290,7 @@ export function FollowupCalendar({
 
     const { variant, label } = config[status];
     return (
-      <Badge variant={variant} className="text-xs px-1 py-0">
+      <Badge variant={variant} className="px-1 py-0 text-xs">
         {label}
       </Badge>
     );
@@ -334,7 +342,7 @@ export function FollowupCalendar({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <h3 className="text-lg font-semibold min-w-[200px] text-center">
+                <h3 className="min-w-[200px] text-center text-lg font-semibold">
                   {getPeriodTitle()}
                 </h3>
                 <Button
@@ -350,12 +358,15 @@ export function FollowupCalendar({
                 size="sm"
                 onClick={() => setCurrentDate(new Date())}
               >
-                Aujourd'hui
+                Aujourd&apos;hui
               </Button>
             </div>
 
             <div className="flex items-center gap-2">
-              <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+              <Select
+                value={viewMode}
+                onValueChange={value => setViewMode(value as ViewMode)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -381,7 +392,12 @@ export function FollowupCalendar({
                 </SelectContent>
               </Select>
 
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as FollowupStatus | "all")}>
+              <Select
+                value={statusFilter}
+                onValueChange={value =>
+                  setStatusFilter(value as FollowupStatus | "all")
+                }
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
@@ -405,8 +421,11 @@ export function FollowupCalendar({
             <div className="space-y-4">
               {/* Days of week header */}
               <div className="grid grid-cols-7 gap-2">
-                {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day) => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(day => (
+                  <div
+                    key={day}
+                    className="p-2 text-center text-sm font-medium text-gray-500"
+                  >
                     {day}
                   </div>
                 ))}
@@ -419,35 +438,39 @@ export function FollowupCalendar({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div
-                          className={`
-                            p-2 min-h-[100px] border rounded-lg cursor-pointer transition-colors
-                            ${day.isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50 text-gray-400"}
-                            ${day.isToday ? "border-blue-500 bg-blue-50" : "border-gray-200"}
-                            ${selectedDate && isSameDay(day.date, selectedDate) ? "ring-2 ring-blue-500" : ""}
-                          `}
+                          className={`min-h-[100px] cursor-pointer rounded-lg border p-2 transition-colors ${day.isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50 text-gray-400"} ${day.isToday ? "border-blue-500 bg-blue-50" : "border-gray-200"} ${selectedDate && isSameDay(day.date, selectedDate) ? "ring-2 ring-blue-500" : ""} `}
                           onClick={() => {
                             setSelectedDate(day.date);
                             onDateSelect?.(day.date);
                           }}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`text-sm ${day.isToday ? "font-bold text-blue-600" : ""}`}>
+                          <div className="mb-2 flex items-center justify-between">
+                            <span
+                              className={`text-sm ${day.isToday ? "font-bold text-blue-600" : ""}`}
+                            >
                               {format(day.date, "d")}
                             </span>
                             <div className="flex gap-1">
-                              {day.stats.scheduled > 0 && getStatusBadge("scheduled", day.stats.scheduled)}
-                              {day.stats.sent > 0 && getStatusBadge("sent", day.stats.sent)}
-                              {day.stats.failed > 0 && getStatusBadge("failed", day.stats.failed)}
+                              {day.stats.scheduled > 0 &&
+                                getStatusBadge(
+                                  "scheduled",
+                                  day.stats.scheduled
+                                )}
+                              {day.stats.sent > 0 &&
+                                getStatusBadge("sent", day.stats.sent)}
+                              {day.stats.failed > 0 &&
+                                getStatusBadge("failed", day.stats.failed)}
                             </div>
                           </div>
 
                           <div className="space-y-1">
-                            {day.followups.slice(0, 3).map((followup) => (
+                            {day.followups.slice(0, 3).map(followup => (
                               <div
                                 key={followup.id}
-                                className="text-xs p-1 rounded bg-gray-100 truncate"
+                                className="truncate rounded bg-gray-100 p-1 text-xs"
                               >
-                                {followup.tracked_email?.subject || "Sans sujet"}
+                                {followup.tracked_email?.subject ||
+                                  "Sans sujet"}
                               </div>
                             ))}
                             {day.followups.length > 3 && (
@@ -460,9 +483,12 @@ export function FollowupCalendar({
                       </TooltipTrigger>
                       <TooltipContent>
                         <div className="space-y-1">
-                          <p className="font-medium">{format(day.date, "dd MMMM yyyy", { locale: fr })}</p>
+                          <p className="font-medium">
+                            {format(day.date, "dd MMMM yyyy", { locale: fr })}
+                          </p>
                           <p className="text-sm">
-                            {day.followups.length} relance{day.followups.length !== 1 ? "s" : ""}
+                            {day.followups.length} relance
+                            {day.followups.length !== 1 ? "s" : ""}
                           </p>
                         </div>
                       </TooltipContent>
@@ -478,31 +504,40 @@ export function FollowupCalendar({
               <div className="grid grid-cols-7 gap-4">
                 {weekData.map((day, index) => (
                   <div key={index} className="space-y-2">
-                    <div className={`text-center p-2 rounded ${day.isToday ? "bg-blue-500 text-white" : "bg-gray-100"}`}>
+                    <div
+                      className={`rounded p-2 text-center ${day.isToday ? "bg-blue-500 text-white" : "bg-gray-100"}`}
+                    >
                       <div className="text-sm font-medium">
                         {format(day.date, "EEE", { locale: fr })}
                       </div>
-                      <div className="text-lg">
-                        {format(day.date, "d")}
-                      </div>
+                      <div className="text-lg">{format(day.date, "d")}</div>
                     </div>
 
-                    <div className="space-y-1 min-h-[200px]">
-                      {day.followups.map((followup) => (
+                    <div className="min-h-[200px] space-y-1">
+                      {day.followups.map(followup => (
                         <Dialog key={followup.id}>
                           <DialogTrigger asChild>
-                            <div className={`
-                              text-xs p-2 rounded cursor-pointer border-l-4
-                              ${followup.status === "scheduled" ? "bg-blue-50 border-blue-500" :
-                                followup.status === "sent" ? "bg-green-50 border-green-500" :
-                                followup.status === "failed" ? "bg-red-50 border-red-500" :
-                                "bg-gray-50 border-gray-500"}
-                            `}>
-                              <div className="font-medium truncate">
-                                {followup.tracked_email?.subject || "Sans sujet"}
+                            <div
+                              className={`cursor-pointer rounded border-l-4 p-2 text-xs ${
+                                followup.status === "scheduled"
+                                  ? "border-blue-500 bg-blue-50"
+                                  : followup.status === "sent"
+                                    ? "border-green-500 bg-green-50"
+                                    : followup.status === "failed"
+                                      ? "border-red-500 bg-red-50"
+                                      : "border-gray-500 bg-gray-50"
+                              } `}
+                            >
+                              <div className="truncate font-medium">
+                                {followup.tracked_email?.subject ||
+                                  "Sans sujet"}
                               </div>
                               <div className="text-gray-500">
-                                {followup.scheduled_for && format(new Date(followup.scheduled_for), "HH:mm")}
+                                {followup.scheduled_for &&
+                                  format(
+                                    new Date(followup.scheduled_for),
+                                    "HH:mm"
+                                  )}
                               </div>
                             </div>
                           </DialogTrigger>
@@ -517,17 +552,26 @@ export function FollowupCalendar({
                             </DialogHeader>
                             <div className="space-y-4">
                               <div>
-                                <p className="text-sm font-medium">Destinataire</p>
+                                <p className="text-sm font-medium">
+                                  Destinataire
+                                </p>
                                 <p className="text-sm text-gray-600">
-                                  {followup.tracked_email?.recipient_emails?.[0]}
+                                  {
+                                    followup.tracked_email
+                                      ?.recipient_emails?.[0]
+                                  }
                                 </p>
                               </div>
                               <div>
                                 <p className="text-sm font-medium">Statut</p>
                                 <Badge>{followup.status}</Badge>
                               </div>
-                              <Link href={`/dashboard/followups/${followup.id}`}>
-                                <Button className="w-full">Voir les détails</Button>
+                              <Link
+                                href={`/dashboard/followups/${followup.id}`}
+                              >
+                                <Button className="w-full">
+                                  Voir les détails
+                                </Button>
                               </Link>
                             </div>
                           </DialogContent>
@@ -543,41 +587,66 @@ export function FollowupCalendar({
           {viewMode === "day" && (
             <div className="space-y-4">
               {dayEvents.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="py-8 text-center text-gray-500">
                   Aucune relance programmée pour cette journée
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {dayEvents.map((event) => (
-                    <Link key={event.id} href={`/dashboard/followups/${event.id}`}>
-                      <div className={`
-                        flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer
-                        ${event.status === "scheduled" ? "border-l-4 border-l-blue-500" :
-                          event.status === "sent" ? "border-l-4 border-l-green-500" :
-                          event.status === "failed" ? "border-l-4 border-l-red-500" :
-                          "border-l-4 border-l-gray-500"}
-                      `}>
-                        <div className="text-sm font-mono text-gray-500 w-16">
+                  {dayEvents.map(event => (
+                    <Link
+                      key={event.id}
+                      href={`/dashboard/followups/${event.id}`}
+                    >
+                      <div
+                        className={`flex cursor-pointer items-center gap-4 rounded-lg border p-4 hover:bg-gray-50 ${
+                          event.status === "scheduled"
+                            ? "border-l-4 border-l-blue-500"
+                            : event.status === "sent"
+                              ? "border-l-4 border-l-green-500"
+                              : event.status === "failed"
+                                ? "border-l-4 border-l-red-500"
+                                : "border-l-4 border-l-gray-500"
+                        } `}
+                      >
+                        <div className="w-16 font-mono text-sm text-gray-500">
                           {event.time}
                         </div>
                         <div className="flex-1">
                           <p className="font-medium">{event.title}</p>
                           <p className="text-sm text-gray-600">
-                            Relance {event.followup.followup_number} • {event.followup.tracked_email?.recipient_emails?.[0]}
+                            Relance {event.followup.followup_number} •{" "}
+                            {
+                              event.followup.tracked_email
+                                ?.recipient_emails?.[0]
+                            }
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={
-                            event.status === "scheduled" ? "default" :
-                            event.status === "sent" ? "default" :
-                            event.status === "failed" ? "destructive" : "secondary"
-                          }>
+                          <Badge
+                            variant={
+                              event.status === "scheduled"
+                                ? "default"
+                                : event.status === "sent"
+                                  ? "default"
+                                  : event.status === "failed"
+                                    ? "destructive"
+                                    : "secondary"
+                            }
+                          >
                             {event.status}
                           </Badge>
-                          {event.status === "scheduled" && <Clock className="h-4 w-4 text-gray-400" />}
-                          {event.status === "sent" && <Send className="h-4 w-4 text-green-500" />}
-                          {event.status === "failed" && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                          {event.status === "cancelled" && <Ban className="h-4 w-4 text-gray-500" />}
+                          {event.status === "scheduled" && (
+                            <Clock className="h-4 w-4 text-gray-400" />
+                          )}
+                          {event.status === "sent" && (
+                            <Send className="h-4 w-4 text-green-500" />
+                          )}
+                          {event.status === "failed" && (
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                          )}
+                          {event.status === "cancelled" && (
+                            <Ban className="h-4 w-4 text-gray-500" />
+                          )}
                         </div>
                       </div>
                     </Link>

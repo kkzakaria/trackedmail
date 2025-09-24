@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { followupService } from "@/lib/services/followup.service";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ interface FollowupMetrics {
 }
 
 export default function FollowupsPage() {
-  const { } = useAuth();
+  const {} = useAuth();
 
   // State management
   const [followups, setFollowups] = useState<FollowupWithEmail[]>([]);
@@ -121,7 +121,7 @@ export default function FollowupsPage() {
   });
 
   // Load followups data
-  const loadFollowups = async () => {
+  const loadFollowups = useCallback(async () => {
     try {
       setLoading(true);
       const result = await followupService.getFollowups({
@@ -133,7 +133,7 @@ export default function FollowupsPage() {
         include_email_data: true,
       });
 
-      setFollowups(result.data as any[]);
+      setFollowups((result.data || []) as unknown as FollowupWithEmail[]);
       setTotalCount(result.pagination.total);
     } catch (error) {
       console.error("Erreur lors du chargement des relances:", error);
@@ -141,15 +141,16 @@ export default function FollowupsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination, filters, searchQuery]);
 
   // Load metrics
   const loadMetrics = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
+      const today = new Date().toISOString().split("T")[0] || "";
+      const tomorrow =
+        new Date(Date.now() + 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0] || "";
 
       // Get all followups for metrics calculation
       const allFollowups = await followupService.getFollowups({
@@ -157,28 +158,25 @@ export default function FollowupsPage() {
         include_email_data: true,
       });
 
-      const followupsData = allFollowups.data as any[];
+      const followupsData = (allFollowups.data ||
+        []) as unknown as FollowupWithEmail[];
 
       // Calculate metrics
       const newMetrics: FollowupMetrics = {
-        total_scheduled: followupsData.filter(f => f.status === "scheduled").length,
+        total_scheduled: followupsData.filter(f => f.status === "scheduled")
+          .length,
         total_sent: followupsData.filter(f => f.status === "sent").length,
         total_failed: followupsData.filter(f => f.status === "failed").length,
-        total_cancelled: followupsData.filter(f => f.status === "cancelled").length,
+        total_cancelled: followupsData.filter(f => f.status === "cancelled")
+          .length,
         scheduled_today: followupsData.filter(
-          f =>
-            f.status === "scheduled" &&
-            f.scheduled_for?.startsWith(today)
+          f => f.status === "scheduled" && f.scheduled_for?.startsWith(today)
         ).length,
         sent_today: followupsData.filter(
-          f =>
-            f.status === "sent" &&
-            f.sent_at?.startsWith(today)
+          f => f.status === "sent" && f.sent_at?.startsWith(today)
         ).length,
         next_scheduled_count: followupsData.filter(
-          f =>
-            f.status === "scheduled" &&
-            f.scheduled_for?.startsWith(tomorrow)
+          f => f.status === "scheduled" && f.scheduled_for?.startsWith(tomorrow)
         ).length,
       };
 
@@ -191,7 +189,7 @@ export default function FollowupsPage() {
   // Effects
   useEffect(() => {
     loadFollowups();
-  }, [pagination, filters, searchQuery]);
+  }, [loadFollowups]);
 
   useEffect(() => {
     loadMetrics();
@@ -200,9 +198,17 @@ export default function FollowupsPage() {
   // Status badge variant
   const getStatusBadge = (status: FollowupStatus) => {
     const config = {
-      scheduled: { variant: "default" as const, label: "Programmé", icon: Clock },
+      scheduled: {
+        variant: "default" as const,
+        label: "Programmé",
+        icon: Clock,
+      },
       sent: { variant: "default" as const, label: "Envoyé", icon: CheckCircle },
-      failed: { variant: "destructive" as const, label: "Échec", icon: XCircle },
+      failed: {
+        variant: "destructive" as const,
+        label: "Échec",
+        icon: XCircle,
+      },
       cancelled: { variant: "secondary" as const, label: "Annulé", icon: Ban },
     };
 
@@ -235,10 +241,12 @@ export default function FollowupsPage() {
       await loadFollowups();
       await loadMetrics();
 
-      toast.success(`${selectedFollowups.length} relance(s) annulée(s) avec succès`);
+      toast.success(
+        `${selectedFollowups.length} relance(s) annulée(s) avec succès`
+      );
     } catch (error) {
-      console.error("Erreur lors de l'annulation:", error);
-      toast.error("Impossible d'annuler les relances");
+      console.error("Erreur lors de l&apos;annulation:", error);
+      toast.error("Impossible d&apos;annuler les relances");
     }
   };
 
@@ -320,33 +328,31 @@ export default function FollowupsPage() {
                 <Clock className="text-muted-foreground h-4 w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{metrics.total_scheduled}</div>
+                <div className="text-2xl font-bold">
+                  {metrics.total_scheduled}
+                </div>
                 <p className="text-muted-foreground text-xs">
-                  {metrics.scheduled_today} aujourd'hui
+                  {metrics.scheduled_today} aujourd&apos;hui
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Envoyées
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Envoyées</CardTitle>
                 <Send className="text-muted-foreground h-4 w-4" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.total_sent}</div>
                 <p className="text-muted-foreground text-xs">
-                  {metrics.sent_today} aujourd'hui
+                  {metrics.sent_today} aujourd&apos;hui
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Échecs
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Échecs</CardTitle>
                 <AlertTriangle className="text-muted-foreground h-4 w-4" />
               </CardHeader>
               <CardContent>
@@ -359,13 +365,13 @@ export default function FollowupsPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Annulées
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Annulées</CardTitle>
                 <Ban className="text-muted-foreground h-4 w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{metrics.total_cancelled}</div>
+                <div className="text-2xl font-bold">
+                  {metrics.total_cancelled}
+                </div>
                 <p className="text-muted-foreground text-xs">
                   {metrics.next_scheduled_count} demain
                 </p>
@@ -386,12 +392,12 @@ export default function FollowupsPage() {
                 <div>
                   <Label htmlFor="search">Recherche</Label>
                   <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search className="text-muted-foreground absolute top-2.5 left-2 h-4 w-4" />
                     <Input
                       id="search"
                       placeholder="Rechercher par sujet..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={e => setSearchQuery(e.target.value)}
                       className="pl-8"
                     />
                   </div>
@@ -401,10 +407,13 @@ export default function FollowupsPage() {
                   <Label htmlFor="status">Statut</Label>
                   <Select
                     value={filters.status?.[0] || "all"}
-                    onValueChange={(value) =>
+                    onValueChange={value =>
                       setFilters({
                         ...filters,
-                        status: value === "all" ? undefined : [value as FollowupStatus],
+                        status:
+                          value === "all"
+                            ? undefined
+                            : [value as FollowupStatus],
                       })
                     }
                   >
@@ -425,10 +434,11 @@ export default function FollowupsPage() {
                   <Label htmlFor="followup_number">Niveau</Label>
                   <Select
                     value={filters.followup_number?.toString() || "all"}
-                    onValueChange={(value) =>
+                    onValueChange={value =>
                       setFilters({
                         ...filters,
-                        followup_number: value === "all" ? undefined : parseInt(value),
+                        followup_number:
+                          value === "all" ? undefined : parseInt(value),
                       })
                     }
                   >
@@ -510,7 +520,7 @@ export default function FollowupsPage() {
                           selectedFollowups.length === filteredData.length &&
                           filteredData.length > 0
                         }
-                        onCheckedChange={(checked) => {
+                        onCheckedChange={checked => {
                           if (checked) {
                             setSelectedFollowups(filteredData.map(f => f.id));
                           } else {
@@ -530,28 +540,33 @@ export default function FollowupsPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={7} className="py-8 text-center">
                         Chargement...
                       </TableCell>
                     </TableRow>
                   ) : filteredData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={7} className="py-8 text-center">
                         Aucune relance trouvée
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredData.map((followup) => (
+                    filteredData.map(followup => (
                       <TableRow key={followup.id}>
                         <TableCell>
                           <Checkbox
                             checked={selectedFollowups.includes(followup.id)}
-                            onCheckedChange={(checked) => {
+                            onCheckedChange={checked => {
                               if (checked) {
-                                setSelectedFollowups([...selectedFollowups, followup.id]);
+                                setSelectedFollowups([
+                                  ...selectedFollowups,
+                                  followup.id,
+                                ]);
                               } else {
                                 setSelectedFollowups(
-                                  selectedFollowups.filter(id => id !== followup.id)
+                                  selectedFollowups.filter(
+                                    id => id !== followup.id
+                                  )
                                 );
                               }
                             }}
@@ -565,7 +580,7 @@ export default function FollowupsPage() {
                             >
                               {followup.tracked_email?.subject || "Sans sujet"}
                             </Link>
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-muted-foreground text-sm">
                               {followup.tracked_email?.recipient_emails?.[0]}
                             </span>
                           </div>
@@ -575,19 +590,29 @@ export default function FollowupsPage() {
                             Relance {followup.followup_number}
                           </Badge>
                         </TableCell>
-                        <TableCell>{getStatusBadge(followup.status as FollowupStatus)}</TableCell>
+                        <TableCell>
+                          {getStatusBadge(followup.status as FollowupStatus)}
+                        </TableCell>
                         <TableCell>
                           {followup.scheduled_for ? (
                             <div className="flex flex-col">
                               <span>
-                                {format(parseISO(followup.scheduled_for), "dd/MM/yyyy", {
-                                  locale: fr,
-                                })}
+                                {format(
+                                  parseISO(followup.scheduled_for),
+                                  "dd/MM/yyyy",
+                                  {
+                                    locale: fr,
+                                  }
+                                )}
                               </span>
-                              <span className="text-sm text-muted-foreground">
-                                {format(parseISO(followup.scheduled_for), "HH:mm", {
-                                  locale: fr,
-                                })}
+                              <span className="text-muted-foreground text-sm">
+                                {format(
+                                  parseISO(followup.scheduled_for),
+                                  "HH:mm",
+                                  {
+                                    locale: fr,
+                                  }
+                                )}
                               </span>
                             </div>
                           ) : (
@@ -608,7 +633,9 @@ export default function FollowupsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/followups/${followup.id}`}>
+                                <Link
+                                  href={`/dashboard/followups/${followup.id}`}
+                                >
                                   <ArrowRight className="mr-2 h-4 w-4" />
                                   Voir détails
                                 </Link>
@@ -661,7 +688,7 @@ export default function FollowupsPage() {
       {/* Reschedule Dialog */}
       <Dialog
         open={rescheduleDialog.open}
-        onOpenChange={(open) =>
+        onOpenChange={open =>
           setRescheduleDialog({ ...rescheduleDialog, open })
         }
       >
@@ -679,7 +706,7 @@ export default function FollowupsPage() {
                 id="new-date"
                 type="datetime-local"
                 value={rescheduleDialog.newDate.slice(0, 16)}
-                onChange={(e) =>
+                onChange={e =>
                   setRescheduleDialog({
                     ...rescheduleDialog,
                     newDate: e.target.value,
@@ -692,7 +719,11 @@ export default function FollowupsPage() {
             <Button
               variant="outline"
               onClick={() =>
-                setRescheduleDialog({ open: false, followupId: null, newDate: "" })
+                setRescheduleDialog({
+                  open: false,
+                  followupId: null,
+                  newDate: "",
+                })
               }
             >
               Annuler
