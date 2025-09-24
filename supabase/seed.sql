@@ -37,7 +37,7 @@ SELECT tests.create_supabase_user(
         'full_name', 'Jean Administrateur',
         'role', 'administrateur',
         'timezone', 'Europe/Paris',
-        'pause_relances', false
+        'is_active', true
     )
 );
 
@@ -49,7 +49,7 @@ SELECT tests.create_supabase_user(
         'full_name', 'Marie Manager',
         'role', 'manager',
         'timezone', 'Europe/Paris',
-        'pause_relances', false
+        'is_active', true
     )
 );
 
@@ -61,7 +61,7 @@ SELECT tests.create_supabase_user(
         'full_name', 'Pierre Utilisateur',
         'role', 'utilisateur',
         'timezone', 'Europe/Paris',
-        'pause_relances', false
+        'is_active', true
     )
 );
 
@@ -73,7 +73,7 @@ SELECT tests.create_supabase_user(
         'full_name', 'Sophie Commercial',
         'role', 'utilisateur',
         'timezone', 'Europe/Paris',
-        'pause_relances', false
+        'is_active', true
     )
 );
 
@@ -85,7 +85,7 @@ SELECT tests.create_supabase_user(
         'full_name', 'Lucas Support',
         'role', 'utilisateur',
         'timezone', 'Europe/Paris',
-        'pause_relances', true
+        'is_active', false
     )
 );
 

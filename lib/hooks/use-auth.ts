@@ -48,9 +48,8 @@ export function useAuthContext() {
             email: profile.email,
             full_name: profile.full_name,
             role: profile.role as UserRole,
-            mailbox_address: profile.mailbox_address,
             timezone: profile.timezone || "UTC",
-            pause_relances: profile.pause_relances || false,
+            is_active: profile.is_active || true,
           });
         }
       } catch (error) {
@@ -128,7 +127,7 @@ export function useAuthContext() {
       full_name: userData.full_name || email.split("@")[0],
       role: userData.role || "utilisateur",
       timezone: userData.timezone || "Europe/Paris",
-      pause_relances: userData.pause_relances || false,
+      is_active: userData.is_active !== undefined ? userData.is_active : true,
     };
 
     const { error } = await supabase.auth.signUp({
