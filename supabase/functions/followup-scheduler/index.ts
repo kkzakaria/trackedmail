@@ -161,9 +161,10 @@ async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<T
     return [];
   }
 
-  // Pour chaque email, récupérer le statut des relances
+  // Pour chaque email, récupérer le statut des relances (automatiques + manuelles)
   const enrichedEmails = [];
   for (const email of emailsData) {
+    // Récupérer les relances automatiques
     const { data: followupData, error: followupError } = await supabase
       .from('followups')
       .select('followup_number, sent_at')
@@ -175,11 +176,58 @@ async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<T
       console.error(`Error fetching followups for ${email.id}:`, followupError);
     }
 
-    const lastFollowup = followupData?.[0];
+    // Récupérer les relances manuelles
+    const { data: manualFollowupData, error: manualError } = await supabase
+      .from('manual_followups')
+      .select('followup_sequence_number, detected_at')
+      .eq('tracked_email_id', email.id)
+      .order('detected_at', { ascending: false })
+      .limit(1);
+
+    if (manualError) {
+      console.error(`Error fetching manual followups for ${email.id}:`, manualError);
+    }
+
+    const lastAutomaticFollowup = followupData?.[0];
+    const lastManualFollowup = manualFollowupData?.[0];
+
+    // Déterminer la dernière activité (automatique ou manuelle)
+    const automaticAt = lastAutomaticFollowup?.sent_at ? new Date(lastAutomaticFollowup.sent_at) : null;
+    const manualAt = lastManualFollowup?.detected_at ? new Date(lastManualFollowup.detected_at) : null;
+
+    let lastActivity: Date;
+    let lastActivityType: 'automatic' | 'manual' | 'original';
+
+    if (automaticAt && manualAt) {
+      if (automaticAt > manualAt) {
+        lastActivity = automaticAt;
+        lastActivityType = 'automatic';
+      } else {
+        lastActivity = manualAt;
+        lastActivityType = 'manual';
+      }
+    } else if (automaticAt) {
+      lastActivity = automaticAt;
+      lastActivityType = 'automatic';
+    } else if (manualAt) {
+      lastActivity = manualAt;
+      lastActivityType = 'manual';
+    } else {
+      lastActivity = new Date(email.sent_at);
+      lastActivityType = 'original';
+    }
+
+    // Calculer le nombre total de relances (automatiques + manuelles)
+    const totalFollowups = await getTotalFollowupsForEmail(supabase, email.id);
+
     enrichedEmails.push({
       ...email,
-      last_followup_number: lastFollowup?.followup_number || 0,
-      last_followup_at: lastFollowup?.sent_at || null
+      last_followup_number: lastAutomaticFollowup?.followup_number || 0,
+      last_followup_at: lastAutomaticFollowup?.sent_at || null,
+      last_manual_followup_at: lastManualFollowup?.detected_at || null,
+      last_activity_at: lastActivity.toISOString(),
+      last_activity_type: lastActivityType,
+      total_followups: totalFollowups
     });
   }
 
@@ -229,11 +277,38 @@ async function getWorkingHoursConfig(supabase: any): Promise<WorkingHoursConfig>
 }
 
 /**
+ * Calcule le nombre total de relances (automatiques + manuelles) pour un email
+ */
+async function getTotalFollowupsForEmail(
+  supabase: EdgeSupabaseClient,
+  trackedEmailId: string
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_total_followup_count', { p_tracked_email_id: trackedEmailId });
+
+    if (error) {
+      console.error(`Error getting total followup count for ${trackedEmailId}:`, error);
+      return 0;
+    }
+
+    return data || 0;
+  } catch (error) {
+    console.error(`Error calling get_total_followup_count:`, error);
+    return 0;
+  }
+}
+
+/**
  * Traite un email pour créer les relances nécessaires
  */
 interface TrackedEmailWithFollowupInfo extends TrackedEmailRow {
   last_followup_number?: number;
   last_followup_at?: string;
+  last_manual_followup_at?: string;
+  last_activity_at?: string;
+  last_activity_type?: 'automatic' | 'manual' | 'original';
+  total_followups?: number;
 }
 
 async function processEmailForFollowups(
@@ -243,7 +318,10 @@ async function processEmailForFollowups(
   workingHours: WorkingHoursConfig
 ): Promise<any[]> {
   const followupsCreated = [];
-  const nextFollowupNumber = (email.last_followup_number || 0) + 1;
+
+  // Utiliser le nombre total de relances (automatiques + manuelles) pour le calcul
+  const totalFollowupsSent = email.total_followups || 0;
+  const nextAutomaticFollowupNumber = (email.last_followup_number || 0) + 1;
 
   // Récupérer la configuration des relances
   const { data: followupConfig } = await supabase
@@ -254,16 +332,23 @@ async function processEmailForFollowups(
 
   const maxFollowups = followupConfig?.value?.max_followups || 3;
 
-  // Vérifier qu'on n'a pas atteint le maximum
-  if (nextFollowupNumber > maxFollowups) {
-    console.log(`⏭️ Email ${email.id} has reached max followups (${maxFollowups})`);
+  // Vérifier qu'on n'a pas atteint le maximum total (automatiques + manuelles)
+  if (totalFollowupsSent >= maxFollowups) {
+    console.log(`⏭️ Email ${email.id} has reached max total followups (${totalFollowupsSent}/${maxFollowups})`);
+    console.log(`   Including manual followups: ${email.total_followups}`);
+    return [];
+  }
+
+  // Vérifier aussi que le prochain numéro automatique ne dépasse pas le max
+  if (nextAutomaticFollowupNumber > maxFollowups) {
+    console.log(`⏭️ Email ${email.id} next automatic followup would exceed max (${nextAutomaticFollowupNumber}>${maxFollowups})`);
     return [];
   }
 
   // Trouver le template pour le prochain niveau de relance
-  const template = templates.find(t => t.followup_number === nextFollowupNumber);
+  const template = templates.find(t => t.followup_number === nextAutomaticFollowupNumber);
   if (!template) {
-    console.log(`📝 No active template found for followup ${nextFollowupNumber}`);
+    console.log(`📝 No active template found for followup ${nextAutomaticFollowupNumber}`);
     return [];
   }
 
@@ -272,19 +357,21 @@ async function processEmailForFollowups(
     .from('followups')
     .select('id')
     .eq('tracked_email_id', email.id)
-    .eq('followup_number', nextFollowupNumber)
+    .eq('followup_number', nextAutomaticFollowupNumber)
     .eq('status', 'scheduled')
     .limit(1);
 
   if (existingFollowup && existingFollowup.length > 0) {
-    console.log(`🔄 Followup ${nextFollowupNumber} already scheduled for email ${email.id}`);
+    console.log(`🔄 Followup ${nextAutomaticFollowupNumber} already scheduled for email ${email.id}`);
     return [];
   }
 
-  // Calculer la date de programmation
-  const baseDate = email.last_followup_at
-    ? new Date(email.last_followup_at)
+  // Calculer la date de programmation basée sur la dernière activité (automatique ou manuelle)
+  const baseDate = email.last_activity_at
+    ? new Date(email.last_activity_at)
     : new Date(email.sent_at);
+
+  console.log(`📅 Base date for scheduling: ${baseDate.toISOString()} (activity type: ${email.last_activity_type || 'original'})`);
 
   // DEBUG MODE: Si le template a un délai < 24h, traiter comme des minutes
   const isDebugMode = template.delay_hours < 24;
@@ -305,7 +392,7 @@ async function processEmailForFollowups(
   const followupData = {
     tracked_email_id: email.id,
     template_id: template.id,
-    followup_number: nextFollowupNumber,
+    followup_number: nextAutomaticFollowupNumber,
     subject: renderedTemplate.subject,
     body: renderedTemplate.body,
     scheduled_for: schedulingResult.scheduled_for,
@@ -324,7 +411,7 @@ async function processEmailForFollowups(
 
   followupsCreated.push(createdFollowup);
 
-  console.log(`📅 Scheduled followup ${nextFollowupNumber} for email ${email.id} at ${schedulingResult.scheduled_for}`);
+  console.log(`📅 Scheduled followup ${nextAutomaticFollowupNumber} for email ${email.id} at ${schedulingResult.scheduled_for}`);
 
   return followupsCreated;
 }

@@ -4,17 +4,17 @@
 
 -- Update followup templates with new 4-hour intervals
 UPDATE followup_templates SET
-  name = 'Relance 1 - Première tentative (4h)',
+  name = 'Relance 1 - PremiÃ¨re tentative (4h)',
   delay_hours = 4
 WHERE followup_number = 1;
 
 UPDATE followup_templates SET
-  name = 'Relance 2 - Deuxième tentative (8h)',
+  name = 'Relance 2 - DeuxiÃ¨me tentative (8h)',
   delay_hours = 8
 WHERE followup_number = 2;
 
 UPDATE followup_templates SET
-  name = 'Relance 3 - Dernière tentative (12h)',
+  name = 'Relance 3 - DerniÃ¨re tentative (12h)',
   delay_hours = 12
 WHERE followup_number = 3;
 

@@ -134,6 +134,13 @@ export type Database = {
             foreignKeyName: "detection_logs_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
+            referencedRelation: "followup_activity_summary";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "detection_logs_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
             referencedRelation: "pending_response_detection";
             referencedColumns: ["id"];
           },
@@ -207,6 +214,13 @@ export type Database = {
             columns: ["tracked_email_id"];
             isOneToOne: false;
             referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_responses_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "followup_activity_summary";
             referencedColumns: ["id"];
           },
           {
@@ -353,6 +367,13 @@ export type Database = {
             foreignKeyName: "followups_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
+            referencedRelation: "followup_activity_summary";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
             referencedRelation: "pending_response_detection";
             referencedColumns: ["id"];
           },
@@ -398,6 +419,74 @@ export type Database = {
         };
         Relationships: [];
       };
+      manual_followups: {
+        Row: {
+          affects_automatic_scheduling: boolean | null;
+          conversation_id: string;
+          created_at: string | null;
+          detected_at: string | null;
+          followup_sequence_number: number;
+          id: string;
+          microsoft_message_id: string;
+          sender_email: string;
+          subject: string | null;
+          tracked_email_id: string;
+        };
+        Insert: {
+          affects_automatic_scheduling?: boolean | null;
+          conversation_id: string;
+          created_at?: string | null;
+          detected_at?: string | null;
+          followup_sequence_number: number;
+          id?: string;
+          microsoft_message_id: string;
+          sender_email: string;
+          subject?: string | null;
+          tracked_email_id: string;
+        };
+        Update: {
+          affects_automatic_scheduling?: boolean | null;
+          conversation_id?: string;
+          created_at?: string | null;
+          detected_at?: string | null;
+          followup_sequence_number?: number;
+          id?: string;
+          microsoft_message_id?: string;
+          sender_email?: string;
+          subject?: string | null;
+          tracked_email_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "manual_followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "manual_followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "followup_activity_summary";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "manual_followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "pending_response_detection";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "manual_followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "tracked_emails";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       message_headers: {
         Row: {
           created_at: string | null;
@@ -436,6 +525,13 @@ export type Database = {
             columns: ["tracked_email_id"];
             isOneToOne: false;
             referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_headers_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "followup_activity_summary";
             referencedColumns: ["id"];
           },
           {
@@ -918,6 +1014,26 @@ export type Database = {
           },
         ];
       };
+      followup_activity_summary: {
+        Row: {
+          automatic_followups: number | null;
+          conversation_id: string | null;
+          effective_status: string | null;
+          followup_details: Json | null;
+          id: string | null;
+          last_activity_at: string | null;
+          manual_followups: number | null;
+          next_automatic_followup: string | null;
+          next_followup_number: number | null;
+          recipient_emails: string[] | null;
+          sender_email: string | null;
+          sent_at: string | null;
+          status: string | null;
+          subject: string | null;
+          total_followups: number | null;
+        };
+        Relationships: [];
+      };
       mailbox_statistics: {
         Row: {
           email_address: string | null;
@@ -1007,6 +1123,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      get_total_followup_count: {
+        Args: { p_tracked_email_id: string };
+        Returns: number;
+      };
       hard_delete_user: {
         Args: { user_id: string };
         Returns: boolean;
@@ -1022,6 +1142,14 @@ export type Database = {
       is_user_deleted: {
         Args: { user_id: string };
         Returns: boolean;
+      };
+      reschedule_pending_followups: {
+        Args: {
+          p_adjustment_hours?: number;
+          p_base_time: string;
+          p_tracked_email_id: string;
+        };
+        Returns: number;
       };
       restore_user: {
         Args: { user_id: string };

@@ -609,6 +609,22 @@ async function processNotification(
         return
       }
 
+      // NOUVEAU : Détecter les relances manuelles via conversationId
+      if (detectIsReply(messageDetails) && messageDetails.conversationId) {
+        console.log(`🔍 Detected reply email, checking for manual followup: ${messageDetails.subject}`)
+
+        const manualFollowupHandled = await handlePotentialManualFollowup(
+          supabase,
+          messageDetails,
+          startTime
+        )
+
+        if (manualFollowupHandled) {
+          console.log(`✅ Manual followup detected and processed for conversation: ${messageDetails.conversationId}`)
+          return
+        }
+      }
+
       // Vérifier si l'email n'existe pas déjà
       const existingEmail = await getExistingTrackedEmail(supabase, messageDetails.internetMessageId)
       if (existingEmail) {
@@ -1403,4 +1419,146 @@ function getOriginalTrackedEmailId(message: EmailMessage): string | null {
   }
 
   return null
+}
+
+/**
+ * Gère la détection et le traitement des relances manuelles
+ */
+async function handlePotentialManualFollowup(
+  supabase: EdgeSupabaseClient,
+  messageDetails: EmailMessage,
+  startTime: number
+): Promise<boolean> {
+  try {
+    console.log(`🔍 Checking for manual followup in conversation: ${messageDetails.conversationId}`)
+
+    // Chercher un email original tracké dans la même conversation
+    const { data: originalEmail, error: originalError } = await supabase
+      .from('tracked_emails')
+      .select('id, status, sent_at, subject, sender_email')
+      .eq('conversation_id', messageDetails.conversationId)
+      .eq('status', 'pending')
+      .single()
+
+    if (originalError || !originalEmail) {
+      console.log(`📭 No tracked email found for conversation ${messageDetails.conversationId}`)
+      return false
+    }
+
+    // Vérifier que c'est bien une relance manuelle (même expéditeur que l'email original)
+    const isSameSender = messageDetails.sender.emailAddress.address.toLowerCase() ===
+                        originalEmail.sender_email.toLowerCase()
+
+    if (!isSameSender) {
+      console.log(`👤 Different sender detected - not a manual followup`)
+      console.log(`   Original: ${originalEmail.sender_email}, Reply: ${messageDetails.sender.emailAddress.address}`)
+      return false
+    }
+
+    console.log(`🎯 Manual followup confirmed for email: ${originalEmail.id}`)
+    console.log(`   Original: "${originalEmail.subject}"`)
+    console.log(`   Manual followup: "${messageDetails.subject}"`)
+
+    // Compter le nombre total de relances existantes
+    const totalFollowups = await getTotalFollowupCount(supabase, originalEmail.id)
+    const nextSequenceNumber = totalFollowups + 1
+
+    console.log(`📊 Total existing followups: ${totalFollowups}, next sequence: ${nextSequenceNumber}`)
+
+    // Enregistrer la relance manuelle
+    const { error: insertError } = await supabase
+      .from('manual_followups')
+      .insert({
+        tracked_email_id: originalEmail.id,
+        microsoft_message_id: messageDetails.id,
+        conversation_id: messageDetails.conversationId,
+        sender_email: messageDetails.sender.emailAddress.address,
+        subject: messageDetails.subject,
+        followup_sequence_number: nextSequenceNumber,
+        detected_at: messageDetails.sentDateTime
+      })
+
+    if (insertError) {
+      console.error(`❌ Failed to insert manual followup:`, insertError)
+      return false
+    }
+
+    // Reprogrammer les relances automatiques
+    const rescheduledCount = await rescheduleAutomaticFollowups(
+      supabase,
+      originalEmail.id,
+      messageDetails.sentDateTime
+    )
+
+    console.log(`📅 Rescheduled ${rescheduledCount} automatic followups`)
+
+    // Logger la détection réussie
+    await logDetectionAttempt(
+      supabase,
+      messageDetails,
+      true,
+      originalEmail.id,
+      'manual_followup_detected',
+      null,
+      Date.now() - startTime
+    )
+
+    console.log(`✅ Manual followup successfully processed`)
+    return true
+
+  } catch (error) {
+    console.error(`❌ Error handling manual followup:`, error)
+    return false
+  }
+}
+
+/**
+ * Compte le nombre total de relances (automatiques + manuelles)
+ */
+async function getTotalFollowupCount(
+  supabase: EdgeSupabaseClient,
+  trackedEmailId: string
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_total_followup_count', { p_tracked_email_id: trackedEmailId })
+
+    if (error) {
+      console.error(`Error getting total followup count:`, error)
+      return 0
+    }
+
+    return data || 0
+  } catch (error) {
+    console.error(`Error calling get_total_followup_count:`, error)
+    return 0
+  }
+}
+
+/**
+ * Reprogramme les relances automatiques après une relance manuelle
+ */
+async function rescheduleAutomaticFollowups(
+  supabase: EdgeSupabaseClient,
+  trackedEmailId: string,
+  manualSentAt: string
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .rpc('reschedule_pending_followups', {
+        p_tracked_email_id: trackedEmailId,
+        p_base_time: manualSentAt,
+        p_adjustment_hours: 4 // Même intervalle que le système (4h)
+      })
+
+    if (error) {
+      console.error(`Error rescheduling followups:`, error)
+      return 0
+    }
+
+    return data || 0
+  } catch (error) {
+    console.error(`Error calling reschedule_pending_followups:`, error)
+    return 0
+  }
 }
