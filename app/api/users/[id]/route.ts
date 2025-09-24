@@ -247,7 +247,11 @@ export async function DELETE(
     // Prevent self-deletion
     if (user.id === id) {
       return NextResponse.json(
-        { error: "Vous ne pouvez pas vous supprimer vous-même" },
+        {
+          error: "Auto-désactivation interdite",
+          details:
+            "Pour des raisons de sécurité, vous ne pouvez pas désactiver votre propre compte. Contactez un autre administrateur si nécessaire.",
+        },
         { status: 400 }
       );
     }

@@ -16,9 +16,13 @@ import { useUsers } from "@/lib/hooks/use-users";
 
 interface UsersPageClientProps {
   userRole: "administrateur" | "manager" | "utilisateur";
+  currentUserId: string;
 }
 
-export function UsersPageClient({ userRole }: UsersPageClientProps) {
+export function UsersPageClient({
+  userRole,
+  currentUserId,
+}: UsersPageClientProps) {
   const [selectedTab, setSelectedTab] = useState("all");
 
   // Get statistics for different user states
@@ -160,6 +164,7 @@ export function UsersPageClient({ userRole }: UsersPageClientProps) {
                 canEdit={canEdit}
                 canDelete={canDelete}
                 canCreate={canCreate}
+                currentUserId={currentUserId}
               />
             </TabsContent>
 
@@ -168,6 +173,8 @@ export function UsersPageClient({ userRole }: UsersPageClientProps) {
                 canEdit={canEdit}
                 canDelete={canDelete}
                 canCreate={canCreate}
+                currentUserId={currentUserId}
+                filters={{ isActive: true }}
               />
             </TabsContent>
 
@@ -176,6 +183,8 @@ export function UsersPageClient({ userRole }: UsersPageClientProps) {
                 canEdit={canEdit}
                 canDelete={canDelete}
                 canCreate={canCreate}
+                currentUserId={currentUserId}
+                filters={{ isActive: false }}
               />
             </TabsContent>
           </Tabs>

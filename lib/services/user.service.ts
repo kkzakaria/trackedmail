@@ -30,13 +30,7 @@ export class UserService {
     const supabase = await this.getSupabase();
     let query = supabase
       .from("users")
-      .select(
-        `
-        *,
-        user_mailbox_assignments!user_mailbox_assignments_user_id_fkey(count)
-      `,
-        { count: "exact" }
-      )
+      .select("*", { count: "exact" })
       .order("full_name", { ascending: true });
 
     if (filters?.isActive !== undefined) {

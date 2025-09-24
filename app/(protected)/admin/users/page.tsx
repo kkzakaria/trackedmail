@@ -32,5 +32,5 @@ export default async function UsersPage() {
   }
 
   // Render the client component with proper authorization
-  return <UsersPageClient userRole={userData.role} />;
+  return <UsersPageClient userRole={userData.role} currentUserId={user.id} />;
 }

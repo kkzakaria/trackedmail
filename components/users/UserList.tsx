@@ -94,6 +94,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { UserRole } from "@/lib/types/auth";
 import type { UserWithDetails, UserFilters } from "@/lib/types/user-management";
@@ -137,6 +143,8 @@ interface UserListProps {
   canEdit?: boolean;
   canDelete?: boolean;
   canCreate?: boolean;
+  currentUserId?: string;
+  filters?: UserFilters;
 }
 
 export function UserList({
@@ -144,6 +152,8 @@ export function UserList({
   canEdit = true,
   canDelete = false,
   canCreate = true,
+  currentUserId,
+  filters: propFilters,
 }: UserListProps) {
   const id = useId();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -165,6 +175,8 @@ export function UserList({
     const filters: UserFilters = {
       limit: pagination.pageSize,
       offset: pagination.pageIndex * pagination.pageSize,
+      // Merge prop filters first
+      ...propFilters,
     };
 
     // Extract search filter
@@ -197,7 +209,7 @@ export function UserList({
     }
 
     return filters;
-  }, [columnFilters, pagination]);
+  }, [columnFilters, pagination, propFilters]);
 
   // Fetch users data
   const { data: usersData, isLoading } = useUsers(apiFilters);
@@ -362,6 +374,7 @@ export function UserList({
           user={row.original}
           canEdit={canEdit}
           canDelete={canDelete}
+          currentUserId={currentUserId}
         />
       ),
       size: 60,
@@ -929,10 +942,12 @@ function UserRowActions({
   user,
   canEdit,
   canDelete,
+  currentUserId,
 }: {
   user: UserWithDetails;
   canEdit?: boolean;
   canDelete?: boolean;
+  currentUserId?: string | undefined;
 }) {
   const softDeleteUser = useSoftDeleteUser();
 
@@ -995,14 +1010,37 @@ function UserRowActions({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={handleSoftDelete}
-                disabled={softDeleteUser.isPending}
-              >
-                <span>{user.is_active ? "Désactiver" : "Activer"}</span>
-                <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-              </DropdownMenuItem>
+              {user.id === currentUserId ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive cursor-not-allowed opacity-50"
+                          disabled={true}
+                        >
+                          <span>
+                            {user.is_active ? "Désactiver" : "Activer"}
+                          </span>
+                          <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+                        </DropdownMenuItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Vous ne pouvez pas vous désactiver vous-même</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleSoftDelete}
+                  disabled={softDeleteUser.isPending}
+                >
+                  <span>{user.is_active ? "Désactiver" : "Activer"}</span>
+                  <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </>
         )}
