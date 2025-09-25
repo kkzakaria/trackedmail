@@ -1,16 +1,9 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Mail, Users, BarChart3, Settings, LogOut, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Mail, Users, BarChart3, Settings, Loader2 } from "lucide-react";
+import TrackedEmailsTable from "@/components/tracked-emails/TrackedEmailsTable";
+import { useDashboardStats } from "@/lib/hooks/useDashboardStats";
 
 interface User {
   id: string;
@@ -24,82 +17,15 @@ interface DashboardPageClientProps {
 }
 
 export function DashboardPageClient({ user }: DashboardPageClientProps) {
-  const { signOut } = useAuth();
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case "administrateur":
-        return "destructive";
-      case "manager":
-        return "default";
-      case "utilisateur":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "administrateur":
-        return "Administrateur";
-      case "manager":
-        return "Manager";
-      case "utilisateur":
-        return "Utilisateur";
-      default:
-        return role;
-    }
-  };
-
+  const { stats, loading, error } = useDashboardStats();
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b bg-white shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center">
-              <Mail className="text-primary mr-3 h-8 w-8" />
-              <h1 className="text-xl font-semibold text-gray-900">
-                TrackedMail
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">
-                  {user?.full_name || user?.email}
-                </span>
-                <Badge variant={getRoleBadgeVariant(user?.role || "")}>
-                  {getRoleLabel(user?.role || "")}
-                </Badge>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Déconnexion
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div className="bg-background min-h-screen">
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <main className="mx-auto max-w-7xl py-2 sm:px-6 lg:px-8">
+        <div className="px-4 py-2 sm:px-0">
           {/* Welcome Section */}
           <div className="mb-8">
-            <h2 className="mb-2 text-2xl font-bold text-gray-900">
-              Tableau de bord
-            </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               Bienvenue {user?.full_name || user?.email}. Gérez vos e-mails
               trackés et suivez vos performances.
             </p>
@@ -112,12 +38,22 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 <CardTitle className="text-sm font-medium">
                   E-mails trackés
                 </CardTitle>
-                <Mail className="text-muted-foreground h-4 w-4" />
+                <Mail className="h-4 w-4 text-blue-500 dark:text-blue-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : error ? (
+                    "—"
+                  ) : (
+                    stats.totalEmails
+                  )}
+                </div>
                 <p className="text-muted-foreground text-xs">
-                  Aucun e-mail tracké pour le moment
+                  {stats.totalEmails === 0
+                    ? "Aucun e-mail tracké pour le moment"
+                    : `${stats.totalEmails} email${stats.totalEmails > 1 ? "s" : ""} suivi${stats.totalEmails > 1 ? "s" : ""}`}
                 </p>
               </CardContent>
             </Card>
@@ -127,12 +63,20 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 <CardTitle className="text-sm font-medium">
                   Réponses reçues
                 </CardTitle>
-                <BarChart3 className="text-muted-foreground h-4 w-4" />
+                <BarChart3 className="h-4 w-4 text-green-500 dark:text-green-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : error ? (
+                    "—"
+                  ) : (
+                    stats.totalResponses
+                  )}
+                </div>
                 <p className="text-muted-foreground text-xs">
-                  Taux de réponse: 0%
+                  Taux de réponse: {loading ? "..." : `${stats.responseRate}%`}
                 </p>
               </CardContent>
             </Card>
@@ -142,12 +86,22 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 <CardTitle className="text-sm font-medium">
                   Follow-ups envoyés
                 </CardTitle>
-                <Users className="text-muted-foreground h-4 w-4" />
+                <Users className="h-4 w-4 text-orange-500 dark:text-orange-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : error ? (
+                    "—"
+                  ) : (
+                    stats.totalFollowups
+                  )}
+                </div>
                 <p className="text-muted-foreground text-xs">
-                  Aucun follow-up programmé
+                  {stats.totalFollowups === 0
+                    ? "Aucun follow-up envoyé"
+                    : `${stats.totalFollowups} relance${stats.totalFollowups > 1 ? "s" : ""} envoyée${stats.totalFollowups > 1 ? "s" : ""}`}
                 </p>
               </CardContent>
             </Card>
@@ -157,74 +111,32 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 <CardTitle className="text-sm font-medium">
                   Boîtes mail
                 </CardTitle>
-                <Settings className="text-muted-foreground h-4 w-4" />
+                <Settings className="h-4 w-4 text-purple-500 dark:text-purple-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : error ? (
+                    "—"
+                  ) : (
+                    stats.totalMailboxes
+                  )}
+                </div>
                 <p className="text-muted-foreground text-xs">
-                  Configurez vos boîtes mail
+                  {stats.totalMailboxes === 0
+                    ? "Configurez vos boîtes mail"
+                    : `${stats.totalMailboxes} boîte${stats.totalMailboxes > 1 ? "s" : ""} configurée${stats.totalMailboxes > 1 ? "s" : ""}`}
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Tracked Emails Section */}
+          <div className="mb-8">
             <Card>
-              <CardHeader>
-                <CardTitle>Actions rapides</CardTitle>
-                <CardDescription>
-                  Commencez par configurer vos boîtes mail et paramètres
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button className="w-full justify-start" variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter une boîte mail
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Configurer les paramètres
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Voir les analytics
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>État du système</CardTitle>
-                <CardDescription>
-                  Informations sur la configuration actuelle
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Authentification
-                    </span>
-                    <Badge variant="default">Configurée</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Base de données
-                    </span>
-                    <Badge variant="default">Connectée</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Microsoft Graph
-                    </span>
-                    <Badge variant="outline">Non configuré</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Webhooks</span>
-                    <Badge variant="outline">Non configuré</Badge>
-                  </div>
-                </div>
+              <CardContent className="px-6 py-4">
+                <TrackedEmailsTable />
               </CardContent>
             </Card>
           </div>
