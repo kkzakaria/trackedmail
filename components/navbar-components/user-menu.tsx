@@ -1,14 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import {
-  BarChart3Icon,
-  LogOutIcon,
-  MailIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react";
+import { LogOutIcon, UserIcon } from "lucide-react";
+import { ProfileDialog } from "@/components/profile-dialog";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -37,8 +33,14 @@ interface UserMenuProps {
 }
 
 export default function UserMenu({ user }: UserMenuProps) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  // Handle profile dialog
+  const handleProfileClick = () => {
+    setIsProfileOpen(true);
+  };
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -68,7 +70,10 @@ export default function UserMenu({ user }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
+        <Button
+          variant="ghost"
+          className="h-auto cursor-pointer p-0 hover:bg-transparent"
+        >
           <Avatar>
             <AvatarImage
               src={`https://api.dicebear.com/7.x/initials/svg?seed=${displayEmail}`}
@@ -89,28 +94,12 @@ export default function UserMenu({ user }: UserMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={handleProfileClick}
+          >
             <UserIcon size={16} className="opacity-60" aria-hidden="true" />
             <span>Mon profil</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <MailIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Mes emails</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <BarChart3Icon
-              size={16}
-              className="opacity-60"
-              aria-hidden="true"
-            />
-            <span>Statistiques</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <SettingsIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Paramètres</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -122,6 +111,12 @@ export default function UserMenu({ user }: UserMenuProps) {
           <span>Déconnexion</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
+
+      <ProfileDialog
+        user={user}
+        open={isProfileOpen}
+        onOpenChange={setIsProfileOpen}
+      />
     </DropdownMenu>
   );
 }
