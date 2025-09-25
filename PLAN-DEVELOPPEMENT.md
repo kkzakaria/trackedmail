@@ -212,7 +212,7 @@
 - [x] CRUD complet pour les boîtes mail ✅ MailboxForm + MailboxList
 - [x] Assignation utilisateurs ↔ mailboxes ✅ AssignmentService
 - [x] Hooks React et services TypeScript ✅ useMailboxes, MailboxService
-- [ ] Validation et synchronisation avec Microsoft Graph (Phase 2.2)
+- [x] Validation et synchronisation avec Microsoft Graph (Phase 2.2) ✅
 
 #### 2.1.6 Résolution Automatique des IDs Microsoft ✅ COMPLÉTÉE
 
@@ -280,12 +280,12 @@
 - [ ] Exports de données (CSV, Excel)
 - [ ] Rapports par utilisateur/mailbox
 
-#### 3.3 Configuration Globale
+#### 3.3 Configuration Globale ✅ COMPLÉTÉE
 
-- [ ] Paramètres globaux de l'application
-- [ ] Configuration des heures ouvrables
-- [ ] Templates globaux et personnalisables
-- [ ] Gestion des domaines exclus
+- [x] Paramètres globaux de l'application ✅
+- [x] Configuration des heures ouvrables ✅
+- [x] Templates globaux et personnalisables ✅
+- [x] Gestion des domaines exclus ✅
 
 ## 📋 Plan Détaillé - Gestion des Utilisateurs
 
@@ -396,11 +396,11 @@
 - [x] Documentation technique complète ✅ Architecture, API, guide utilisation
 - [x] Tests et validation ✅ Scénarios complets validés en local
 
-### Phase 3.2 - Critères de Complétion
+### Phase 3.2 - Critères de Complétion ✅ PARTIELLEMENT COMPLÉTÉE
 
-- [ ] Dashboard avec métriques temps réel
-- [ ] Configuration globale complète
-- [ ] Interface utilisateur finalistes
+- [ ] Dashboard avec métriques temps réel (En cours)
+- [x] Configuration globale complète ✅
+- [ ] Interface utilisateur finalisée (En cours)
 
 ## 🚀 Points d'Attention
 
@@ -443,6 +443,6 @@
 
 ---
 
-**Dernière mise à jour**: 24 septembre 2025 - 15h15
-**Version**: 1.8
-**Statut**: Phase 1, 2 & 3.1 100% complètes - Architecture Next.js 15 optimisée - Microsoft Graph ID résolution implémentée - Système de relances terminé - Documentation complète - Prêt pour Phase 3.2 (Dashboard et Analytics)
+**Dernière mise à jour**: 25 septembre 2025 - 10h00
+**Version**: 1.9
+**Statut**: Phase 1, 2 & 3.1 100% complètes - Phase 3.3 Configuration Globale complète - Microsoft Graph validation et synchronisation complète - Architecture Next.js 15 optimisée - Système de relances terminé - Documentation complète - Phase 3.2 en cours (Dashboard et Analytics)
