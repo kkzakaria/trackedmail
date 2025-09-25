@@ -17,12 +17,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-// Navigation links for TrackedMail application
-const navigationLinks = [
+// Base navigation links for TrackedMail application
+const baseNavigationLinks = [
   { href: "/dashboard", label: "Tableau de bord" },
-  { href: "/emails", label: "Emails suivis" },
+  { href: "/submissions", label: "Soumissions" },
+  { href: "/documentation", label: "Documentations" },
   { href: "/analytics", label: "Analyses" },
-  { href: "/settings", label: "Configuration" },
 ];
 
 interface AppBarProps {
@@ -40,6 +40,14 @@ interface AppBarProps {
 }
 
 export function AppBar({ user }: AppBarProps) {
+  // Build navigation links based on user role
+  const navigationLinks = [...baseNavigationLinks];
+
+  // Add Configuration link only for administrators and managers
+  if (user?.role === "administrateur" || user?.role === "manager") {
+    navigationLinks.push({ href: "/settings", label: "Configuration" });
+  }
+
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b px-4 md:px-6">
       <div className="flex h-16 items-center justify-between gap-4">
