@@ -1,16 +1,7 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Mail, Users, BarChart3, Settings, LogOut, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Mail, Users, BarChart3, Settings } from "lucide-react";
 
 interface User {
   id: string;
@@ -24,73 +15,8 @@ interface DashboardPageClientProps {
 }
 
 export function DashboardPageClient({ user }: DashboardPageClientProps) {
-  const { signOut } = useAuth();
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case "administrateur":
-        return "destructive";
-      case "manager":
-        return "default";
-      case "utilisateur":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "administrateur":
-        return "Administrateur";
-      case "manager":
-        return "Manager";
-      case "utilisateur":
-        return "Utilisateur";
-      default:
-        return role;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b bg-white shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center">
-              <Mail className="text-primary mr-3 h-8 w-8" />
-              <h1 className="text-xl font-semibold text-gray-900">
-                TrackedMail
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">
-                  {user?.full_name || user?.email}
-                </span>
-                <Badge variant={getRoleBadgeVariant(user?.role || "")}>
-                  {getRoleLabel(user?.role || "")}
-                </Badge>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Déconnexion
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
@@ -164,67 +90,6 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 <p className="text-muted-foreground text-xs">
                   Configurez vos boîtes mail
                 </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions rapides</CardTitle>
-                <CardDescription>
-                  Commencez par configurer vos boîtes mail et paramètres
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button className="w-full justify-start" variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter une boîte mail
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Configurer les paramètres
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Voir les analytics
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>État du système</CardTitle>
-                <CardDescription>
-                  Informations sur la configuration actuelle
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Authentification
-                    </span>
-                    <Badge variant="default">Configurée</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Base de données
-                    </span>
-                    <Badge variant="default">Connectée</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Microsoft Graph
-                    </span>
-                    <Badge variant="outline">Non configuré</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Webhooks</span>
-                    <Badge variant="outline">Non configuré</Badge>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
