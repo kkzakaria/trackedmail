@@ -29,6 +29,7 @@ interface ProcessorRequest {
   mailboxIds?: string[]
   processResponses?: boolean
   dryRun?: boolean
+  requireSpecificMailboxes?: boolean
 }
 
 /**
@@ -174,9 +175,28 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Validation de l'exigence de mailboxes spécifiques
+    if (body.requireSpecificMailboxes && (!body.mailboxIds || body.mailboxIds.length === 0)) {
+      return new Response(
+        JSON.stringify({
+          error: 'Mailboxes required',
+          message: 'When requireSpecificMailboxes is true, mailboxIds must be provided and cannot be empty'
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
     console.log(`Processing emails from ${body.startDate} to ${body.endDate}`)
     if (body.mailboxIds?.length) {
-      console.log(`Specific mailboxes: ${body.mailboxIds.join(', ')}`)
+      console.log(`Specific mailboxes (${body.mailboxIds.length}): ${body.mailboxIds.join(', ')}`)
+    } else {
+      console.log(`Mode: Processing ALL active mailboxes`)
+    }
+    if (body.requireSpecificMailboxes) {
+      console.log('Specific mailboxes mode REQUIRED - will not process all mailboxes')
     }
     if (body.dryRun) {
       console.log('DRY RUN MODE - No data will be inserted')
@@ -195,7 +215,8 @@ Deno.serve(async (req) => {
           endDate: body.endDate,
           mailboxIds: body.mailboxIds,
           processResponses: body.processResponses ?? true,
-          dryRun: body.dryRun ?? false
+          dryRun: body.dryRun ?? false,
+          requireSpecificMailboxes: body.requireSpecificMailboxes ?? false
         }
       }),
       {
