@@ -143,15 +143,14 @@ serve(async (req) => {
  * Récupère les emails nécessitant des relances
  */
 async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<TrackedEmailWithFollowupInfo[]> {
-  // DEBUG MODE: Query simple directement sur les emails pour zakariakoffi@karta-holding.ci
+  // PRODUCTION: Récupérer tous les emails pending nécessitant des relances
   const { data: emailsData, error: emailsError } = await supabase
     .from('tracked_emails')
     .select('*')
     .eq('status', 'pending')
-    .contains('recipient_emails', ['zakariakoffi@karta-holding.ci'])
     .order('sent_at', { ascending: true });
 
-  console.log(`🔧 DEBUG: Direct query found ${emailsData?.length || 0} emails for zakariakoffi@karta-holding.ci`);
+  console.log(`📧 Found ${emailsData?.length || 0} pending emails to process`);
 
   if (emailsError) {
     throw new Error(`Failed to fetch emails: ${emailsError.message}`);
@@ -373,11 +372,10 @@ async function processEmailForFollowups(
 
   console.log(`📅 Base date for scheduling: ${baseDate.toISOString()} (activity type: ${email.last_activity_type || 'original'})`);
 
-  // DEBUG MODE: Si le template a un délai < 24h, traiter comme des minutes
-  const isDebugMode = template.delay_hours < 24;
-  const delayInHours = isDebugMode ? template.delay_hours / 60 : template.delay_hours;
+  // PRODUCTION: Utiliser le délai en heures tel que configuré
+  const delayInHours = template.delay_hours;
 
-  console.log(`🔧 DEBUG: Template ${template.followup_number}, delay_hours=${template.delay_hours}, isDebugMode=${isDebugMode}, delayInHours=${delayInHours}`);
+  console.log(`⏱️ Template ${template.followup_number}, delay_hours=${template.delay_hours}`);
 
   const schedulingResult = calculateNextSendTime(
     baseDate,
