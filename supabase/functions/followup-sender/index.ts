@@ -55,6 +55,7 @@ serve(async (req) => {
         message: 'Followup system is disabled',
         sent: 0,
         failed: 0,
+        safety_blocked: 0,
         total_processed: 0
       }), {
         headers: { 'Content-Type': 'application/json' },
@@ -83,32 +84,48 @@ serve(async (req) => {
     // 3. Traiter chaque relance
     let sentCount = 0;
     let failedCount = 0;
+    let safetyBlockedCount = 0;
     const errors: string[] = [];
+
+    console.log(`🚀 Processing ${followupsToSend.length} verified followups for sending...`);
 
     for (const followup of followupsToSend) {
       try {
         await sendFollowup(supabase, followup, accessToken);
         sentCount++;
-        console.log(`✅ Sent followup ${followup.id}`);
+        console.log(`✅ Successfully sent followup ${followup.id} for email ${followup.tracked_email_id}`);
       } catch (error) {
         const errorMsg = `Failed to send followup ${followup.id}: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(`❌ ${errorMsg}`);
-        errors.push(errorMsg);
-        failedCount++;
 
-        // Marquer comme échec dans la base de données
-        await markFollowupAsFailed(supabase, followup.id, error instanceof Error ? error.message : String(error));
+        // Différencier les erreurs de sécurité des autres erreurs
+        if (error instanceof Error && error.message.includes('safety check')) {
+          safetyBlockedCount++;
+          console.log(`🛡️ SAFETY BLOCK: ${errorMsg}`);
+        } else {
+          console.error(`❌ SEND ERROR: ${errorMsg}`);
+          errors.push(errorMsg);
+          failedCount++;
+
+          // Marquer comme échec dans la base de données (seulement pour les vrais échecs)
+          await markFollowupAsFailed(supabase, followup.id, error instanceof Error ? error.message : String(error));
+        }
       }
     }
 
-    console.log(`🎯 Sending completed. Sent: ${sentCount}, Failed: ${failedCount}`);
+    console.log(`🎯 Processing completed:`);
+    console.log(`   ✅ Sent: ${sentCount}`);
+    console.log(`   ❌ Failed: ${failedCount}`);
+    console.log(`   🛡️ Safety blocked: ${safetyBlockedCount}`);
+    console.log(`   📊 Safety success rate: ${((sentCount + safetyBlockedCount) / (sentCount + failedCount + safetyBlockedCount) * 100).toFixed(1)}%`);
 
     return new Response(JSON.stringify({
       success: true,
       message: 'Followup sending completed',
       sent: sentCount,
       failed: failedCount,
+      safety_blocked: safetyBlockedCount,
       total_processed: followupsToSend.length,
+      safety_success_rate: ((sentCount + safetyBlockedCount) / (sentCount + failedCount + safetyBlockedCount) * 100).toFixed(1) + '%',
       errors: errors.length > 0 ? errors : undefined
     }), {
       headers: { 'Content-Type': 'application/json' },
@@ -130,10 +147,12 @@ serve(async (req) => {
 });
 
 /**
- * Récupère les relances prêtes à être envoyées
+ * Récupère les relances prêtes à être envoyées (avec vérification des réponses)
  */
 async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<FollowupToSend[]> {
   const now = new Date().toISOString();
+
+  console.log('🔍 Fetching followups to send with response verification...');
 
   const { data, error } = await supabase
     .from('followups')
@@ -157,13 +176,80 @@ async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<Followu
     .eq('tracked_email.status', 'pending') // Email toujours en attente
     .eq('tracked_email.mailbox.is_active', true) // Boîte mail active
     .order('scheduled_for', { ascending: true })
-    .limit(10); // Traiter par batch de 10
+    .limit(20); // Augmenter pour le filtrage
 
   if (error) {
     throw new Error(`Failed to fetch followups to send: ${error.message}`);
   }
 
-  return data || [];
+  if (!data || data.length === 0) {
+    console.log('📭 No scheduled followups found');
+    return [];
+  }
+
+  console.log(`📧 Found ${data.length} scheduled followups, verifying no responses exist...`);
+
+  // Double vérification : exclure les emails ayant reçu des réponses
+  const verifiedFollowups = [];
+  for (const followup of data) {
+    const hasResponse = await checkEmailHasResponse(supabase, followup.tracked_email.id);
+
+    if (hasResponse) {
+      console.log(`⚠️ Email ${followup.tracked_email.id} has received a response, cancelling followup ${followup.id}`);
+      await markFollowupAsCancelled(supabase, followup.id, 'Response received after scheduling');
+    } else {
+      console.log(`✅ Email ${followup.tracked_email.id} verified safe for followup ${followup.id}`);
+      verifiedFollowups.push(followup);
+    }
+  }
+
+  console.log(`🎯 Verified ${verifiedFollowups.length}/${data.length} followups safe to send`);
+
+  // Limiter à 10 pour éviter la surcharge
+  return verifiedFollowups.slice(0, 10);
+}
+
+/**
+ * Vérifie si un email a reçu une réponse
+ */
+async function checkEmailHasResponse(supabase: EdgeSupabaseClient, trackedEmailId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('email_responses')
+    .select('id')
+    .eq('tracked_email_id', trackedEmailId)
+    .limit(1);
+
+  if (error) {
+    console.error(`❌ Error checking responses for email ${trackedEmailId}:`, error);
+    // En cas d'erreur, on considère qu'il n'y a pas de réponse pour éviter de bloquer
+    return false;
+  }
+
+  return data && data.length > 0;
+}
+
+/**
+ * Marque une relance comme annulée avec une raison
+ */
+async function markFollowupAsCancelled(
+  supabase: EdgeSupabaseClient,
+  followupId: string,
+  reason: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('followups')
+    .update({
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      failure_reason: reason.substring(0, 500) // Limiter la taille
+    })
+    .eq('id', followupId);
+
+  if (error) {
+    console.error(`❌ Failed to mark followup ${followupId} as cancelled:`, error);
+  } else {
+    console.log(`🚫 Followup ${followupId} cancelled: ${reason}`);
+  }
 }
 
 /**
@@ -224,6 +310,18 @@ async function sendFollowup(
   console.log(`   Original conversation: ${originalEmail.conversation_id}`);
   console.log(`   Original message ID: ${originalEmail.internet_message_id}`);
   console.log(`   Microsoft message ID: ${originalEmail.microsoft_message_id || 'NOT FOUND'}`);
+
+  // SÉCURITÉ CRITIQUE : Vérification finale avant envoi
+  console.log(`🔒 Final safety check: verifying no response received for email ${followup.tracked_email_id}...`);
+  const hasResponseFinal = await checkEmailHasResponse(supabase, followup.tracked_email_id);
+
+  if (hasResponseFinal) {
+    console.log(`🛑 CRITICAL SAFETY: Response detected just before sending followup ${followup.id}`);
+    await markFollowupAsCancelled(supabase, followup.id, 'Response received during final safety check');
+    throw new Error('Followup cancelled - response received during final safety check');
+  }
+
+  console.log(`✅ Final safety check passed - proceeding with followup ${followup.id}`);
 
   // Construire le message avec headers personnalisés pour le threading et l'identification
   const messageData = {
