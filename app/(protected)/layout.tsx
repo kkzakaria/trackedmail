@@ -20,10 +20,27 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
+  // Fetch complete user data from the database
+  const { data: userData } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  // Merge auth user with database user data
+  const userProfile = userData || {
+    id: user.id,
+    email: user.email || "",
+    full_name: user.email?.split("@")[0] || "User",
+    role: "utilisateur",
+    timezone: "Europe/Paris",
+    is_active: true,
+  };
+
   return (
     <>
       {/* Fixed AppBar at the top */}
-      <AppBar />
+      <AppBar user={userProfile} />
 
       {/* Main content with padding to account for fixed AppBar */}
       <main className="pt-16">{children}</main>

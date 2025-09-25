@@ -25,7 +25,21 @@ const navigationLinks = [
   { href: "/settings", label: "Configuration" },
 ];
 
-export function AppBar() {
+interface AppBarProps {
+  user?: {
+    id: string;
+    email: string;
+    full_name?: string | null;
+    role?: string;
+    timezone?: string | null;
+    is_active?: boolean;
+    created_at?: string | null;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+  };
+}
+
+export function AppBar({ user }: AppBarProps) {
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b px-4 md:px-6">
       <div className="flex h-16 items-center justify-between gap-4">
@@ -120,7 +134,7 @@ export function AppBar() {
             <NotificationMenu />
           </div>
           {/* User menu */}
-          <UserMenu />
+          {user && <UserMenu user={user} />}
         </div>
       </div>
     </header>
