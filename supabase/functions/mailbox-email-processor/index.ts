@@ -488,7 +488,7 @@ async function fetchMailboxEmails(
       } else {
         // Filtrer par date d'envoi et sélectionner les champs nécessaires
         const filter = `sentDateTime ge ${startDate} and sentDateTime lt ${endDate}`
-        const select = 'id,conversationId,conversationIndex,internetMessageId,subject,sender,toRecipients,ccRecipients,sentDateTime,hasAttachments,importance,bodyPreview,inReplyTo,references,internetMessageHeaders,parentFolderId,isDraft,isRead'
+        const select = 'id,conversationId,conversationIndex,internetMessageId,subject,sender,toRecipients,ccRecipients,sentDateTime,hasAttachments,importance,bodyPreview,internetMessageHeaders,parentFolderId,isDraft,isRead'
 
         url = `https://graph.microsoft.com/v1.0/users/${microsoftUserId}/messages?$filter=${encodeURIComponent(filter)}&$select=${select}&$top=1000&$orderby=sentDateTime desc`
       }
@@ -518,8 +518,8 @@ async function fetchMailboxEmails(
             // S'assurer que tous les champs requis sont présents
             conversationIndex: email.conversationIndex || undefined,
             ccRecipients: email.ccRecipients || [],
-            inReplyTo: email.inReplyTo || undefined,
-            references: email.references || undefined,
+            inReplyTo: extractHeaderValue(email.internetMessageHeaders, 'In-Reply-To'),
+            references: extractHeaderValue(email.internetMessageHeaders, 'References'),
             internetMessageHeaders: email.internetMessageHeaders || []
           }))
 
@@ -868,6 +868,21 @@ function detectIsReply(email: GraphEmail): boolean {
   }
 
   return false
+}
+
+/**
+ * Extrait une valeur d'header depuis internetMessageHeaders
+ */
+function extractHeaderValue(
+  headers: Array<{name: string, value: string}> | undefined,
+  headerName: string
+): string | undefined {
+  if (!headers || headers.length === 0) {
+    return undefined
+  }
+
+  const header = headers.find(h => h.name.toLowerCase() === headerName.toLowerCase())
+  return header?.value
 }
 
 /**
