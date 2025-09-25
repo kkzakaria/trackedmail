@@ -5,10 +5,8 @@
  */
 
 import { createClient } from "@/lib/supabase/client";
-import { ClientSecretCredential } from "@azure/identity";
 import type {
   MicrosoftGraphToken,
-  MicrosoftGraphAuthConfig,
   MicrosoftGraphApiError,
 } from "@/lib/types/microsoft-graph";
 
@@ -16,23 +14,11 @@ import type {
  * Configuration pour le service d'authentification
  */
 interface AuthServiceConfig {
-  encryptionKey?: string;
   tokenRefreshThresholdMinutes?: number;
   maxRetries?: number;
 }
 
-/**
- * Informations sur un token stocké
- */
-interface StoredTokenInfo {
-  id: string;
-  token_type: string;
-  encrypted_token: string;
-  expires_at: string;
-  scope: string;
-  last_refreshed_at: string;
-  created_at: string;
-}
+// Interface StoredTokenInfo supprimée - gestion déléguée à l'Edge Function
 
 /**
  * Service d'authentification Microsoft Graph
@@ -40,89 +26,89 @@ interface StoredTokenInfo {
 export class MicrosoftAuthService {
   private supabase = createClient();
   private config: Required<AuthServiceConfig>;
-  private credential: ClientSecretCredential | null = null;
+  private baseUrl: string;
 
   constructor(config: AuthServiceConfig = {}) {
     this.config = {
-      encryptionKey:
-        config.encryptionKey ||
-        process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY ||
-        "default-key-for-dev",
       tokenRefreshThresholdMinutes: config.tokenRefreshThresholdMinutes || 30,
       maxRetries: config.maxRetries || 3,
     };
+
+    // URL de l'Edge Function microsoft-auth
+    this.baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+      : "http://127.0.0.1:54321/functions/v1";
   }
 
   /**
-   * Initialise les credentials Microsoft Graph
+   * Appelle l'Edge Function microsoft-auth
    */
-  private async initializeCredential(): Promise<ClientSecretCredential> {
-    if (this.credential) {
-      return this.credential;
+  private async callEdgeFunction(
+    action: string,
+    data?: Record<string, unknown>
+  ): Promise<{
+    success: boolean;
+    access_token?: string;
+    expires_in?: number;
+    expires_at?: string;
+    error?: string;
+  }> {
+    const {
+      data: { session },
+    } = await this.supabase.auth.getSession();
+    if (!session) {
+      throw new Error("No authenticated session");
     }
 
-    const authConfig = await this.getAuthConfig();
+    const response = await fetch(`${this.baseUrl}/microsoft-auth`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action, ...data }),
+    });
 
-    this.credential = new ClientSecretCredential(
-      authConfig.tenantId,
-      authConfig.clientId,
-      authConfig.clientSecret
-    );
-
-    return this.credential;
-  }
-
-  /**
-   * Récupère la configuration d'authentification
-   */
-  private async getAuthConfig(): Promise<MicrosoftGraphAuthConfig> {
-    const clientId = process.env.MICROSOFT_CLIENT_ID;
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-    const tenantId = process.env.MICROSOFT_TENANT_ID;
-
-    if (!clientId || !clientSecret || !tenantId) {
-      throw new Error("Microsoft Graph credentials not configured");
+    if (!response.ok) {
+      throw new Error(`Edge Function call failed: ${response.statusText}`);
     }
 
-    return {
-      clientId,
-      clientSecret,
-      tenantId,
-      scopes: [
-        "https://graph.microsoft.com/Mail.ReadWrite",
-        "https://graph.microsoft.com/Mail.Send",
-        "https://graph.microsoft.com/User.Read.All",
-      ],
-    };
+    return response.json();
   }
+
+  // Configuration supprimée - gérée par l'Edge Function
 
   /**
    * Acquiert un nouveau token d'accès
    */
   async acquireAccessToken(scopes?: string[]): Promise<MicrosoftGraphToken> {
     try {
-      const credential = await this.initializeCredential();
-      const authConfig = await this.getAuthConfig();
-      const requestedScopes = scopes || authConfig.scopes;
+      const defaultScopes = ["https://graph.microsoft.com/.default"];
+      const requestedScopes = scopes || defaultScopes;
 
-      const tokenResponse = await credential.getToken(requestedScopes);
+      const response = await this.callEdgeFunction("acquire", {
+        scopes: requestedScopes,
+      });
 
-      if (!tokenResponse) {
-        throw new Error("Failed to acquire access token");
+      if (!response.success) {
+        throw new Error(response.error || "Failed to acquire token");
+      }
+
+      if (
+        !response.access_token ||
+        !response.expires_in ||
+        !response.expires_at
+      ) {
+        throw new Error("Invalid token response from Edge Function");
       }
 
       const token: MicrosoftGraphToken = {
-        access_token: tokenResponse.token,
+        access_token: response.access_token,
         token_type: "Bearer",
-        expires_in: Math.floor(
-          (tokenResponse.expiresOnTimestamp - Date.now()) / 1000
-        ),
+        expires_in: response.expires_in,
+        expires_at: new Date(response.expires_at),
         scope: requestedScopes.join(" "),
-        expires_at: new Date(tokenResponse.expiresOnTimestamp),
       };
-
-      // Stocker le token de manière sécurisée
-      await this.storeToken(token, requestedScopes);
 
       return token;
     } catch (error) {
@@ -139,23 +125,10 @@ export class MicrosoftAuthService {
    */
   async getValidToken(scopes?: string[]): Promise<string> {
     try {
-      const authConfig = await this.getAuthConfig();
-      const requestedScopes = scopes || authConfig.scopes;
-      const scopeKey = requestedScopes.join(" ");
-
-      // Vérifier si un token valide existe en base
-      const storedToken = await this.getStoredToken(scopeKey);
-
-      if (storedToken && this.isTokenValid(storedToken)) {
-        const decryptedToken = await this.decryptToken(
-          storedToken.encrypted_token
-        );
-        return decryptedToken;
-      }
-
-      // Acquérir un nouveau token
-      const newToken = await this.acquireAccessToken(requestedScopes);
-      return newToken.access_token;
+      // Acquérir un token via l'Edge Function
+      // L'Edge Function gère la vérification du cache et le renouvellement automatique
+      const token = await this.acquireAccessToken(scopes);
+      return token.access_token;
     } catch (error) {
       throw this.createAuthError(
         "TOKEN_RETRIEVAL_FAILED",
@@ -182,30 +155,12 @@ export class MicrosoftAuthService {
   }
 
   /**
-   * Vérifie si un token doit être renouvelé
+   * Vérifie si un token doit être renouvelé (délégué à l'Edge Function)
    */
-  async shouldRefreshToken(scopes?: string[]): Promise<boolean> {
-    try {
-      const authConfig = await this.getAuthConfig();
-      const requestedScopes = scopes || authConfig.scopes;
-      const scopeKey = requestedScopes.join(" ");
-
-      const storedToken = await this.getStoredToken(scopeKey);
-
-      if (!storedToken) {
-        return true; // Aucun token, on doit en acquérir un
-      }
-
-      const expiresAt = new Date(storedToken.expires_at);
-      const now = new Date();
-      const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-      const thresholdMs = this.config.tokenRefreshThresholdMinutes * 60 * 1000;
-
-      return timeUntilExpiry <= thresholdMs;
-    } catch (error) {
-      console.warn("Error checking if token should be refreshed:", error);
-      return true; // En cas d'erreur, on préfère renouveler
-    }
+  async shouldRefreshToken(_scopes?: string[]): Promise<boolean> {
+    // L'Edge Function gère automatiquement la vérification de l'expiration
+    // Cette méthode retourne toujours false car l'Edge Function s'occupe du refresh
+    return false;
   }
 
   /**
@@ -333,98 +288,11 @@ export class MicrosoftAuthService {
     }
   }
 
-  /**
-   * Stocke un token de manière sécurisée
-   */
-  private async storeToken(
-    token: MicrosoftGraphToken,
-    scopes: string[]
-  ): Promise<void> {
-    try {
-      const encryptedToken = await this.encryptToken(token.access_token);
+  // Méthodes de stockage et validation supprimées
+  // Gestion complète déléguée à l'Edge Function microsoft-auth
 
-      const { error } = await this.supabase
-        .from("microsoft_graph_tokens")
-        .upsert(
-          {
-            token_type: token.token_type.toLowerCase(),
-            encrypted_token: encryptedToken,
-            expires_at: token.expires_at.toISOString(),
-            scope: scopes.join(" "),
-            last_refreshed_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "token_type",
-          }
-        );
-
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.warn("Failed to store token:", error);
-      throw this.createAuthError(
-        "TOKEN_STORAGE_FAILED",
-        "Failed to store token",
-        error
-      );
-    }
-  }
-
-  /**
-   * Récupère un token stocké
-   */
-  private async getStoredToken(scope: string): Promise<StoredTokenInfo | null> {
-    try {
-      const { data, error } = await this.supabase
-        .from("microsoft_graph_tokens")
-        .select("*")
-        .eq("scope", scope)
-        .eq("token_type", "bearer")
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        // PGRST116 = not found
-        throw error;
-      }
-
-      return data as StoredTokenInfo | null;
-    } catch (error) {
-      console.warn("Failed to get stored token:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Vérifie si un token stocké est encore valide
-   */
-  private isTokenValid(tokenInfo: StoredTokenInfo): boolean {
-    const expiresAt = new Date(tokenInfo.expires_at);
-    const now = new Date();
-    const buffer = 5 * 60 * 1000; // 5 minutes de marge
-
-    return expiresAt.getTime() > now.getTime() + buffer;
-  }
-
-  /**
-   * Chiffre un token (implémentation simplifiée pour la démo)
-   * Dans un environnement de production, utiliser un chiffrement plus robuste
-   */
-  private async encryptToken(token: string): Promise<string> {
-    // Note: Implémentation simplifiée pour la démo
-    // En production, utiliser crypto.subtle ou une librairie de chiffrement
-    const buffer = Buffer.from(token, "utf8");
-    return buffer.toString("base64");
-  }
-
-  /**
-   * Déchiffre un token
-   */
-  private async decryptToken(encryptedToken: string): Promise<string> {
-    // Note: Implémentation simplifiée pour la démo
-    const buffer = Buffer.from(encryptedToken, "base64");
-    return buffer.toString("utf8");
-  }
+  // Les méthodes de chiffrement ont été supprimées
+  // Le chiffrement est maintenant géré par les Edge Functions Supabase
 
   /**
    * Crée une erreur d'authentification standardisée
@@ -447,10 +315,10 @@ export class MicrosoftAuthService {
   }
 
   /**
-   * Libère les ressources
+   * Libère les ressources (rien à faire, Edge Function gère tout)
    */
   dispose(): void {
-    this.credential = null;
+    // Rien à libérer, Edge Function gère les credentials
   }
 }
 

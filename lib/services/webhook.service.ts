@@ -20,7 +20,6 @@ const DEFAULT_CONFIG: WebhookServiceConfig = {
   baseUrl:
     process.env.MICROSOFT_WEBHOOK_BASE_URL ||
     "http://127.0.0.1:54321/functions/v1",
-  secret: process.env.MICROSOFT_WEBHOOK_SECRET || "default-webhook-secret",
   maxRenewalsPerDay: 10,
   renewBeforeExpiryHours: 1,
 };
@@ -91,7 +90,8 @@ export class WebhookService {
         notificationUrl,
         resource: `/users/${microsoftUserId}/mailFolders/sentitems/messages`,
         expirationDateTime: expirationDateTime.toISOString(),
-        clientState: this.config.secret,
+        // clientState sera géré par l'Edge Function avec le secret Supabase
+        clientState: "managed-by-edge-function",
         includeResourceData,
       };
 

@@ -237,7 +237,7 @@ export interface MicrosoftGraphApiError extends Error {
 
 export interface WebhookServiceConfig {
   baseUrl: string;
-  secret: string;
+  // secret supprimé - géré par les Edge Functions Supabase
   maxRenewalsPerDay: number;
   renewBeforeExpiryHours: number;
 }
