@@ -52,9 +52,9 @@ export default function EmailDetailsPage({ params }: EmailDetailsPageProps) {
       {/* Header with breadcrumb */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/emails" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Retour à la liste
+            Retour au tableau de bord
           </Link>
         </Button>
 

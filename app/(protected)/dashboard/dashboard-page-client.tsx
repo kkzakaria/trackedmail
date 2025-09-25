@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Users, BarChart3, Settings } from "lucide-react";
+import TrackedEmailsTable from "@/components/tracked-emails/TrackedEmailsTable";
 
 interface User {
   id: string;
@@ -92,6 +93,21 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 </p>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Tracked Emails Section */}
+          <div className="mb-8">
+            <div className="mb-6">
+              <h3 className="mb-2 text-xl font-semibold text-gray-900">
+                Suivi des emails
+              </h3>
+              <p className="text-sm text-gray-600">
+                Gérez et suivez tous vos emails envoyés avec détection
+                automatique des réponses.
+              </p>
+            </div>
+
+            <TrackedEmailsTable />
           </div>
         </div>
       </main>
