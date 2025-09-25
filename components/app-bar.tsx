@@ -105,7 +105,7 @@ export function AppBar({ user }: AppBarProps) {
                             href={link.href}
                             className={`block w-full rounded-md px-2 py-1.5 transition-colors ${
                               isActive
-                                ? "bg-accent text-accent-foreground"
+                                ? "bg-primary/10 text-primary dark:bg-primary/20"
                                 : "hover:bg-accent/50"
                             }`}
                           >
@@ -139,7 +139,7 @@ export function AppBar({ user }: AppBarProps) {
                           href={link.href}
                           className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
                             isActive
-                              ? "bg-accent text-accent-foreground"
+                              ? "bg-primary/10 text-primary dark:bg-primary/20"
                               : "text-muted-foreground hover:text-primary hover:bg-accent/50"
                           }`}
                         >
