@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import InfoMenu from "@/components/navbar-components/info-menu";
 import Logo from "@/components/navbar-components/logo";
 import NotificationMenu from "@/components/navbar-components/notification-menu";
@@ -40,6 +43,8 @@ interface AppBarProps {
 }
 
 export function AppBar({ user }: AppBarProps) {
+  const pathname = usePathname();
+
   // Build navigation links based on user role
   const navigationLinks = [...baseNavigationLinks];
 
@@ -91,15 +96,25 @@ export function AppBar({ user }: AppBarProps) {
             <PopoverContent align="start" className="w-40 p-1 md:hidden">
               <NavigationMenu className="max-w-none *:w-full">
                 <NavigationMenuList className="flex-col items-start gap-0 md:gap-2">
-                  {navigationLinks.map((link, index) => (
-                    <NavigationMenuItem key={index} className="w-full">
-                      <NavigationMenuLink asChild>
-                        <Link href={link.href} className="block w-full py-1.5">
-                          {link.label}
-                        </Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                  ))}
+                  {navigationLinks.map((link, index) => {
+                    const isActive = pathname === link.href;
+                    return (
+                      <NavigationMenuItem key={index} className="w-full">
+                        <NavigationMenuLink asChild>
+                          <Link
+                            href={link.href}
+                            className={`block w-full rounded-md px-2 py-1.5 transition-colors ${
+                              isActive
+                                ? "bg-accent text-accent-foreground"
+                                : "hover:bg-accent/50"
+                            }`}
+                          >
+                            {link.label}
+                          </Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                    );
+                  })}
                 </NavigationMenuList>
               </NavigationMenu>
             </PopoverContent>
@@ -115,18 +130,25 @@ export function AppBar({ user }: AppBarProps) {
             {/* Navigation menu */}
             <NavigationMenu className="max-md:hidden">
               <NavigationMenuList className="gap-2">
-                {navigationLinks.map((link, index) => (
-                  <NavigationMenuItem key={index}>
-                    <NavigationMenuLink asChild>
-                      <Link
-                        href={link.href}
-                        className="text-muted-foreground hover:text-primary rounded-md px-3 py-1.5 font-medium transition-colors"
-                      >
-                        {link.label}
-                      </Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                ))}
+                {navigationLinks.map((link, index) => {
+                  const isActive = pathname === link.href;
+                  return (
+                    <NavigationMenuItem key={index}>
+                      <NavigationMenuLink asChild>
+                        <Link
+                          href={link.href}
+                          className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                            isActive
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground hover:text-primary hover:bg-accent/50"
+                          }`}
+                        >
+                          {link.label}
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  );
+                })}
               </NavigationMenuList>
             </NavigationMenu>
           </div>
