@@ -1,0 +1,159 @@
+import {
+  EdgeSupabaseClient,
+  TrackedEmailWithFollowupInfo
+} from './shared-types.ts';
+
+/**
+ * Récupère les emails nécessitant des relances avec analyse d'activité
+ */
+export async function getEmailsNeedingFollowup(
+  supabase: EdgeSupabaseClient
+): Promise<TrackedEmailWithFollowupInfo[]> {
+  // Récupérer tous les emails pending nécessitant des relances
+  const { data: emailsData, error: emailsError } = await supabase
+    .from('tracked_emails')
+    .select('*')
+    .eq('status', 'pending')
+    .order('sent_at', { ascending: true });
+
+  console.log(`📧 Found ${emailsData?.length || 0} pending emails to process`);
+
+  if (emailsError) {
+    throw new Error(`Failed to fetch emails: ${emailsError.message}`);
+  }
+
+  if (!emailsData || emailsData.length === 0) {
+    return [];
+  }
+
+  // Pour chaque email, enrichir avec les données de relances
+  const enrichedEmails = [];
+  for (const email of emailsData) {
+    const enrichedEmail = await enrichEmailWithFollowupData(supabase, email);
+    enrichedEmails.push(enrichedEmail);
+  }
+
+  console.log(`📊 Enriched ${enrichedEmails.length} emails with followup data`);
+  return enrichedEmails;
+}
+
+/**
+ * Enrichit un email avec les données de relances (automatiques + manuelles)
+ */
+async function enrichEmailWithFollowupData(
+  supabase: EdgeSupabaseClient,
+  email: any
+): Promise<TrackedEmailWithFollowupInfo> {
+  // Récupérer les relances automatiques
+  const { data: followupData, error: followupError } = await supabase
+    .from('followups')
+    .select('followup_number, sent_at')
+    .eq('tracked_email_id', email.id)
+    .order('followup_number', { ascending: false })
+    .limit(1);
+
+  if (followupError) {
+    console.error(`Error fetching followups for ${email.id}:`, followupError);
+  }
+
+  // Récupérer les relances manuelles
+  const { data: manualFollowupData, error: manualError } = await supabase
+    .from('manual_followups')
+    .select('followup_sequence_number, detected_at')
+    .eq('tracked_email_id', email.id)
+    .order('detected_at', { ascending: false })
+    .limit(1);
+
+  if (manualError) {
+    console.error(`Error fetching manual followups for ${email.id}:`, manualError);
+  }
+
+  const lastAutomaticFollowup = followupData?.[0];
+  const lastManualFollowup = manualFollowupData?.[0];
+
+  // Analyser l'activité pour déterminer la dernière action
+  const activityAnalysis = analyzeLastActivity(
+    email,
+    lastAutomaticFollowup,
+    lastManualFollowup
+  );
+
+  // Calculer le nombre total de relances
+  const totalFollowups = await getTotalFollowupsForEmail(supabase, email.id);
+
+  return {
+    ...email,
+    last_followup_number: lastAutomaticFollowup?.followup_number || 0,
+    last_followup_at: lastAutomaticFollowup?.sent_at || null,
+    last_manual_followup_at: lastManualFollowup?.detected_at || null,
+    last_activity_at: activityAnalysis.lastActivity.toISOString(),
+    last_activity_type: activityAnalysis.lastActivityType,
+    total_followups: totalFollowups
+  };
+}
+
+/**
+ * Analyse l'activité d'un email pour déterminer la dernière action
+ */
+function analyzeLastActivity(
+  email: any,
+  lastAutomaticFollowup: any,
+  lastManualFollowup: any
+): {
+  lastActivity: Date;
+  lastActivityType: 'automatic' | 'manual' | 'original';
+} {
+  const automaticAt = lastAutomaticFollowup?.sent_at
+    ? new Date(lastAutomaticFollowup.sent_at)
+    : null;
+  const manualAt = lastManualFollowup?.detected_at
+    ? new Date(lastManualFollowup.detected_at)
+    : null;
+
+  let lastActivity: Date;
+  let lastActivityType: 'automatic' | 'manual' | 'original';
+
+  if (automaticAt && manualAt) {
+    if (automaticAt > manualAt) {
+      lastActivity = automaticAt;
+      lastActivityType = 'automatic';
+    } else {
+      lastActivity = manualAt;
+      lastActivityType = 'manual';
+    }
+  } else if (automaticAt) {
+    lastActivity = automaticAt;
+    lastActivityType = 'automatic';
+  } else if (manualAt) {
+    lastActivity = manualAt;
+    lastActivityType = 'manual';
+  } else {
+    lastActivity = new Date(email.sent_at);
+    lastActivityType = 'original';
+  }
+
+  return { lastActivity, lastActivityType };
+}
+
+/**
+ * Calcule le nombre total de relances (automatiques + manuelles) pour un email
+ */
+export async function getTotalFollowupsForEmail(
+  supabase: EdgeSupabaseClient,
+  trackedEmailId: string
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_total_followup_count', { p_tracked_email_id: trackedEmailId });
+
+    if (error) {
+      console.error(`Error getting total followup count for ${trackedEmailId}:`, error);
+      return 0;
+    }
+
+    return data || 0;
+  } catch (error) {
+    console.error(`Error calling get_total_followup_count:`, error);
+    return 0;
+  }
+}
