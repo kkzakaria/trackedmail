@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Mail, FileText, Code, Shield, Clock } from "lucide-react";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Users, Mail, FileText, Code, Clock } from "lucide-react";
 
 // Import existing client components
 import { UsersPageClient } from "../admin/users/users-page-client";
@@ -59,96 +60,130 @@ export function SettingsPageClient({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="border-b pb-4">
-        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-          <Shield className="h-8 w-8" />
-          Configuration du système
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Gérez tous les paramètres et configurations de TrackedMail depuis
-          cette interface unifiée.
-        </p>
-      </div>
+    <div className="bg-background min-h-screen">
+      {/* Main Content */}
+      <main className="mx-auto max-w-7xl py-2 sm:px-6 lg:px-8">
+        <div className="px-4 py-2 sm:px-0">
+          {/* Header */}
+          <div className="mb-8">
+            <p className="text-gray-600 dark:text-gray-300">
+              Gérez tous les paramètres et configurations de TrackedMail depuis
+              cette interface unifiée.
+            </p>
+          </div>
 
-      {/* Tabs Navigation */}
-      <Tabs
-        value={activeTab}
-        onValueChange={handleTabChange}
-        className="space-y-4"
-      >
-        <TabsList className="grid w-full grid-cols-5 lg:inline-flex lg:w-auto">
-          {visibleTabs.users && (
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Utilisateurs</span>
-            </TabsTrigger>
-          )}
-          {visibleTabs.mailboxes && (
-            <TabsTrigger value="mailboxes" className="gap-2">
-              <Mail className="h-4 w-4" />
-              <span className="hidden sm:inline">Boîtes aux lettres</span>
-            </TabsTrigger>
-          )}
-          {visibleTabs.templates && (
-            <TabsTrigger value="templates" className="gap-2">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Modèles de relance</span>
-            </TabsTrigger>
-          )}
-          {visibleTabs.settings && (
-            <TabsTrigger value="settings" className="gap-2">
-              <Clock className="h-4 w-4" />
-              <span className="hidden sm:inline">Temps de relance</span>
-            </TabsTrigger>
-          )}
-          {visibleTabs.functions && (
-            <TabsTrigger value="functions" className="gap-2">
-              <Code className="h-4 w-4" />
-              <span className="hidden sm:inline">Fonctions Edge</span>
-            </TabsTrigger>
-          )}
-        </TabsList>
+          {/* Tabs Navigation */}
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="space-y-4"
+          >
+            <ScrollArea>
+              <TabsList className="before:bg-border relative mb-3 h-auto w-full gap-0.5 bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px">
+                {visibleTabs.users && (
+                  <TabsTrigger
+                    value="users"
+                    className="bg-muted border-border gap-2 overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none"
+                  >
+                    <Users
+                      className="-ms-0.5 me-1.5 h-4 w-4 opacity-60"
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline">Utilisateurs</span>
+                  </TabsTrigger>
+                )}
+                {visibleTabs.mailboxes && (
+                  <TabsTrigger
+                    value="mailboxes"
+                    className="bg-muted border-border gap-2 overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none"
+                  >
+                    <Mail
+                      className="-ms-0.5 me-1.5 h-4 w-4 opacity-60"
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline">Boîtes aux lettres</span>
+                  </TabsTrigger>
+                )}
+                {visibleTabs.templates && (
+                  <TabsTrigger
+                    value="templates"
+                    className="bg-muted border-border gap-2 overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none"
+                  >
+                    <FileText
+                      className="-ms-0.5 me-1.5 h-4 w-4 opacity-60"
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline">Modèles de relance</span>
+                  </TabsTrigger>
+                )}
+                {visibleTabs.settings && (
+                  <TabsTrigger
+                    value="settings"
+                    className="bg-muted border-border gap-2 overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none"
+                  >
+                    <Clock
+                      className="-ms-0.5 me-1.5 h-4 w-4 opacity-60"
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline">Temps de relance</span>
+                  </TabsTrigger>
+                )}
+                {visibleTabs.functions && (
+                  <TabsTrigger
+                    value="functions"
+                    className="bg-muted border-border gap-2 overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none"
+                  >
+                    <Code
+                      className="-ms-0.5 me-1.5 h-4 w-4 opacity-60"
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline">Fonctions Edge</span>
+                  </TabsTrigger>
+                )}
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
 
-        {/* Tab Contents */}
-        {visibleTabs.users && (
-          <TabsContent value="users" className="mt-6">
-            <UsersPageClient
-              userRole={userRole}
-              currentUserId={currentUserId}
-            />
-          </TabsContent>
-        )}
+            {/* Tab Contents */}
+            {visibleTabs.users && (
+              <TabsContent value="users" className="mt-6">
+                <UsersPageClient
+                  userRole={userRole}
+                  currentUserId={currentUserId}
+                />
+              </TabsContent>
+            )}
 
-        {visibleTabs.mailboxes && (
-          <TabsContent value="mailboxes" className="mt-6">
-            <MailboxesPageClient />
-          </TabsContent>
-        )}
+            {visibleTabs.mailboxes && (
+              <TabsContent value="mailboxes" className="mt-6">
+                <MailboxesPageClient />
+              </TabsContent>
+            )}
 
-        {visibleTabs.templates && (
-          <TabsContent value="templates" className="mt-6">
-            <FollowupTemplatesPageClient initialData={initialTemplates} />
-          </TabsContent>
-        )}
+            {visibleTabs.templates && (
+              <TabsContent value="templates" className="mt-6">
+                <FollowupTemplatesPageClient initialData={initialTemplates} />
+              </TabsContent>
+            )}
 
-        {visibleTabs.settings && (
-          <TabsContent value="settings" className="mt-6">
-            <FollowupSettingsPageClient />
-          </TabsContent>
-        )}
+            {visibleTabs.settings && (
+              <TabsContent value="settings" className="mt-6">
+                <FollowupSettingsPageClient />
+              </TabsContent>
+            )}
 
-        {visibleTabs.functions && (
-          <TabsContent value="functions" className="mt-6">
-            <FunctionsPageClient
-              userRole={userRole}
-              currentUserId={currentUserId}
-              availableMailboxes={availableMailboxes}
-            />
-          </TabsContent>
-        )}
-      </Tabs>
+            {visibleTabs.functions && (
+              <TabsContent value="functions" className="mt-6">
+                <FunctionsPageClient
+                  userRole={userRole}
+                  currentUserId={currentUserId}
+                  availableMailboxes={availableMailboxes}
+                />
+              </TabsContent>
+            )}
+          </Tabs>
+        </div>
+      </main>
     </div>
   );
 }

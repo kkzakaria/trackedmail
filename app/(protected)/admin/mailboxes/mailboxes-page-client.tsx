@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MailboxTable } from "@/components/mailboxes/MailboxTable";
 import { MailboxForm } from "@/components/mailboxes/mailbox-form";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +24,12 @@ export function MailboxesPageClient() {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <MailboxTable onCreateNew={handleOpenCreate} />
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <MailboxTable onCreateNew={handleOpenCreate} />
+        </CardContent>
+      </Card>
 
       {/* Create dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
