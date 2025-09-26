@@ -32,6 +32,7 @@ import {
   PowerIcon,
   RefreshCwIcon,
   MailIcon,
+  EllipsisIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,6 +43,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -84,12 +87,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 import {
   useMailboxes,
@@ -340,132 +337,23 @@ export function MailboxTable({ onCreateNew }: MailboxTableProps) {
         },
       },
       {
-        accessorKey: "microsoft_user_id",
-        header: "Microsoft ID",
-        cell: ({ row }) => {
-          const microsoftId = row.getValue("microsoft_user_id") as
-            | string
-            | null;
-          if (!microsoftId) {
-            return <span className="text-muted-foreground">-</span>;
-          }
-          return (
-            <span className="font-mono text-sm">
-              {microsoftId.slice(0, 8)}...
-            </span>
-          );
-        },
-      },
-      {
         id: "actions",
-        header: "Actions",
+        header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => {
           const mailbox = row.original;
           return (
-            <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/admin/mailboxes/${mailbox.id}`}>
-                        <EyeIcon className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Voir les détails</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              {canManageMailboxes && (
-                <>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/admin/mailboxes/${mailbox.id}/edit`}>
-                            <EditIcon className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Modifier</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(mailbox.id)}
-                          disabled={toggleStatusMutation.isPending}
-                        >
-                          <PowerIcon className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{mailbox.is_active ? "Désactiver" : "Activer"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSync(mailbox.id)}
-                          disabled={syncMailboxMutation.isPending}
-                        >
-                          <RefreshCwIcon className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Synchroniser</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <TrashIcon className="text-destructive h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Supprimer la boîte mail
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Êtes-vous sûr de vouloir supprimer la boîte mail{" "}
-                          <strong>{mailbox.email_address}</strong> ? Cette
-                          action est irréversible.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() =>
-                            handleDelete(mailbox.id, mailbox.email_address)
-                          }
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Supprimer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
-            </div>
+            <MailboxRowActions
+              mailbox={mailbox}
+              canManage={canManageMailboxes}
+              onToggleStatus={() => handleToggleStatus(mailbox.id)}
+              onSync={() => handleSync(mailbox.id)}
+              onDelete={() => handleDelete(mailbox.id, mailbox.email_address)}
+              isToggling={toggleStatusMutation.isPending}
+              isSyncing={syncMailboxMutation.isPending}
+            />
           );
         },
+        size: 60,
         enableSorting: false,
         enableHiding: false,
       },
@@ -540,6 +428,117 @@ export function MailboxTable({ onCreateNew }: MailboxTableProps) {
             "Une erreur est survenue lors du chargement des boîtes mail."}
         </p>
       </div>
+    );
+  }
+
+  // MailboxRowActions component
+  function MailboxRowActions({
+    mailbox,
+    canManage,
+    onToggleStatus,
+    onSync,
+    onDelete,
+    isToggling,
+    isSyncing,
+  }: {
+    mailbox: MailboxItem;
+    canManage?: boolean;
+    onToggleStatus: () => void;
+    onSync: () => void;
+    onDelete: () => void;
+    isToggling?: boolean;
+    isSyncing?: boolean;
+  }) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div className="flex justify-end">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shadow-none"
+              aria-label="Actions boîte mail"
+            >
+              <EllipsisIcon size={16} aria-hidden="true" />
+            </Button>
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuItem asChild>
+              <Link href={`/settings?tab=mailboxes&mailbox=${mailbox.id}`}>
+                <EyeIcon className="mr-2 h-4 w-4" />
+                <span>Voir détails</span>
+              </Link>
+            </DropdownMenuItem>
+            {canManage && (
+              <DropdownMenuItem asChild>
+                <Link href={`/settings?tab=mailboxes&edit=${mailbox.id}`}>
+                  <EditIcon className="mr-2 h-4 w-4" />
+                  <span>Modifier</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+
+          {canManage && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={onToggleStatus}
+                  disabled={isToggling || false}
+                >
+                  <PowerIcon className="mr-2 h-4 w-4" />
+                  <span>{mailbox.is_active ? "Désactiver" : "Activer"}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={onSync}
+                  disabled={isSyncing || false}
+                >
+                  <RefreshCwIcon className="mr-2 h-4 w-4" />
+                  <span>Synchroniser</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={e => e.preventDefault()}
+                    >
+                      <TrashIcon className="mr-2 h-4 w-4" />
+                      <span>Supprimer</span>
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Supprimer la boîte mail
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Êtes-vous sûr de vouloir supprimer la boîte mail{" "}
+                        <strong>{mailbox.email_address}</strong> ? Cette action
+                        est irréversible.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={onDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Supprimer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </DropdownMenuGroup>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
@@ -679,19 +678,6 @@ export function MailboxTable({ onCreateNew }: MailboxTableProps) {
             <MailIcon className="mr-2 h-4 w-4" />
             Nouvelle boîte mail
           </Button>
-        )}
-      </div>
-
-      {/* Results count */}
-      <div className="text-muted-foreground text-sm">
-        {totalCount} boîte{totalCount > 1 ? "s" : ""} mail trouvée
-        {totalCount > 1 ? "s" : ""}
-        {table.getFilteredRowModel().rows.length !== totalCount && (
-          <span>
-            {" "}
-            ({table.getFilteredRowModel().rows.length} affichée
-            {table.getFilteredRowModel().rows.length > 1 ? "s" : ""})
-          </span>
         )}
       </div>
 
