@@ -11,15 +11,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  ServerIcon,
-  PlayIcon,
-  SettingsIcon,
-  FileTextIcon,
-  TestTubeIcon,
-  ClockIcon,
-  CheckCircleIcon,
-} from "lucide-react";
+import { ServerIcon, PlayIcon, FileTextIcon, TestTubeIcon } from "lucide-react";
 import { FunctionCard } from "./components/function-card";
 import { FunctionExecutor } from "./components/function-executor";
 
@@ -163,87 +155,10 @@ export function FunctionsPageClient({
   const [selectedTab, setSelectedTab] = useState("overview");
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
 
-  const totalFunctions = edgeFunctions.length;
-  const activeFunctions = edgeFunctions.filter(
-    f => f.status === "active"
-  ).length;
   const categories = Array.from(new Set(edgeFunctions.map(f => f.category)));
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-          <ServerIcon className="h-8 w-8" />
-          Gestion des fonctions Edge
-        </h1>
-        <p className="text-muted-foreground">
-          Administrez et surveillez les fonctions Supabase Edge pour le
-          traitement des emails et intégrations.
-        </p>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Fonctions
-            </CardTitle>
-            <ServerIcon className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalFunctions}</div>
-            <p className="text-muted-foreground text-xs">
-              Fonctions Edge déployées
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Fonctions Actives
-            </CardTitle>
-            <CheckCircleIcon className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {activeFunctions}
-            </div>
-            <p className="text-muted-foreground text-xs">En fonctionnement</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Catégories</CardTitle>
-            <SettingsIcon className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{categories.length}</div>
-            <p className="text-muted-foreground text-xs">Types de fonctions</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Mailboxes Actives
-            </CardTitle>
-            <ClockIcon className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {availableMailboxes.length}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Disponibles pour traitement
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Main Content */}
       <Tabs
         value={selectedTab}
@@ -272,8 +187,6 @@ export function FunctionsPageClient({
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           <div>
-            <h2 className="mb-4 text-2xl font-bold">Fonctions disponibles</h2>
-
             {/* Functions by Category */}
             {categories.map(category => {
               const categoryFunctions = edgeFunctions.filter(

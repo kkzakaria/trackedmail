@@ -27,7 +27,6 @@ import * as z from "zod";
 import type { Tables } from "@/lib/types/database.types";
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { debounce } from "lodash";
 
 interface MailboxFormProps {
@@ -37,14 +36,6 @@ interface MailboxFormProps {
 }
 
 type ValidationState = "idle" | "validating" | "valid" | "invalid";
-
-interface ValidationResult {
-  microsoft_user_id?: string;
-  display_name?: string;
-  email_address?: string;
-  job_title?: string;
-  department?: string;
-}
 
 export function MailboxForm({
   initialData,
@@ -56,8 +47,6 @@ export function MailboxForm({
   const updateMailboxMutation = useUpdateMailbox();
   const [validationState, setValidationState] =
     useState<ValidationState>("idle");
-  const [validationResult, setValidationResult] =
-    useState<ValidationResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const form = useForm({
@@ -74,7 +63,6 @@ export function MailboxForm({
     async (email: string) => {
       if (!email?.includes("@")) {
         setValidationState("idle");
-        setValidationResult(null);
         setValidationError(null);
         return;
       }
@@ -93,7 +81,6 @@ export function MailboxForm({
 
         if (response.ok && data.success) {
           setValidationState("valid");
-          setValidationResult(data.data);
 
           // Auto-remplir le display_name si vide
           if (data.data.display_name && !form.getValues("display_name")) {
@@ -232,34 +219,6 @@ export function MailboxForm({
               )}
             />
 
-            {/* Afficher les informations Microsoft si validées */}
-            {validationState === "valid" && validationResult && (
-              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription>
-                  <div className="space-y-1">
-                    <p className="font-medium">Email validé avec succès !</p>
-                    <p className="text-muted-foreground text-sm">
-                      Microsoft ID:{" "}
-                      <code className="text-xs">
-                        {validationResult.microsoft_user_id}
-                      </code>
-                    </p>
-                    {validationResult.job_title && (
-                      <p className="text-muted-foreground text-sm">
-                        Fonction: {validationResult.job_title}
-                      </p>
-                    )}
-                    {validationResult.department && (
-                      <p className="text-muted-foreground text-sm">
-                        Département: {validationResult.department}
-                      </p>
-                    )}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
             {/* Active Status Switch */}
             <FormField
               control={form.control}
@@ -318,26 +277,6 @@ export function MailboxForm({
                   Annuler
                 </Button>
               )}
-            </div>
-
-            {/* Help text */}
-            <div className="bg-muted rounded-lg p-4">
-              <h4 className="mb-2 text-sm font-medium">💡 Conseils</h4>
-              <ul className="text-muted-foreground space-y-1 text-sm">
-                <li>
-                  • L&apos;adresse email doit exister dans votre tenant
-                  Microsoft
-                </li>
-                <li>
-                  • La validation vérifie l&apos;existence et récupère les infos
-                  Microsoft
-                </li>
-                <li>
-                  • Le nom d&apos;affichage sera auto-complété depuis Microsoft
-                  (modifiable)
-                </li>
-                <li>• Les boîtes mail inactives ne seront pas surveillées</li>
-              </ul>
             </div>
           </form>
         </Form>

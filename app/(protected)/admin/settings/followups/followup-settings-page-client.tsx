@@ -134,17 +134,7 @@ export function FollowupSettingsPageClient() {
     <div className="container mx-auto py-6">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Configuration des Relances
-            </h1>
-            <p className="mt-1 text-gray-600">
-              Gérez les heures ouvrables, jours fériés et paramètres globaux du
-              système de relances
-            </p>
-          </div>
-
+        <div className="flex justify-end">
           <div className="flex items-center space-x-3">
             {hasChanges && (
               <Badge

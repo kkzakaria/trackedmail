@@ -115,14 +115,7 @@ export function MailboxList({ onCreateNew }: MailboxListProps) {
   return (
     <div className="space-y-4">
       {/* Header and filters */}
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Boîtes mail</h2>
-          <p className="text-muted-foreground">
-            Gérez les boîtes mail suivies par l&apos;application
-          </p>
-        </div>
-
+      <div className="flex justify-end">
         {canManageMailboxes && (
           <Button onClick={onCreateNew} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
