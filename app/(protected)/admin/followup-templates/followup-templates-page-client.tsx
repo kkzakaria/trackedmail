@@ -65,7 +65,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -506,77 +505,13 @@ export function FollowupTemplatesPageClient({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Templates de Relances
-          </h1>
-          <p className="text-muted-foreground">
-            Gérez vos templates de relances automatiques
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Link href="/admin/followup-templates/new">
           <Button>
             <PlusIcon className="mr-2 h-4 w-4" />
             Nouveau Template
           </Button>
         </Link>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Templates
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Templates Actifs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {data.filter(t => t.is_active).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Utilisation Totale
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.reduce((sum, t) => sum + (t.usage_count || 0), 0)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Taux de Succès Moyen
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {data.length > 0
-                ? Math.round(
-                    data.reduce((sum, t) => sum + (t.success_rate || 0), 0) /
-                      data.length
-                  )
-                : 0}
-              %
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <div className="space-y-4">

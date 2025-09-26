@@ -2,16 +2,10 @@
 
 import { useState } from "react";
 import { UserList } from "@/components/users/UserList";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { UsersIcon, UserCheckIcon, UserXIcon, CrownIcon } from "lucide-react";
+import { CrownIcon } from "lucide-react";
 import { useUsers } from "@/lib/hooks/use-users";
 
 interface UsersPageClientProps {
@@ -40,99 +34,9 @@ export function UsersPageClient({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Gestion des utilisateurs
-        </h1>
-        <p className="text-muted-foreground">
-          Gérez les utilisateurs du système, leurs rôles et leurs assignations.
-        </p>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total utilisateurs
-            </CardTitle>
-            <UsersIcon className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers}</div>
-            <p className="text-muted-foreground text-xs">
-              Tous les utilisateurs du système
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Utilisateurs actifs
-            </CardTitle>
-            <UserCheckIcon className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {activeUsers}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Utilisateurs ayant accès au système
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Utilisateurs inactifs
-            </CardTitle>
-            <UserXIcon className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {inactiveUsers}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Utilisateurs désactivés
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Votre rôle</CardTitle>
-            <CrownIcon className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              <Badge variant="secondary" className="text-sm">
-                {userRole === "administrateur"
-                  ? "Admin"
-                  : userRole === "manager"
-                    ? "Manager"
-                    : "Utilisateur"}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Votre niveau d&apos;accès
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Users Management */}
       <Card>
-        <CardHeader>
-          <CardTitle>Liste des utilisateurs</CardTitle>
-          <CardDescription>
-            Consultez et gérez tous les utilisateurs du système avec leurs rôles
-            et statuts.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Tabs
             value={selectedTab}
             onValueChange={setSelectedTab}
