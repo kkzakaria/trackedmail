@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MailboxList } from "@/components/mailboxes/mailbox-list";
+import { MailboxTable } from "@/components/mailboxes/MailboxTable";
 import { MailboxForm } from "@/components/mailboxes/mailbox-form";
 import {
   Dialog,
@@ -24,7 +24,7 @@ export function MailboxesPageClient() {
 
   return (
     <div className="container mx-auto py-6">
-      <MailboxList onCreateNew={handleOpenCreate} />
+      <MailboxTable onCreateNew={handleOpenCreate} />
 
       {/* Create dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
