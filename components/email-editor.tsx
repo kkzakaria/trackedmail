@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import "@/styles/editor.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";

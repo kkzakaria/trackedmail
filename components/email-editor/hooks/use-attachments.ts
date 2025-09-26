@@ -122,7 +122,8 @@ export function useAttachments() {
         const validFiles: File[] = [];
 
         for (let i = 0; i < files.length; i++) {
-          const file = files[i];
+          const file = files.item(i);
+          if (!file) continue;
 
           // Vérifier la taille du fichier (max 10MB)
           if (file.size > 10 * 1024 * 1024) {
