@@ -1,26 +1,14 @@
-import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   EdgeSupabaseClient,
-  TrackedEmailRow,
   FollowupTemplateRow,
-  FollowupInsert
-} from '../_shared/types.ts';
-
-interface SchedulingResult {
-  scheduled_for: string;
-  original_target: string;
-  adjusted_for_working_hours: boolean;
-  delay_applied_hours: number;
-}
-
-interface WorkingHoursConfig {
-  timezone: string;
-  start: string;
-  end: string;
-  working_days: string[];
-  holidays: string[];
-}
+  TrackedEmailWithFollowupInfo,
+  WorkingHoursConfig,
+  SchedulingStats
+} from './shared-types.ts';
+import { getEmailsNeedingFollowup } from './email-analyzer.ts';
+import { getActiveTemplates, renderTemplate } from './template-manager.ts';
+import { getWorkingHoursConfig, calculateNextSendTime } from './time-calculator.ts';
 
 // Configuration
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -28,7 +16,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 console.log('🚀 Followup Scheduler Function Started');
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   try {
     // Vérifier que c'est une requête POST
     if (req.method !== 'POST') {
@@ -40,7 +28,7 @@ serve(async (req) => {
     // Créer le client Supabase avec les droits de service
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 0. Vérifier si le système de relances est activé
+    // Vérifier si le système de relances est activé
     const isFollowupEnabled = await checkFollowupSystemEnabled(supabase);
     if (!isFollowupEnabled) {
       console.log('⚠️ Followup system is disabled. Skipping scheduling.');
@@ -55,74 +43,12 @@ serve(async (req) => {
       });
     }
 
-    // 1. Récupérer les emails nécessitant des relances
-    const emailsNeedingFollowup = await getEmailsNeedingFollowup(supabase);
-    console.log(`📧 Found ${emailsNeedingFollowup.length} emails needing followups`);
+    // Orchestrer le processus de planification
+    const result = await orchestrateFollowupScheduling(supabase);
 
-    if (emailsNeedingFollowup.length === 0) {
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'No emails need followups at this time',
-        processed: 0
-      }), {
-        headers: { 'Content-Type': 'application/json' },
-        status: 200
-      });
-    }
-
-    // 2. Récupérer les templates actifs
-    const activeTemplates = await getActiveTemplates(supabase);
-    console.log(`📝 Found ${activeTemplates.length} active templates`);
-
-    if (activeTemplates.length === 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        message: 'No active templates found',
-        processed: 0
-      }), {
-        headers: { 'Content-Type': 'application/json' },
-        status: 400
-      });
-    }
-
-    // 3. Récupérer la configuration des heures ouvrables
-    const workingHours = await getWorkingHoursConfig(supabase);
-
-    // 4. Traiter chaque email
-    let processedCount = 0;
-    const errors: string[] = [];
-
-    for (const email of emailsNeedingFollowup) {
-      try {
-        const followupsCreated = await processEmailForFollowups(
-          supabase,
-          email,
-          activeTemplates,
-          workingHours
-        );
-        processedCount += followupsCreated.length;
-
-        if (followupsCreated.length > 0) {
-          console.log(`✅ Created ${followupsCreated.length} followups for email ${email.id}`);
-        }
-      } catch (error) {
-        const errorMsg = `Error processing email ${email.id}: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(`❌ ${errorMsg}`);
-        errors.push(errorMsg);
-      }
-    }
-
-    console.log(`🎯 Scheduling completed. Processed: ${processedCount} followups`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Followup scheduling completed',
-      processed: processedCount,
-      emails_processed: emailsNeedingFollowup.length,
-      errors: errors.length > 0 ? errors : undefined
-    }), {
+    return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },
-      status: 200
+      status: result.success ? 200 : 400
     });
 
   } catch (error) {
@@ -140,182 +66,82 @@ serve(async (req) => {
 });
 
 /**
- * Récupère les emails nécessitant des relances
+ * Orchestre le processus complet de planification des relances
  */
-async function getEmailsNeedingFollowup(supabase: EdgeSupabaseClient): Promise<TrackedEmailWithFollowupInfo[]> {
-  // PRODUCTION: Récupérer tous les emails pending nécessitant des relances
-  const { data: emailsData, error: emailsError } = await supabase
-    .from('tracked_emails')
-    .select('*')
-    .eq('status', 'pending')
-    .order('sent_at', { ascending: true });
+async function orchestrateFollowupScheduling(supabase: EdgeSupabaseClient): Promise<SchedulingStats> {
+  // 1. Récupérer les emails nécessitant des relances
+  const emailsNeedingFollowup = await getEmailsNeedingFollowup(supabase);
+  console.log(`📧 Found ${emailsNeedingFollowup.length} emails needing followups`);
 
-  console.log(`📧 Found ${emailsData?.length || 0} pending emails to process`);
-
-  if (emailsError) {
-    throw new Error(`Failed to fetch emails: ${emailsError.message}`);
-  }
-
-  if (!emailsData || emailsData.length === 0) {
-    return [];
-  }
-
-  // Pour chaque email, récupérer le statut des relances (automatiques + manuelles)
-  const enrichedEmails = [];
-  for (const email of emailsData) {
-    // Récupérer les relances automatiques
-    const { data: followupData, error: followupError } = await supabase
-      .from('followups')
-      .select('followup_number, sent_at')
-      .eq('tracked_email_id', email.id)
-      .order('followup_number', { ascending: false })
-      .limit(1);
-
-    if (followupError) {
-      console.error(`Error fetching followups for ${email.id}:`, followupError);
-    }
-
-    // Récupérer les relances manuelles
-    const { data: manualFollowupData, error: manualError } = await supabase
-      .from('manual_followups')
-      .select('followup_sequence_number, detected_at')
-      .eq('tracked_email_id', email.id)
-      .order('detected_at', { ascending: false })
-      .limit(1);
-
-    if (manualError) {
-      console.error(`Error fetching manual followups for ${email.id}:`, manualError);
-    }
-
-    const lastAutomaticFollowup = followupData?.[0];
-    const lastManualFollowup = manualFollowupData?.[0];
-
-    // Déterminer la dernière activité (automatique ou manuelle)
-    const automaticAt = lastAutomaticFollowup?.sent_at ? new Date(lastAutomaticFollowup.sent_at) : null;
-    const manualAt = lastManualFollowup?.detected_at ? new Date(lastManualFollowup.detected_at) : null;
-
-    let lastActivity: Date;
-    let lastActivityType: 'automatic' | 'manual' | 'original';
-
-    if (automaticAt && manualAt) {
-      if (automaticAt > manualAt) {
-        lastActivity = automaticAt;
-        lastActivityType = 'automatic';
-      } else {
-        lastActivity = manualAt;
-        lastActivityType = 'manual';
-      }
-    } else if (automaticAt) {
-      lastActivity = automaticAt;
-      lastActivityType = 'automatic';
-    } else if (manualAt) {
-      lastActivity = manualAt;
-      lastActivityType = 'manual';
-    } else {
-      lastActivity = new Date(email.sent_at);
-      lastActivityType = 'original';
-    }
-
-    // Calculer le nombre total de relances (automatiques + manuelles)
-    const totalFollowups = await getTotalFollowupsForEmail(supabase, email.id);
-
-    enrichedEmails.push({
-      ...email,
-      last_followup_number: lastAutomaticFollowup?.followup_number || 0,
-      last_followup_at: lastAutomaticFollowup?.sent_at || null,
-      last_manual_followup_at: lastManualFollowup?.detected_at || null,
-      last_activity_at: lastActivity.toISOString(),
-      last_activity_type: lastActivityType,
-      total_followups: totalFollowups
-    });
-  }
-
-  console.log(`📊 DEBUG: Enriched ${enrichedEmails.length} emails with followup data`);
-  return enrichedEmails;
-}
-
-/**
- * Récupère les templates actifs
- */
-async function getActiveTemplates(supabase: EdgeSupabaseClient): Promise<FollowupTemplateRow[]> {
-  const { data, error } = await supabase
-    .from('followup_templates')
-    .select('*')
-    .eq('is_active', true)
-    .order('followup_number', { ascending: true });
-
-  if (error) {
-    throw new Error(`Failed to fetch active templates: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-/**
- * Récupère la configuration des heures ouvrables
- */
-async function getWorkingHoursConfig(supabase: any): Promise<WorkingHoursConfig> {
-  const { data, error } = await supabase
-    .from('system_config')
-    .select('value')
-    .eq('key', 'working_hours')
-    .single();
-
-  if (error || !data) {
-    // Configuration par défaut
+  if (emailsNeedingFollowup.length === 0) {
     return {
-      timezone: 'UTC',
-      start: '07:00',
-      end: '18:00',
-      working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-      holidays: []
+      success: true,
+      message: 'No emails need followups at this time',
+      processed: 0,
+      emails_processed: 0
     };
   }
 
-  return data.value as WorkingHoursConfig;
-}
+  // 2. Récupérer les templates actifs
+  const activeTemplates = await getActiveTemplates(supabase);
+  console.log(`📝 Found ${activeTemplates.length} active templates`);
 
-/**
- * Calcule le nombre total de relances (automatiques + manuelles) pour un email
- */
-async function getTotalFollowupsForEmail(
-  supabase: EdgeSupabaseClient,
-  trackedEmailId: string
-): Promise<number> {
-  try {
-    const { data, error } = await supabase
-      .rpc('get_total_followup_count', { p_tracked_email_id: trackedEmailId });
-
-    if (error) {
-      console.error(`Error getting total followup count for ${trackedEmailId}:`, error);
-      return 0;
-    }
-
-    return data || 0;
-  } catch (error) {
-    console.error(`Error calling get_total_followup_count:`, error);
-    return 0;
+  if (activeTemplates.length === 0) {
+    return {
+      success: false,
+      message: 'No active templates found',
+      processed: 0,
+      emails_processed: 0
+    };
   }
+
+  // 3. Récupérer la configuration des heures ouvrables
+  const workingHours = await getWorkingHoursConfig(supabase);
+
+  // 4. Traiter chaque email
+  let processedCount = 0;
+  const errors: string[] = [];
+
+  for (const email of emailsNeedingFollowup) {
+    try {
+      const followupsCreated = await processEmailForFollowups(
+        supabase,
+        email,
+        activeTemplates,
+        workingHours
+      );
+      processedCount += followupsCreated.length;
+
+      if (followupsCreated.length > 0) {
+        console.log(`✅ Created ${followupsCreated.length} followups for email ${email.id}`);
+      }
+    } catch (error) {
+      const errorMsg = `Error processing email ${email.id}: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(`❌ ${errorMsg}`);
+      errors.push(errorMsg);
+    }
+  }
+
+  console.log(`🎯 Scheduling completed. Processed: ${processedCount} followups`);
+
+  return {
+    success: true,
+    message: 'Followup scheduling completed',
+    processed: processedCount,
+    emails_processed: emailsNeedingFollowup.length,
+    errors: errors.length > 0 ? errors : undefined
+  };
 }
 
 /**
  * Traite un email pour créer les relances nécessaires
  */
-interface TrackedEmailWithFollowupInfo extends TrackedEmailRow {
-  last_followup_number?: number;
-  last_followup_at?: string;
-  last_manual_followup_at?: string;
-  last_activity_at?: string;
-  last_activity_type?: 'automatic' | 'manual' | 'original';
-  total_followups?: number;
-}
-
 async function processEmailForFollowups(
   supabase: EdgeSupabaseClient,
   email: TrackedEmailWithFollowupInfo,
   templates: FollowupTemplateRow[],
   workingHours: WorkingHoursConfig
-): Promise<any[]> {
+): Promise<object[]> {
   const followupsCreated = [];
 
   // Utiliser le nombre total de relances (automatiques + manuelles) pour le calcul
@@ -331,14 +157,13 @@ async function processEmailForFollowups(
 
   const maxFollowups = followupConfig?.value?.max_followups || 3;
 
-  // Vérifier qu'on n'a pas atteint le maximum total (automatiques + manuelles)
+  // Vérifier qu'on n'a pas atteint le maximum total
   if (totalFollowupsSent >= maxFollowups) {
     console.log(`⏭️ Email ${email.id} has reached max total followups (${totalFollowupsSent}/${maxFollowups})`);
-    console.log(`   Including manual followups: ${email.total_followups}`);
     return [];
   }
 
-  // Vérifier aussi que le prochain numéro automatique ne dépasse pas le max
+  // Vérifier que le prochain numéro automatique ne dépasse pas le max
   if (nextAutomaticFollowupNumber > maxFollowups) {
     console.log(`⏭️ Email ${email.id} next automatic followup would exceed max (${nextAutomaticFollowupNumber}>${maxFollowups})`);
     return [];
@@ -365,16 +190,15 @@ async function processEmailForFollowups(
     return [];
   }
 
-  // Calculer la date de programmation basée sur la dernière activité (automatique ou manuelle)
+  // Calculer la date de programmation basée sur la dernière activité
   const baseDate = email.last_activity_at
     ? new Date(email.last_activity_at)
     : new Date(email.sent_at);
 
   console.log(`📅 Base date for scheduling: ${baseDate.toISOString()} (activity type: ${email.last_activity_type || 'original'})`);
 
-  // PRODUCTION: Utiliser le délai en heures tel que configuré
+  // Utiliser le délai en heures configuré dans le template
   const delayInHours = template.delay_hours;
-
   console.log(`⏱️ Template ${template.followup_number}, delay_hours=${template.delay_hours}`);
 
   const schedulingResult = calculateNextSendTime(
@@ -412,188 +236,6 @@ async function processEmailForFollowups(
   console.log(`📅 Scheduled followup ${nextAutomaticFollowupNumber} for email ${email.id} at ${schedulingResult.scheduled_for}`);
 
   return followupsCreated;
-}
-
-/**
- * Calcule le prochain créneau d'envoi en respectant les heures ouvrables
- */
-function calculateNextSendTime(
-  baseDate: Date,
-  delayHours: number,
-  workingHours: WorkingHoursConfig
-): SchedulingResult {
-  const originalTarget = new Date(baseDate.getTime() + delayHours * 60 * 60 * 1000);
-
-  // Ajuster pour les heures ouvrables
-  const adjustedTime = adjustForWorkingHours(originalTarget, workingHours);
-
-  const actualDelay = (adjustedTime.getTime() - baseDate.getTime()) / (1000 * 60 * 60);
-
-  return {
-    scheduled_for: adjustedTime.toISOString(),
-    original_target: originalTarget.toISOString(),
-    adjusted_for_working_hours: adjustedTime.getTime() !== originalTarget.getTime(),
-    delay_applied_hours: actualDelay
-  };
-}
-
-/**
- * Ajuste une date pour respecter les heures ouvrables
- */
-function adjustForWorkingHours(targetTime: Date, workingHours: WorkingHoursConfig): Date {
-  let adjustedTime = new Date(targetTime);
-
-  // Vérifier si c'est déjà dans les heures ouvrables
-  if (isWorkingTime(adjustedTime, workingHours)) {
-    return adjustedTime;
-  }
-
-  // Trouver le prochain créneau de travail
-  return findNextWorkingTime(adjustedTime, workingHours);
-}
-
-/**
- * Vérifie si une date/heure est dans les heures ouvrables
- */
-function isWorkingTime(dateTime: Date, workingHours: WorkingHoursConfig): boolean {
-  return isWorkingDay(dateTime, workingHours) && isWithinWorkingHours(dateTime, workingHours);
-}
-
-/**
- * Vérifie si c'est un jour ouvrable
- */
-function isWorkingDay(date: Date, workingHours: WorkingHoursConfig): boolean {
-  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const dayName = dayNames[date.getDay()];
-
-  return workingHours.working_days.includes(dayName) && !isHoliday(date, workingHours);
-}
-
-/**
- * Vérifie si l'heure est dans la plage de travail
- */
-function isWithinWorkingHours(dateTime: Date, workingHours: WorkingHoursConfig): boolean {
-  const [startHour, startMinute] = workingHours.start.split(':').map(Number);
-  const [endHour, endMinute] = workingHours.end.split(':').map(Number);
-
-  const startTime = startHour * 60 + startMinute;
-  const endTime = endHour * 60 + endMinute;
-  const currentTime = dateTime.getHours() * 60 + dateTime.getMinutes();
-
-  return currentTime >= startTime && currentTime < endTime;
-}
-
-/**
- * Vérifie si c'est un jour férié
- */
-function isHoliday(date: Date, workingHours: WorkingHoursConfig): boolean {
-  const dateString = date.toISOString().split('T')[0];
-  return workingHours.holidays.includes(dateString);
-}
-
-/**
- * Trouve le prochain créneau de travail
- */
-function findNextWorkingTime(fromTime: Date, workingHours: WorkingHoursConfig): Date {
-  const maxIterations = 14; // 2 semaines max
-  let iterations = 0;
-  let current = new Date(fromTime);
-
-  while (iterations < maxIterations) {
-    if (isWorkingDay(current, workingHours)) {
-      const adjustedTime = adjustTimeToWorkingHours(current, workingHours);
-
-      if (adjustedTime >= fromTime) {
-        return adjustedTime;
-      }
-    }
-
-    // Passer au jour suivant
-    current = new Date(current);
-    current.setDate(current.getDate() + 1);
-    current.setHours(0, 0, 0, 0);
-
-    iterations++;
-  }
-
-  // Solution de secours : dans 24h
-  return new Date(fromTime.getTime() + 24 * 60 * 60 * 1000);
-}
-
-/**
- * Ajuste l'heure pour être dans les heures de travail
- */
-function adjustTimeToWorkingHours(date: Date, workingHours: WorkingHoursConfig): Date {
-  const result = new Date(date);
-  const [startHour, startMinute] = workingHours.start.split(':').map(Number);
-  const [endHour, endMinute] = workingHours.end.split(':').map(Number);
-
-  const startTime = startHour * 60 + startMinute;
-  const endTime = endHour * 60 + endMinute;
-  const currentTime = result.getHours() * 60 + result.getMinutes();
-
-  if (currentTime < startTime) {
-    result.setHours(startHour, startMinute, 0, 0);
-  } else if (currentTime >= endTime) {
-    result.setDate(result.getDate() + 1);
-    result.setHours(startHour, startMinute, 0, 0);
-  }
-
-  return result;
-}
-
-/**
- * Rend un template avec les variables dynamiques
- */
-function renderTemplate(template: FollowupTemplateRow, email: TrackedEmailWithFollowupInfo): { subject: string; body: string } {
-  // Variables disponibles
-  const variables = {
-    destinataire_nom: extractNameFromEmail(email.recipient_emails[0] || ''),
-    destinataire_entreprise: extractCompanyFromEmail(email.recipient_emails[0] || ''),
-    objet_original: email.subject,
-    date_envoi_original: new Date(email.sent_at).toLocaleDateString('fr-FR'),
-    numero_relance: template.followup_number,
-    jours_depuis_envoi: Math.floor((Date.now() - new Date(email.sent_at).getTime()) / (1000 * 60 * 60 * 24)),
-    expediteur_nom: extractNameFromEmail(email.sender_email),
-    expediteur_email: email.sender_email
-  };
-
-  // Rendre le sujet et le corps
-  let renderedSubject = template.subject;
-  let renderedBody = template.body;
-
-  Object.entries(variables).forEach(([key, value]) => {
-    const regex = new RegExp(`{{${key}}}`, 'g');
-    renderedSubject = renderedSubject.replace(regex, String(value));
-    renderedBody = renderedBody.replace(regex, String(value));
-  });
-
-  return {
-    subject: renderedSubject,
-    body: renderedBody
-  };
-}
-
-/**
- * Extrait le nom depuis une adresse email
- */
-function extractNameFromEmail(email: string): string {
-  const localPart = email.split('@')[0];
-  return localPart
-    .split(/[._-]/)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-/**
- * Extrait le nom de l'entreprise depuis une adresse email
- */
-function extractCompanyFromEmail(email: string): string {
-  const domain = email.split('@')[1];
-  if (!domain) return 'Entreprise';
-
-  const company = domain.split('.')[0];
-  return company.charAt(0).toUpperCase() + company.slice(1);
 }
 
 /**

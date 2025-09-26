@@ -1,13 +1,18 @@
-import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
-  EdgeSupabaseClient,
-  TrackedEmailRow,
-  FollowupRow
+  EdgeSupabaseClient
 } from '../_shared/types.ts';
 
 // Types pour le système de relances
-interface FollowupToSend extends FollowupRow {
+interface FollowupToSend {
+  id: string;
+  tracked_email_id: string;
+  template_id: string;
+  followup_number: number;
+  subject: string;
+  body: string;
+  scheduled_for: string;
+  status: 'scheduled' | 'sent' | 'failed' | 'cancelled';
   tracked_email: {
     id: string;
     sender_email: string;
@@ -34,7 +39,7 @@ const MICROSOFT_TENANT_ID = Deno.env.get('MICROSOFT_TENANT_ID')!;
 
 console.log('📧 Followup Sender Function Started');
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   try {
     // Vérifier que c'est une requête POST
     if (req.method !== 'POST') {
@@ -55,7 +60,6 @@ serve(async (req) => {
         message: 'Followup system is disabled',
         sent: 0,
         failed: 0,
-        safety_blocked: 0,
         total_processed: 0
       }), {
         headers: { 'Content-Type': 'application/json' },
@@ -97,35 +101,31 @@ serve(async (req) => {
       } catch (error) {
         const errorMsg = `Failed to send followup ${followup.id}: ${error instanceof Error ? error.message : String(error)}`;
 
-        // Différencier les erreurs de sécurité des autres erreurs
-        if (error instanceof Error && error.message.includes('safety check')) {
-          safetyBlockedCount++;
-          console.log(`🛡️ SAFETY BLOCK: ${errorMsg}`);
-        } else {
-          console.error(`❌ SEND ERROR: ${errorMsg}`);
-          errors.push(errorMsg);
-          failedCount++;
+        console.error(`❌ SEND ERROR: ${errorMsg}`);
+        errors.push(errorMsg);
 
-          // Marquer comme échec dans la base de données (seulement pour les vrais échecs)
+        // Vérifier si l'erreur est retryable
+        if (isRetryableError(error instanceof Error ? error : new Error(String(error)))) {
+          await handleRetryableError(supabase, followup.id, error instanceof Error ? error : new Error(String(error)));
+        } else {
           await markFollowupAsFailed(supabase, followup.id, error instanceof Error ? error.message : String(error));
         }
+        failedCount++;
       }
     }
 
     console.log(`🎯 Processing completed:`);
     console.log(`   ✅ Sent: ${sentCount}`);
     console.log(`   ❌ Failed: ${failedCount}`);
-    console.log(`   🛡️ Safety blocked: ${safetyBlockedCount}`);
-    console.log(`   📊 Safety success rate: ${((sentCount + safetyBlockedCount) / (sentCount + failedCount + safetyBlockedCount) * 100).toFixed(1)}%`);
+    console.log(`   📊 Success rate: ${(sentCount / (sentCount + failedCount) * 100).toFixed(1)}%`);
 
     return new Response(JSON.stringify({
       success: true,
       message: 'Followup sending completed',
       sent: sentCount,
       failed: failedCount,
-      safety_blocked: safetyBlockedCount,
       total_processed: followupsToSend.length,
-      safety_success_rate: ((sentCount + safetyBlockedCount) / (sentCount + failedCount + safetyBlockedCount) * 100).toFixed(1) + '%',
+      success_rate: (sentCount / (sentCount + failedCount) * 100).toFixed(1) + '%',
       errors: errors.length > 0 ? errors : undefined
     }), {
       headers: { 'Content-Type': 'application/json' },
@@ -147,12 +147,12 @@ serve(async (req) => {
 });
 
 /**
- * Récupère les relances prêtes à être envoyées (avec vérification des réponses)
+ * Récupère les relances prêtes à être envoyées (simple récupération)
  */
 async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<FollowupToSend[]> {
   const now = new Date().toISOString();
 
-  console.log('🔍 Fetching followups to send with response verification...');
+  console.log('🔍 Fetching followups ready to send...');
 
   const { data, error } = await supabase
     .from('followups')
@@ -176,7 +176,7 @@ async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<Followu
     .eq('tracked_email.status', 'pending') // Email toujours en attente
     .eq('tracked_email.mailbox.is_active', true) // Boîte mail active
     .order('scheduled_for', { ascending: true })
-    .limit(20); // Augmenter pour le filtrage
+    .limit(10); // Limite pour traitement par batch
 
   if (error) {
     throw new Error(`Failed to fetch followups to send: ${error.message}`);
@@ -187,70 +187,10 @@ async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<Followu
     return [];
   }
 
-  console.log(`📧 Found ${data.length} scheduled followups, verifying no responses exist...`);
-
-  // Double vérification : exclure les emails ayant reçu des réponses
-  const verifiedFollowups = [];
-  for (const followup of data) {
-    const hasResponse = await checkEmailHasResponse(supabase, followup.tracked_email.id);
-
-    if (hasResponse) {
-      console.log(`⚠️ Email ${followup.tracked_email.id} has received a response, cancelling followup ${followup.id}`);
-      await markFollowupAsCancelled(supabase, followup.id, 'Response received after scheduling');
-    } else {
-      console.log(`✅ Email ${followup.tracked_email.id} verified safe for followup ${followup.id}`);
-      verifiedFollowups.push(followup);
-    }
-  }
-
-  console.log(`🎯 Verified ${verifiedFollowups.length}/${data.length} followups safe to send`);
-
-  // Limiter à 10 pour éviter la surcharge
-  return verifiedFollowups.slice(0, 10);
+  console.log(`📧 Found ${data.length} followups ready to send`);
+  return data;
 }
 
-/**
- * Vérifie si un email a reçu une réponse
- */
-async function checkEmailHasResponse(supabase: EdgeSupabaseClient, trackedEmailId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('email_responses')
-    .select('id')
-    .eq('tracked_email_id', trackedEmailId)
-    .limit(1);
-
-  if (error) {
-    console.error(`❌ Error checking responses for email ${trackedEmailId}:`, error);
-    // En cas d'erreur, on considère qu'il n'y a pas de réponse pour éviter de bloquer
-    return false;
-  }
-
-  return data && data.length > 0;
-}
-
-/**
- * Marque une relance comme annulée avec une raison
- */
-async function markFollowupAsCancelled(
-  supabase: EdgeSupabaseClient,
-  followupId: string,
-  reason: string
-): Promise<void> {
-  const { error } = await supabase
-    .from('followups')
-    .update({
-      status: 'cancelled',
-      cancelled_at: new Date().toISOString(),
-      failure_reason: reason.substring(0, 500) // Limiter la taille
-    })
-    .eq('id', followupId);
-
-  if (error) {
-    console.error(`❌ Failed to mark followup ${followupId} as cancelled:`, error);
-  } else {
-    console.log(`🚫 Followup ${followupId} cancelled: ${reason}`);
-  }
-}
 
 /**
  * Obtient un token d'accès Microsoft Graph
@@ -311,17 +251,7 @@ async function sendFollowup(
   console.log(`   Original message ID: ${originalEmail.internet_message_id}`);
   console.log(`   Microsoft message ID: ${originalEmail.microsoft_message_id || 'NOT FOUND'}`);
 
-  // SÉCURITÉ CRITIQUE : Vérification finale avant envoi
-  console.log(`🔒 Final safety check: verifying no response received for email ${followup.tracked_email_id}...`);
-  const hasResponseFinal = await checkEmailHasResponse(supabase, followup.tracked_email_id);
-
-  if (hasResponseFinal) {
-    console.log(`🛑 CRITICAL SAFETY: Response detected just before sending followup ${followup.id}`);
-    await markFollowupAsCancelled(supabase, followup.id, 'Response received during final safety check');
-    throw new Error('Followup cancelled - response received during final safety check');
-  }
-
-  console.log(`✅ Final safety check passed - proceeding with followup ${followup.id}`);
+  console.log(`📤 Proceeding with followup ${followup.id} (safety checks handled by maintenance job)`);
 
   // Construire le message avec headers personnalisés pour le threading et l'identification
   const messageData = {
@@ -506,28 +436,6 @@ function isRetryableError(error: Error): boolean {
   return retryableErrors.some(keyword => errorMessage.includes(keyword));
 }
 
-/**
- * Fonction pour nettoyer les relances expirées
- */
-async function cleanupExpiredFollowups(supabase: EdgeSupabaseClient): Promise<void> {
-  // Marquer comme expirées les relances programmées depuis plus de 7 jours
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  const { error } = await supabase
-    .from('followups')
-    .update({
-      status: 'cancelled',
-      failure_reason: 'Expired - not sent within 7 days'
-    })
-    .eq('status', 'scheduled')
-    .lt('scheduled_for', sevenDaysAgo);
-
-  if (error) {
-    console.error('Failed to cleanup expired followups:', error);
-  } else {
-    console.log('✅ Cleaned up expired followups');
-  }
-}
 
 /**
  * Vérifie si le système de relances est activé
