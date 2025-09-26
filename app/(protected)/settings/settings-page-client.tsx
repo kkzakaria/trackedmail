@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Mail, FileText, Settings, Code, Shield } from "lucide-react";
+import { Users, Mail, FileText, Code, Shield, Clock } from "lucide-react";
 
 // Import existing client components
 import { UsersPageClient } from "../admin/users/users-page-client";
@@ -99,8 +99,8 @@ export function SettingsPageClient({
           )}
           {visibleTabs.settings && (
             <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Paramètres</span>
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline">Temps de relance</span>
             </TabsTrigger>
           )}
           {visibleTabs.functions && (

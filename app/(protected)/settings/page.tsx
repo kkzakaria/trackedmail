@@ -91,7 +91,7 @@ export default async function SettingsPage() {
     mailboxes: true, // Both admin and manager
     templates: true, // Both admin and manager
     settings: userData.role === "administrateur", // Admin only
-    functions: userData.role === "administrateur", // Admin only
+    functions: false, // Removed from configuration
   };
 
   // Pass all necessary data to the client component
