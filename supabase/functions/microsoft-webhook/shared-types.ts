@@ -172,7 +172,7 @@ export interface NotificationContext {
  */
 export interface DetectionResult {
   detected: boolean
-  type: 'outgoing_tracked' | 'response_detected' | 'followup_skipped' | 'manual_followup_detected' | 'incoming_not_reply' | 'response_orphaned' | 'response_error' | 'not_detected'
+  type: 'outgoing_tracked' | 'response_detected' | 'followup_skipped' | 'manual_followup_detected' | 'incoming_not_reply' | 'response_orphaned' | 'response_error' | 'not_detected' | 'not_tracked'
   trackedEmailId?: string
   detectionMethod?: string
   rejectionReason?: string

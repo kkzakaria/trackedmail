@@ -14,7 +14,8 @@ import {
   hasForwardPrefix,
   getElapsedTime,
   parseReferences,
-  hasHeader
+  hasHeader,
+  cleanSubject
 } from './utils.ts'
 import { logDetectionAttempt } from './database-manager.ts'
 
@@ -324,5 +325,171 @@ export function calculateDetectionMetrics(
     success: detected,
     elapsedMs: getElapsedTime(startTime),
     method
+  }
+}
+
+/**
+ * Détection améliorée des réponses avec méthodes supplémentaires
+ */
+export async function enhancedResponseDetection(
+  supabase: EdgeSupabaseClient,
+  message: EmailMessage
+): Promise<{
+  isResponse: boolean
+  confidence: number
+  method: string
+  originalEmailId?: string
+}> {
+  const methods: Array<{
+    name: string
+    weight: number
+    check: () => Promise<boolean | string | null>
+  }> = [
+    // Méthode 1: Headers standards (haute confiance)
+    {
+      name: 'headers',
+      weight: 40,
+      check: async () => {
+        if (message.inReplyTo || message.references) {
+          // Chercher l'email original par internetMessageId
+          const messageIds = [
+            message.inReplyTo,
+            ...(message.references ? message.references.split(/\s+/) : [])
+          ].filter(Boolean)
+
+          for (const messageId of messageIds) {
+            if (messageId) {
+              const { data } = await supabase
+                .from('tracked_emails')
+                .select('id')
+                .eq('internet_message_id', messageId.trim())
+                .single()
+
+              if (data) {
+                return data.id
+              }
+            }
+          }
+          return true // Headers présents mais email original non trouvé
+        }
+        return false
+      }
+    },
+    // Méthode 2: ConversationId + ConversationIndex (confiance élevée)
+    {
+      name: 'conversationThread',
+      weight: 35,
+      check: async () => {
+        if (message.conversationId && message.conversationIndex && message.conversationIndex.length > 44) {
+          // Chercher l'email le plus récent de cette conversation
+          const { data } = await supabase
+            .from('tracked_emails')
+            .select('id, conversation_index')
+            .eq('conversation_id', message.conversationId)
+            .eq('status', 'pending')
+            .order('sent_at', { ascending: false })
+
+          if (data && data.length > 0) {
+            // Trouver l'email qui correspond le mieux au threading
+            for (const email of data) {
+              // Si le conversationIndex actuel commence par celui de l'email tracké
+              if (email.conversation_index &&
+                  message.conversationIndex.startsWith(email.conversation_index)) {
+                return email.id
+              }
+            }
+            // Sinon retourner le plus récent
+            return data[0].id
+          }
+        }
+        return false
+      }
+    },
+    // Méthode 3: Sujet avec préfixe et correspondance (confiance moyenne)
+    {
+      name: 'subjectMatching',
+      weight: 20,
+      check: async () => {
+        if (hasReplyPrefix(message.subject)) {
+          // Chercher par sujet nettoyé avec similarité
+          const cleanedSubject = cleanSubject(message.subject)
+          const { data } = await supabase
+            .from('tracked_emails')
+            .select('id, subject')
+            .eq('status', 'pending')
+            .order('sent_at', { ascending: false })
+            .limit(20) // Augmenter la limite pour meilleure recherche
+
+          if (data) {
+            // Recherche exacte d'abord
+            for (const email of data) {
+              if (cleanSubject(email.subject) === cleanedSubject) {
+                return email.id
+              }
+            }
+            // Recherche par inclusion ensuite
+            for (const email of data) {
+              const trackedSubjectClean = cleanSubject(email.subject)
+              if (cleanedSubject.includes(trackedSubjectClean) ||
+                  trackedSubjectClean.includes(cleanedSubject)) {
+                return email.id
+              }
+            }
+          }
+          return true
+        }
+        return false
+      }
+    },
+    // Méthode 4: Analyse du contenu (confiance faible)
+    {
+      name: 'bodyAnalysis',
+      weight: 5,
+      check: () => {
+        const replyPatterns = [
+          /^on .+ wrote:$/im,
+          /^le .+ a écrit :$/im,
+          /^-{3,} original message -+/im,
+          /^>{1,}/m, // Lignes de citation
+          /^from:\s+.+\nto:\s+.+\nsubject:\s+.+/im,
+          /wrote:$/im,
+          /a écrit :/im
+        ]
+
+        const bodyContent = message.bodyPreview || ''
+        return replyPatterns.some(pattern => pattern.test(bodyContent))
+      }
+    }
+  ]
+
+  let totalConfidence = 0
+  const detectedMethods: string[] = []
+  let originalEmailId: string | undefined
+
+  for (const method of methods) {
+    try {
+      const result = await method.check()
+      if (result) {
+        totalConfidence += method.weight
+        detectedMethods.push(method.name)
+
+        // Si on a trouvé un ID d'email original
+        if (typeof result === 'string' && !originalEmailId) {
+          originalEmailId = result
+        }
+      }
+    } catch (error) {
+      console.warn(`Error in ${method.name} detection:`, error)
+    }
+  }
+
+  // Considérer comme réponse si confiance >= 25% (plus sensible)
+  const isResponse = totalConfidence >= 25
+
+  return {
+    isResponse,
+    confidence: totalConfidence,
+    method: detectedMethods.join('+'),
+    originalEmailId
   }
 }
