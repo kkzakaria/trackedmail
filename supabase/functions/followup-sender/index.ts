@@ -88,7 +88,6 @@ Deno.serve(async (req) => {
     // 3. Traiter chaque relance
     let sentCount = 0;
     let failedCount = 0;
-    let safetyBlockedCount = 0;
     const errors: string[] = [];
 
     console.log(`🚀 Processing ${followupsToSend.length} verified followups for sending...`);
@@ -291,7 +290,7 @@ async function sendFollowup(
 
   // Utiliser l'API Reply pour un meilleur threading
   let graphUrl: string;
-  let requestBody: any;
+  let requestBody: { message: typeof messageData };
 
   if (originalEmail.microsoft_message_id) {
     // Utiliser l'API Reply pour maintenir le threading natif
