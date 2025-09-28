@@ -11,7 +11,7 @@
  * - processResponses: boolean pour traiter également les réponses (défaut: true)
  */
 
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
 import {
   EdgeSupabaseClient,
   MailboxRow,
