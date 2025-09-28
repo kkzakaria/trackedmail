@@ -17,6 +17,10 @@ import {
   MailboxRow,
   TrackedEmailInsert
 } from '../_shared/types.ts'
+import {
+  processEmailWithEnhancedDetection,
+  GraphEmail
+} from './enhanced-processor.ts'
 
 console.log('Mailbox Email Processor - Ready!')
 
@@ -42,6 +46,7 @@ interface ProcessingStats {
   incomingEmails: number
   trackedEmailsInserted: number
   responsesDetected: number
+  skippedEmails: number
   errors: string[]
   processedMailboxes: {
     mailboxId: string
@@ -49,50 +54,11 @@ interface ProcessingStats {
     emailsFound: number
     trackedInserted: number
     responsesFound: number
+    skippedEmails: number
   }[]
 }
 
-/**
- * Interface pour les emails Microsoft Graph
- */
-interface GraphEmail {
-  id: string
-  conversationId: string
-  conversationIndex?: string
-  internetMessageId: string
-  subject: string
-  sender: {
-    emailAddress: {
-      name: string
-      address: string
-    }
-  }
-  toRecipients: Array<{
-    emailAddress: {
-      name: string
-      address: string
-    }
-  }>
-  ccRecipients?: Array<{
-    emailAddress: {
-      name: string
-      address: string
-    }
-  }>
-  sentDateTime: string
-  hasAttachments: boolean
-  importance: 'low' | 'normal' | 'high'
-  bodyPreview: string
-  inReplyTo?: string
-  references?: string
-  internetMessageHeaders?: Array<{
-    name: string
-    value: string
-  }>
-  parentFolderId?: string
-  isDraft: boolean
-  isRead: boolean
-}
+// GraphEmail interface moved to enhanced-processor.ts
 
 /**
  * Configuration tenant pour exclusion emails internes
@@ -255,6 +221,7 @@ async function processMailboxEmails(
     incomingEmails: 0,
     trackedEmailsInserted: 0,
     responsesDetected: 0,
+    skippedEmails: 0,
     errors: [],
     processedMailboxes: []
   }
@@ -294,13 +261,15 @@ async function processMailboxEmails(
         stats.incomingEmails += mailboxStats.incomingCount
         stats.trackedEmailsInserted += mailboxStats.trackedInserted
         stats.responsesDetected += mailboxStats.responsesFound
+        stats.skippedEmails += mailboxStats.skippedEmails
 
         stats.processedMailboxes.push({
           mailboxId: mailbox.id,
           emailAddress: mailbox.email_address,
           emailsFound: mailboxStats.emailsFound,
           trackedInserted: mailboxStats.trackedInserted,
-          responsesFound: mailboxStats.responsesFound
+          responsesFound: mailboxStats.responsesFound,
+          skippedEmails: mailboxStats.skippedEmails
         })
 
         console.log(`Completed mailbox ${mailbox.email_address}: ${mailboxStats.emailsFound} emails, ${mailboxStats.trackedInserted} tracked`)
@@ -337,7 +306,8 @@ async function processMailboxEmails_Single(
     outgoingCount: 0,
     incomingCount: 0,
     trackedInserted: 0,
-    responsesFound: 0
+    responsesFound: 0,
+    skippedEmails: 0
   }
 
   try {
@@ -359,58 +329,66 @@ async function processMailboxEmails_Single(
     // Récupérer la configuration tenant pour l'exclusion
     const tenantConfig = await getTenantConfig(supabase)
 
-    // Traiter chaque email
+    console.log(`📧 Processing ${emails.length} emails with ENHANCED detection for mailbox: ${mailbox.email_address}`)
+
+    // Traiter chaque email avec la logique améliorée
     for (const email of emails) {
       try {
-        // Vérifier si l'email doit être exclu (email interne)
-        if (shouldExcludeEmail(email, tenantConfig)) {
-          console.log(`Excluding internal email: ${email.subject}`)
-          continue
-        }
+        if (!request.dryRun) {
+          // Utiliser la logique améliorée de détection
+          const processingResult = await processEmailWithEnhancedDetection(
+            supabase,
+            email,
+            mailbox.id,
+            tenantConfig
+          )
 
-        // Classifier l'email (sortant vs entrant)
-        const emailType = classifyEmailType(email, mailbox)
-
-        if (emailType === 'outgoing') {
-          result.outgoingCount++
-
-          // Vérifier si l'email n'existe pas déjà en base
-          if (!request.dryRun) {
-            const exists = await emailExistsInDatabase(supabase, email.internetMessageId)
-            if (exists) {
-              console.log(`Email already tracked: ${email.internetMessageId}`)
-              continue
+          if (processingResult.processed) {
+            if (processingResult.action === 'tracked') {
+              result.outgoingCount++
+              result.trackedInserted++
+              console.log(`✅ Enhanced: Tracked - ${email.subject}`)
+            } else if (processingResult.action === 'response_detected') {
+              result.incomingCount++
+              result.responsesFound++
+              console.log(`✅ Enhanced: Response - ${email.subject}`)
             }
-          }
-
-          // Insérer l'email comme tracké
-          if (!request.dryRun) {
-            await insertTrackedEmail(supabase, email, mailbox.id)
-            result.trackedInserted++
           } else {
-            result.trackedInserted++ // Pour les stats en dry run
+            result.skippedEmails++
+            console.log(`⏭️ Enhanced: Skipped (${processingResult.reason}) - ${email.subject}`)
+          }
+        } else {
+          // Mode dry run - classification simple pour statistiques
+          if (shouldExcludeEmail(email, tenantConfig)) {
+            result.skippedEmails++
+            continue
           }
 
-          console.log(`Tracked outgoing email: ${email.subject}`)
+          const emailType = classifyEmailType(email, mailbox)
 
-        } else if (emailType === 'incoming' && (request.processResponses ?? true)) {
-          result.incomingCount++
-
-          // Vérifier si c'est une réponse à un email tracké
-          if (detectIsReply(email)) {
-            if (!request.dryRun) {
-              const responseProcessed = await handleEmailResponse(supabase, email)
-              if (responseProcessed) {
-                result.responsesFound++
-              }
+          if (emailType === 'outgoing') {
+            result.outgoingCount++
+            const exists = await emailExistsInDatabase(supabase, email.internetMessageId)
+            if (!exists) {
+              result.trackedInserted++
             } else {
-              result.responsesFound++ // Pour les stats en dry run
+              result.skippedEmails++
             }
+          } else if (emailType === 'incoming' && (request.processResponses ?? true)) {
+            result.incomingCount++
+            if (detectIsReply(email)) {
+              result.responsesFound++
+            } else {
+              result.skippedEmails++
+            }
+          } else {
+            result.skippedEmails++
           }
         }
 
       } catch (error) {
         console.error(`Error processing individual email ${email.id}:`, error)
+        result.skippedEmails++
         // Continuer avec les autres emails
       }
     }
@@ -651,7 +629,7 @@ async function emailExistsInDatabase(
 /**
  * Insère un email comme tracké en base de données
  */
-async function insertTrackedEmail(
+async function _insertTrackedEmail(
   supabase: EdgeSupabaseClient,
   email: GraphEmail,
   mailboxId: string
@@ -699,7 +677,7 @@ async function insertTrackedEmail(
 /**
  * Gère une réponse email en trouvant l'original et en mettant à jour le statut
  */
-async function handleEmailResponse(
+async function _handleEmailResponse(
   supabase: EdgeSupabaseClient,
   responseEmail: GraphEmail
 ): Promise<boolean> {

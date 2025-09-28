@@ -314,7 +314,7 @@ export async function enhancedResponseDetection(
     {
       name: 'bodyAnalysis',
       weight: 5,
-      check: () => {
+      check: async () => {
         const replyPatterns = [
           /^on .+ wrote:$/im,
           /^le .+ a écrit :$/im,
