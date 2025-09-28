@@ -14,16 +14,15 @@ import {
 import { extractResourceIdentifiers, getElapsedTime } from './utils.ts'
 import { getMessageDetails } from './message-fetcher.ts'
 import { classifyEmailType, shouldExcludeEmail } from './email-classifier.ts'
-import { detectIsReply, handleEmailResponse } from './response-detector.ts'
+import { handleEmailResponse, enhancedResponseDetection } from './response-detector.ts'
 import {
-  isFollowupEmail,
-  getFollowupNumber,
-  getOriginalTrackedEmailId,
-  handlePotentialManualFollowup
-} from './followup-detector.ts'
+  analyzeConversationContext,
+  isAutomatedFollowup,
+  shouldCreateNewTrackedEmail,
+  logConversationDecision
+} from './conversation-tracker.ts'
 import {
   getMailboxByUserId,
-  getExistingTrackedEmail,
   insertTrackedEmail,
   logDetectionAttempt
 } from './database-manager.ts'
@@ -171,7 +170,7 @@ async function processEmailByType(
 }
 
 /**
- * Traite un email sortant
+ * Traite un email sortant avec détection avancée de conversation
  */
 async function processOutgoingEmail(
   supabase: EdgeSupabaseClient,
@@ -181,59 +180,49 @@ async function processOutgoingEmail(
 ): Promise<DetectionResult> {
   console.log(`Processing outgoing email: ${messageDetails.subject}`)
 
-  // Vérifier si c'est une relance automatique
-  if (isFollowupEmail(messageDetails)) {
-    const followupNumber = getFollowupNumber(messageDetails)
-    const originalId = getOriginalTrackedEmailId(messageDetails)
+  // Analyser le contexte de conversation
+  const conversationContext = await analyzeConversationContext(supabase, messageDetails)
+  console.log(`Conversation context: position=${conversationContext.threadPosition}, hasExisting=${conversationContext.hasExistingTrackedEmails}`)
 
-    console.log(`🔄 Automated followup detected, skipping tracking`)
-    console.log(`   Headers indicate followup #${followupNumber} for tracked email ${originalId}`)
+  // Vérifier si on doit créer un nouvel email tracké
+  const trackingDecision = await shouldCreateNewTrackedEmail(supabase, messageDetails, conversationContext)
+
+  // Logger la décision
+  await logConversationDecision(
+    supabase,
+    messageDetails,
+    conversationContext,
+    trackingDecision.reason,
+    { shouldCreate: trackingDecision.shouldCreate, existingEmailId: trackingDecision.existingEmailId }
+  )
+
+  if (!trackingDecision.shouldCreate) {
+    console.log(`📝 Email not tracked: ${trackingDecision.reason}`)
+
+    // Si c'est un followup automatique, le logger spécifiquement
+    const followupCheck = isAutomatedFollowup(messageDetails)
+    if (followupCheck.isFollowup) {
+      console.log(`🔄 Automated followup #${followupCheck.followupNumber} detected for email ${followupCheck.trackedEmailId}`)
+    }
 
     await logDetectionAttempt(
       supabase,
       messageDetails,
       false,
-      originalId,
-      'followup_skipped',
-      'automated_followup',
+      trackingDecision.existingEmailId || null,
+      'not_tracked',
+      trackingDecision.reason,
       getElapsedTime(context.startTime)
     )
 
     return {
       detected: false,
-      type: 'followup_skipped',
-      rejectionReason: 'automated_followup'
+      type: 'not_tracked',
+      rejectionReason: trackingDecision.reason
     }
   }
 
-  // Détecter les relances manuelles
-  if (detectIsReply(messageDetails) && messageDetails.conversationId) {
-    console.log(`🔍 Detected reply email, checking for manual followup: ${messageDetails.subject}`)
-
-    const manualFollowupResult = await handlePotentialManualFollowup(
-      supabase,
-      messageDetails,
-      context.startTime
-    )
-
-    if (manualFollowupResult.detected) {
-      console.log(`✅ Manual followup detected and processed for conversation: ${messageDetails.conversationId}`)
-      return manualFollowupResult
-    }
-  }
-
-  // Vérifier si l'email n'existe pas déjà
-  const existingEmail = await getExistingTrackedEmail(supabase, messageDetails.internetMessageId)
-  if (existingEmail) {
-    console.log(`Email ${messageDetails.internetMessageId} already tracked`)
-    return {
-      detected: false,
-      type: 'not_detected',
-      rejectionReason: 'already_tracked'
-    }
-  }
-
-  // Traiter comme un nouvel email à tracker
+  // Créer le nouvel email tracké
   const trackedEmailId = await insertTrackedEmail(supabase, messageDetails, mailbox.id)
   if (!trackedEmailId) {
     return {
@@ -254,18 +243,20 @@ async function processOutgoingEmail(
     getElapsedTime(context.startTime)
   )
 
-  console.log(`Successfully tracked new outgoing email: ${messageDetails.subject}`)
+  console.log(`✅ Successfully tracked NEW outgoing email: ${messageDetails.subject}`)
+  console.log(`   Conversation ID: ${messageDetails.conversationId}`)
+  console.log(`   Thread position: ${conversationContext.threadPosition}`)
 
   return {
     detected: true,
     type: 'outgoing_tracked',
     trackedEmailId,
-    detectionMethod: 'sender_matching'
+    detectionMethod: 'new_conversation_starter'
   }
 }
 
 /**
- * Traite un email entrant
+ * Traite un email entrant avec détection améliorée
  */
 async function processIncomingEmail(
   supabase: EdgeSupabaseClient,
@@ -274,20 +265,64 @@ async function processIncomingEmail(
 ): Promise<DetectionResult> {
   console.log(`Processing incoming email: ${messageDetails.subject}`)
 
-  // Vérifier si c'est une réponse à un email tracké
-  if (detectIsReply(messageDetails)) {
-    console.log(`Detected reply email: ${messageDetails.subject}`)
+  // Utiliser la détection améliorée des réponses
+  const responseDetection = await enhancedResponseDetection(supabase, messageDetails)
+
+  console.log(`Response detection: isResponse=${responseDetection.isResponse}, confidence=${responseDetection.confidence}%, method=${responseDetection.method}`)
+
+  if (responseDetection.isResponse) {
+    console.log(`✅ Detected reply email with ${responseDetection.confidence}% confidence: ${messageDetails.subject}`)
+
+    // Si on a trouvé l'email original
+    if (responseDetection.originalEmailId) {
+      console.log(`   Original email found: ${responseDetection.originalEmailId}`)
+
+      // Insérer la réponse directement
+      const { error } = await supabase
+        .from('email_responses')
+        .insert({
+          tracked_email_id: responseDetection.originalEmailId,
+          microsoft_message_id: messageDetails.id,
+          sender_email: messageDetails.sender.emailAddress.address,
+          subject: messageDetails.subject,
+          body_preview: messageDetails.bodyPreview,
+          received_at: messageDetails.sentDateTime,
+          response_type: 'direct_reply',
+          is_auto_response: false
+        })
+
+      if (!error) {
+        await logDetectionAttempt(
+          supabase,
+          messageDetails,
+          true,
+          responseDetection.originalEmailId,
+          'response_detected',
+          null,
+          getElapsedTime(context.startTime)
+        )
+
+        return {
+          detected: true,
+          type: 'response_detected',
+          trackedEmailId: responseDetection.originalEmailId,
+          detectionMethod: responseDetection.method
+        }
+      }
+    }
+
+    // Sinon utiliser la méthode standard
     return await handleEmailResponse(supabase, messageDetails, context.startTime)
   }
 
-  console.log(`Incoming email is not a reply, ignoring: ${messageDetails.subject}`)
+  console.log(`Incoming email is not a reply (confidence: ${responseDetection.confidence}%), ignoring: ${messageDetails.subject}`)
   await logDetectionAttempt(
     supabase,
     messageDetails,
     false,
     null,
     'incoming_not_reply',
-    'not_a_reply',
+    `not_a_reply_confidence_${responseDetection.confidence}`,
     getElapsedTime(context.startTime)
   )
 
