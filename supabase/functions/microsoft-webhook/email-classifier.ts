@@ -167,7 +167,7 @@ export function isAutoReply(message: EmailMessage): boolean {
   }
 
   // Headers spécifiques aux réponses automatiques
-  const autoReplyHeaders = [
+  const _autoReplyHeaders = [
     'Auto-Submitted',
     'X-Autoreply',
     'X-Autorespond',

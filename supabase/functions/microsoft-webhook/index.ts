@@ -9,11 +9,10 @@
  * - Tracking automatique
  */
 
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
 import {
   EdgeSupabaseClient,
-  WebhookPayload,
-  ProcessingStats
+  WebhookPayload
 } from './shared-types.ts'
 import { validateWebhookSecurity, handleValidationChallenge } from './security-validator.ts'
 import { processNotificationBatch } from './notification-processor.ts'

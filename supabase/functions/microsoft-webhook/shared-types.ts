@@ -2,7 +2,7 @@
  * Types partagés pour le webhook Microsoft Graph
  */
 
-import { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+// SupabaseClient type already available from Edge Runtime
 
 // Re-export types from shared
 export type { EdgeSupabaseClient, MailboxRow } from '../_shared/types.ts'

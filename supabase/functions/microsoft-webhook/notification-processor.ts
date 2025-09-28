@@ -8,7 +8,8 @@ import {
   NotificationContext,
   EmailMessage,
   DetectionResult,
-  ProcessingStats
+  ProcessingStats,
+  MailboxRow
 } from './shared-types.ts'
 import { extractResourceIdentifiers, getElapsedTime } from './utils.ts'
 import { getMessageDetails } from './message-fetcher.ts'
@@ -141,7 +142,7 @@ function shouldProcessNotification(notification: MicrosoftGraphWebhookNotificati
 async function processEmailByType(
   supabase: EdgeSupabaseClient,
   messageDetails: EmailMessage,
-  mailbox: any,
+  mailbox: MailboxRow,
   context: NotificationContext
 ): Promise<DetectionResult> {
   const emailType = classifyEmailType(messageDetails, mailbox)
@@ -175,7 +176,7 @@ async function processEmailByType(
 async function processOutgoingEmail(
   supabase: EdgeSupabaseClient,
   messageDetails: EmailMessage,
-  mailbox: any,
+  mailbox: MailboxRow,
   context: NotificationContext
 ): Promise<DetectionResult> {
   console.log(`Processing outgoing email: ${messageDetails.subject}`)

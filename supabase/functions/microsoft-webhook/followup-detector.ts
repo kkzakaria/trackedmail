@@ -7,7 +7,7 @@ import {
   EmailMessage,
   DetectionResult
 } from './shared-types.ts'
-import { getElapsedTime, hasHeader, getHeaderValue } from './utils.ts'
+import { getElapsedTime } from './utils.ts'
 import { logDetectionAttempt } from './database-manager.ts'
 
 /**

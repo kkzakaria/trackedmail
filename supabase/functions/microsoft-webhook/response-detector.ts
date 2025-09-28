@@ -12,11 +12,9 @@ import {
 import {
   hasReplyPrefix,
   hasForwardPrefix,
-  hasHeader,
-  getHeaderValue,
-  calculateThreadPosition,
   getElapsedTime,
-  parseReferences
+  parseReferences,
+  hasHeader
 } from './utils.ts'
 import { logDetectionAttempt } from './database-manager.ts'
 

@@ -6,7 +6,6 @@ import {
   EdgeSupabaseClient,
   EmailMessage,
   MailboxRow,
-  TrackedEmail,
   WebhookPayload
 } from './shared-types.ts'
 import { calculateThreadPosition } from './utils.ts'
@@ -257,7 +256,7 @@ export async function checkFollowupSystemEnabled(
 export async function getSystemConfig(
   supabase: EdgeSupabaseClient,
   key: string
-): Promise<any> {
+): Promise<unknown> {
   try {
     const { data, error } = await supabase
       .from('system_config')

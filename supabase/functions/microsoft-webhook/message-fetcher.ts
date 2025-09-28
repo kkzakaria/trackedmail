@@ -93,28 +93,29 @@ export async function getAccessToken(): Promise<string | null> {
 /**
  * Transforme la réponse Microsoft Graph en format EmailMessage
  */
-function transformToEmailMessage(messageData: any): EmailMessage {
+function transformToEmailMessage(messageData: unknown): EmailMessage {
+  const data = messageData as Record<string, unknown>
   return {
-    id: messageData.id,
-    conversationId: messageData.conversationId,
-    conversationIndex: messageData.conversationIndex,
-    internetMessageId: messageData.internetMessageId,
-    subject: messageData.subject || '',
+    id: data.id as string,
+    conversationId: data.conversationId as string,
+    conversationIndex: data.conversationIndex as string | undefined,
+    internetMessageId: data.internetMessageId as string,
+    subject: (data.subject as string) || '',
     sender: {
       emailAddress: {
-        name: messageData.sender?.emailAddress?.name || '',
-        address: messageData.sender?.emailAddress?.address || ''
+        name: ((data.sender as Record<string, unknown>)?.emailAddress as Record<string, unknown>)?.name as string || '',
+        address: ((data.sender as Record<string, unknown>)?.emailAddress as Record<string, unknown>)?.address as string || ''
       }
     },
-    toRecipients: transformRecipients(messageData.toRecipients),
-    ccRecipients: transformRecipients(messageData.ccRecipients),
-    sentDateTime: messageData.sentDateTime,
-    hasAttachments: messageData.hasAttachments || false,
-    importance: messageData.importance || 'normal',
-    bodyPreview: messageData.bodyPreview || '',
-    inReplyTo: extractInReplyTo(messageData.internetMessageHeaders),
-    references: extractReferences(messageData.internetMessageHeaders),
-    internetMessageHeaders: messageData.internetMessageHeaders || []
+    toRecipients: transformRecipients(data.toRecipients as Array<{ emailAddress: { name?: string; address: string } }>),
+    ccRecipients: transformRecipients(data.ccRecipients as Array<{ emailAddress: { name?: string; address: string } }>),
+    sentDateTime: data.sentDateTime as string,
+    hasAttachments: (data.hasAttachments as boolean) || false,
+    importance: (data.importance as 'low' | 'normal' | 'high') || 'normal',
+    bodyPreview: (data.bodyPreview as string) || '',
+    inReplyTo: extractInReplyTo(data.internetMessageHeaders as Array<{ name: string; value: string }>),
+    references: extractReferences(data.internetMessageHeaders as Array<{ name: string; value: string }>),
+    internetMessageHeaders: (data.internetMessageHeaders as Array<{ name: string; value: string }>) || []
   }
 }
 
