@@ -26,6 +26,7 @@ import {
   insertTrackedEmail,
   logDetectionAttempt
 } from './database-manager.ts'
+import { detectBounce, processBounce } from './bounce-detector.ts'
 
 /**
  * Traite une notification individuelle
@@ -69,6 +70,33 @@ export async function processNotification(
         detected: false,
         type: 'not_detected',
         rejectionReason: 'message_details_unavailable'
+      }
+    }
+
+    // Check if this is a bounce/NDR first
+    const bounceResult = await detectBounce(supabase, messageDetails)
+    if (bounceResult.isNDR) {
+      console.log(`🔔 Bounce detected: ${bounceResult.bounceType} bounce for ${messageId}`)
+
+      // Process and store the bounce
+      await processBounce(supabase, messageDetails, bounceResult)
+
+      // Log the detection
+      await logDetectionAttempt(
+        supabase,
+        messageDetails,
+        true,
+        bounceResult.originalEmailId || null,
+        'bounce_detected',
+        `${bounceResult.bounceType}_bounce`,
+        getElapsedTime(startTime)
+      )
+
+      return {
+        detected: true,
+        type: 'bounce_detected',
+        trackedEmailId: bounceResult.originalEmailId,
+        detectionMethod: `ndr_${bounceResult.bounceType}_bounce`
       }
     }
 
