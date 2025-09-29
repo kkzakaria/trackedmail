@@ -72,7 +72,18 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // 3. Mettre à jour les statuts des emails trackés
+      // 3. Process any unprocessed bounces
+      console.log('🔔 Processing unprocessed bounces...');
+      const bounceCount = await processUnprocessedBounces(supabase);
+      console.log(`✅ Processed ${bounceCount} unprocessed bounces`);
+    } catch (error) {
+      const errorMsg = `Error processing bounces: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(`❌ ${errorMsg}`);
+      errors.push(errorMsg);
+    }
+
+    try {
+      // 4. Mettre à jour les statuts des emails trackés
       console.log('📊 Updating tracked email statuses...');
       const updatedCount = await updateEmailStatuses(supabase);
       totalUpdated = updatedCount;
@@ -319,6 +330,49 @@ async function markEmailsAsExpired(supabase: EdgeSupabaseClient): Promise<number
 
   console.log(`📊 Marked ${emailIds.length} emails as expired (older than 30 days)`);
   return emailIds.length;
+}
+
+/**
+ * Process any unprocessed bounces by calling the bounce-processor
+ */
+async function processUnprocessedBounces(supabase: EdgeSupabaseClient): Promise<number> {
+  try {
+    // Check if we have any unprocessed bounces
+    const { count } = await supabase
+      .from('email_bounces')
+      .select('*', { count: 'exact', head: true })
+      .eq('processed', false);
+
+    if (!count || count === 0) {
+      console.log('📭 No unprocessed bounces found');
+      return 0;
+    }
+
+    console.log(`🔔 Found ${count} unprocessed bounces, calling bounce-processor...`);
+
+    // Call the bounce-processor function
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/bounce-processor`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Bounce processor failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ Bounce processor completed: ${result.processed} bounces processed`);
+
+    return result.processed || 0;
+  } catch (error) {
+    console.error('Error processing bounces:', error);
+    return 0;
+  }
 }
 
 /**

@@ -26,9 +26,16 @@ export async function getEmailsNeedingFollowup(
     return [];
   }
 
-  // Pour chaque email, enrichir avec les données de relances
+  // Pour chaque email, enrichir avec les données de relances et vérifier les bounces
   const enrichedEmails = [];
   for (const email of emailsData) {
+    // Check if email has bounced - skip if it has
+    const bounceStatus = await checkEmailBounceStatus(supabase, email.id);
+    if (bounceStatus.has_bounced && !bounceStatus.can_retry) {
+      console.log(`📧 Skipping email ${email.id} - bounced (${bounceStatus.bounce_type}: ${bounceStatus.bounce_reason})`);
+      continue;
+    }
+
     const enrichedEmail = await enrichEmailWithFollowupData(supabase, email);
     enrichedEmails.push(enrichedEmail);
   }
@@ -155,5 +162,41 @@ export async function getTotalFollowupsForEmail(
   } catch (error) {
     console.error(`Error calling get_total_followup_count:`, error);
     return 0;
+  }
+}
+
+/**
+ * Check if an email has bounced and whether retry is allowed
+ */
+async function checkEmailBounceStatus(
+  supabase: EdgeSupabaseClient,
+  trackedEmailId: string
+): Promise<{
+  has_bounced: boolean;
+  bounce_type?: string;
+  bounce_reason?: string;
+  can_retry: boolean;
+  retry_count: number;
+}> {
+  try {
+    const { data, error } = await supabase
+      .rpc('check_email_bounce_status', { p_tracked_email_id: trackedEmailId })
+      .single();
+
+    if (error) {
+      console.error(`Error checking bounce status for ${trackedEmailId}:`, error);
+      return { has_bounced: false, can_retry: true, retry_count: 0 };
+    }
+
+    return {
+      has_bounced: data.has_bounced,
+      bounce_type: data.bounce_type,
+      bounce_reason: data.bounce_reason,
+      can_retry: data.can_retry,
+      retry_count: data.retry_count
+    };
+  } catch (error) {
+    console.error(`Error calling check_email_bounce_status:`, error);
+    return { has_bounced: false, can_retry: true, retry_count: 0 };
   }
 }

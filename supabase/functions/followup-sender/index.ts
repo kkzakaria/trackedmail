@@ -94,6 +94,15 @@ Deno.serve(async (req) => {
 
     for (const followup of followupsToSend) {
       try {
+        // Double-check: Ensure email hasn't bounced since we selected it
+        const bounceStatus = await checkEmailBounceStatus(supabase, followup.tracked_email_id);
+        if (bounceStatus.has_bounced && !bounceStatus.can_retry) {
+          console.log(`⚠️ Skipping followup ${followup.id} - email has bounced since selection`);
+          await markFollowupAsFailed(supabase, followup.id, `Email bounced: ${bounceStatus.bounce_reason}`);
+          failedCount++;
+          continue;
+        }
+
         await sendFollowup(supabase, followup, accessToken);
         sentCount++;
         console.log(`✅ Successfully sent followup ${followup.id} for email ${followup.tracked_email_id}`);
@@ -162,6 +171,8 @@ async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<Followu
         sender_email,
         recipient_emails,
         status,
+        bounce_type,
+        bounce_count,
         mailbox:mailboxes!inner(
           id,
           email_address,
@@ -173,6 +184,7 @@ async function getFollowupsToSend(supabase: EdgeSupabaseClient): Promise<Followu
     .eq('status', 'scheduled')
     .lte('scheduled_for', now)
     .eq('tracked_email.status', 'pending') // Email toujours en attente
+    .is('tracked_email.bounce_type', null) // Pas de bounce détecté
     .eq('tracked_email.mailbox.is_active', true) // Boîte mail active
     .order('scheduled_for', { ascending: true })
     .limit(10); // Limite pour traitement par batch
@@ -435,6 +447,42 @@ function isRetryableError(error: Error): boolean {
   return retryableErrors.some(keyword => errorMessage.includes(keyword));
 }
 
+
+/**
+ * Check if an email has bounced and whether retry is allowed
+ */
+async function checkEmailBounceStatus(
+  supabase: EdgeSupabaseClient,
+  trackedEmailId: string
+): Promise<{
+  has_bounced: boolean;
+  bounce_type?: string;
+  bounce_reason?: string;
+  can_retry: boolean;
+  retry_count: number;
+}> {
+  try {
+    const { data, error } = await supabase
+      .rpc('check_email_bounce_status', { p_tracked_email_id: trackedEmailId })
+      .single();
+
+    if (error) {
+      console.error(`Error checking bounce status for ${trackedEmailId}:`, error);
+      return { has_bounced: false, can_retry: true, retry_count: 0 };
+    }
+
+    return {
+      has_bounced: data.has_bounced,
+      bounce_type: data.bounce_type,
+      bounce_reason: data.bounce_reason,
+      can_retry: data.can_retry,
+      retry_count: data.retry_count
+    };
+  } catch (error) {
+    console.error(`Error calling check_email_bounce_status:`, error);
+    return { has_bounced: false, can_retry: true, retry_count: 0 };
+  }
+}
 
 /**
  * Vérifie si le système de relances est activé
