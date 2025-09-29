@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InfoMenu from "@/components/navbar-components/info-menu";
-import Logo from "@/components/navbar-components/logo";
+import { Logo } from "@/components/ui/logo";
 import NotificationMenu from "@/components/navbar-components/notification-menu";
 import UserMenu from "@/components/navbar-components/user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
