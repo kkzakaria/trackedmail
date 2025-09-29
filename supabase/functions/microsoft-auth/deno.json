@@ -4,7 +4,6 @@
     "@azure/identity": "npm:@azure/identity@4"
   },
   "compilerOptions": {
-    "allowJs": true,
     "lib": ["deno.ns", "deno.window", "es2022"],
     "strict": true
   },
