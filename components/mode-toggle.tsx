@@ -1,40 +1,60 @@
 "use client";
 
-import * as React from "react";
+import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Toggle } from "@/components/ui/toggle";
 
 export function ModeToggle() {
-  const { setTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Éviter l'hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <Toggle
+        variant="outline"
+        className="group data-[state=on]:hover:bg-muted size-9 cursor-pointer data-[state=on]:bg-transparent"
+        aria-label="Basculer le thème"
+      >
+        <Sun
+          size={16}
+          className="shrink-0 scale-100 opacity-100"
+          aria-hidden="true"
+        />
+      </Toggle>
+    );
+  }
+
+  const isDark = resolvedTheme === "dark";
+
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-          <span className="sr-only">Basculer le thème</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Clair
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Sombre
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          Système
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Toggle
+      variant="outline"
+      className="group data-[state=on]:hover:bg-muted size-9 cursor-pointer data-[state=on]:bg-transparent"
+      pressed={isDark}
+      onPressedChange={toggleTheme}
+      aria-label={`Basculer vers le mode ${isDark ? "clair" : "sombre"}`}
+    >
+      <Moon
+        size={16}
+        className="shrink-0 scale-0 opacity-0 transition-all group-data-[state=on]:scale-100 group-data-[state=on]:opacity-100"
+        aria-hidden="true"
+      />
+      <Sun
+        size={16}
+        className="absolute shrink-0 scale-100 opacity-100 transition-all group-data-[state=on]:scale-0 group-data-[state=on]:opacity-0"
+        aria-hidden="true"
+      />
+    </Toggle>
   );
 }

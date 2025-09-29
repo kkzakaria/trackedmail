@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import InfoMenu from "@/components/navbar-components/info-menu";
+// import InfoMenu from "@/components/navbar-components/info-menu";
 import { Logo } from "@/components/ui/logo";
-import NotificationMenu from "@/components/navbar-components/notification-menu";
+// import NotificationMenu from "@/components/navbar-components/notification-menu";
 import UserMenu from "@/components/navbar-components/user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -158,10 +158,10 @@ export function AppBar({ user }: AppBarProps) {
           <div className="flex items-center gap-2">
             {/* Theme toggle */}
             <ModeToggle />
-            {/* Info menu */}
-            <InfoMenu />
-            {/* Notification */}
-            <NotificationMenu />
+            {/* Info menu - désactivé temporairement */}
+            {/* <InfoMenu /> */}
+            {/* Notification - désactivé temporairement */}
+            {/* <NotificationMenu /> */}
           </div>
           {/* User menu */}
           {user && <UserMenu user={user} />}
