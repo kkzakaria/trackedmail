@@ -47,7 +47,7 @@ const NDR_PATTERNS = {
     'X-MS-Exchange-Message-Is-Ndr': true,
     'Auto-Submitted': 'auto-replied',
     'X-Autoreply': 'yes'
-  }
+  } as { [key: string]: boolean | string }
 }
 
 // SMTP Status Code Analysis
@@ -219,7 +219,7 @@ function checkHeaders(messageDetails: EmailMessage): boolean {
 /**
  * Extract detailed bounce information from the NDR
  */
-async function extractBounceDetails(messageDetails: EmailMessage): Promise<Partial<BounceDetectionResult>> {
+function extractBounceDetails(messageDetails: EmailMessage): Partial<BounceDetectionResult> {
   const bodyText = messageDetails.bodyPreview || messageDetails.body?.content || ''
 
   // Extract SMTP status code

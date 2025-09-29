@@ -13,6 +13,7 @@
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import type { EdgeSupabaseClient } from '../_shared/types.ts'
 
 // Configuration
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
 /**
  * Get bounce detection configuration
  */
-async function getBounceConfig(supabase: any): Promise<BounceConfig> {
+async function getBounceConfig(supabase: EdgeSupabaseClient): Promise<BounceConfig> {
   const { data, error } = await supabase
     .from('system_config')
     .select('value')
@@ -136,7 +137,7 @@ async function getBounceConfig(supabase: any): Promise<BounceConfig> {
  * Process unprocessed bounce records
  */
 async function processUnprocessedBounces(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   config: BounceConfig
 ): Promise<{
   processed: number,
@@ -236,7 +237,7 @@ async function processUnprocessedBounces(
  * Find tracked email for an unmatched bounce
  */
 async function findTrackedEmailForBounce(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   bounce: UnprocessedBounce
 ): Promise<string | null> {
   // Strategy 1: Match by recipient and subject
@@ -250,7 +251,7 @@ async function findTrackedEmailForBounce(
     if (emails && emails.length > 0) {
       // If we have original subject, try to match it
       if (bounce.original_subject) {
-        const exactMatch = emails.find((e: any) => e.subject === bounce.original_subject)
+        const exactMatch = emails.find((e: { subject: string }) => e.subject === bounce.original_subject)
         if (exactMatch) {
           console.log(`Matched bounce to email ${exactMatch.id} by recipient and subject`)
           return exactMatch.id
@@ -258,7 +259,7 @@ async function findTrackedEmailForBounce(
       }
 
       // Otherwise, return the most recent email to that recipient
-      const mostRecent = emails.sort((a: any, b: any) =>
+      const mostRecent = emails.sort((a: { sent_at: string }, b: { sent_at: string }) =>
         new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
       )[0]
 
@@ -294,7 +295,7 @@ async function findTrackedEmailForBounce(
  * Process bounce based on type and config
  */
 async function processBounceByType(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   trackedEmailId: string,
   bounce: UnprocessedBounce,
   config: BounceConfig
@@ -392,7 +393,7 @@ async function processBounceByType(
  * Check bounce rates and send alerts if needed
  */
 async function checkBounceRatesAndAlert(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   config: BounceConfig
 ): Promise<{
   checked: boolean,
@@ -479,7 +480,7 @@ async function checkBounceRatesAndAlert(
  * Create a bounce alert record
  */
 async function createBounceAlert(
-  supabase: any,
+  supabase: EdgeSupabaseClient,
   mailboxId: string,
   severity: string,
   message: string
@@ -521,7 +522,7 @@ async function createBounceAlert(
 /**
  * Get bounce statistics for reporting
  */
-async function getBounceStatistics(supabase: any): Promise<any> {
+async function _getBounceStatistics(supabase: EdgeSupabaseClient): Promise<unknown> {
   const { data: stats } = await supabase
     .from('bounce_statistics')
     .select('*')

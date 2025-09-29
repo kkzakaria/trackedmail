@@ -189,11 +189,11 @@ async function checkEmailBounceStatus(
     }
 
     return {
-      has_bounced: data.has_bounced,
-      bounce_type: data.bounce_type,
-      bounce_reason: data.bounce_reason,
-      can_retry: data.can_retry,
-      retry_count: data.retry_count
+      has_bounced: (data as any).has_bounced,
+      bounce_type: (data as any).bounce_type,
+      bounce_reason: (data as any).bounce_reason,
+      can_retry: (data as any).can_retry,
+      retry_count: (data as any).retry_count
     };
   } catch (error) {
     console.error(`Error calling check_email_bounce_status:`, error);
