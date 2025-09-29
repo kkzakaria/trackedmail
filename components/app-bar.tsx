@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import InfoMenu from "@/components/navbar-components/info-menu";
-import Logo from "@/components/navbar-components/logo";
-import NotificationMenu from "@/components/navbar-components/notification-menu";
+// import InfoMenu from "@/components/navbar-components/info-menu";
+import { Logo } from "@/components/ui/logo";
+// import NotificationMenu from "@/components/navbar-components/notification-menu";
 import UserMenu from "@/components/navbar-components/user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,12 @@ interface AppBarProps {
 
 export function AppBar({ user }: AppBarProps) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  // Safe hydration pattern - only activate after client mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Build navigation links based on user role
   const navigationLinks = [...baseNavigationLinks];
@@ -96,10 +103,10 @@ export function AppBar({ user }: AppBarProps) {
             <PopoverContent align="start" className="w-40 p-1 md:hidden">
               <NavigationMenu className="max-w-none *:w-full">
                 <NavigationMenuList className="flex-col items-start gap-0 md:gap-2">
-                  {navigationLinks.map((link, index) => {
-                    const isActive = pathname === link.href;
+                  {navigationLinks.map(link => {
+                    const isActive = mounted && pathname === link.href;
                     return (
-                      <NavigationMenuItem key={index} className="w-full">
+                      <NavigationMenuItem key={link.href} className="w-full">
                         <NavigationMenuLink asChild>
                           <Link
                             href={link.href}
@@ -130,10 +137,10 @@ export function AppBar({ user }: AppBarProps) {
             {/* Navigation menu */}
             <NavigationMenu className="max-md:hidden">
               <NavigationMenuList className="gap-2">
-                {navigationLinks.map((link, index) => {
-                  const isActive = pathname === link.href;
+                {navigationLinks.map(link => {
+                  const isActive = mounted && pathname === link.href;
                   return (
-                    <NavigationMenuItem key={index}>
+                    <NavigationMenuItem key={link.href}>
                       <NavigationMenuLink asChild>
                         <Link
                           href={link.href}
@@ -158,10 +165,10 @@ export function AppBar({ user }: AppBarProps) {
           <div className="flex items-center gap-2">
             {/* Theme toggle */}
             <ModeToggle />
-            {/* Info menu */}
-            <InfoMenu />
-            {/* Notification */}
-            <NotificationMenu />
+            {/* Info menu - désactivé temporairement */}
+            {/* <InfoMenu /> */}
+            {/* Notification - désactivé temporairement */}
+            {/* <NotificationMenu /> */}
           </div>
           {/* User menu */}
           {user && <UserMenu user={user} />}
