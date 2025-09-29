@@ -1,5 +1,23 @@
 {
   "imports": {
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.ns", "es2022"],
+    "strict": true
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve"
   }
 }
