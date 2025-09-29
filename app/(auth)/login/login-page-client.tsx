@@ -5,6 +5,9 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { ModeToggle } from "@/components/mode-toggle";
+import { Logo } from "@/components/ui/logo";
 import {
   Card,
   CardContent,
@@ -14,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Mail } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export function LoginPageClient() {
   const [email, setEmail] = useState("");
@@ -41,11 +44,14 @@ export function LoginPageClient() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8 dark:bg-gray-900">
+      <div className="absolute top-4 right-4">
+        <ModeToggle />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="mb-4 flex items-center justify-center">
-            <Mail className="text-primary h-8 w-8" />
+            <Logo width={64} height={64} priority />
           </div>
           <CardTitle className="text-center text-2xl">TrackedMail</CardTitle>
           <CardDescription className="text-center">
@@ -71,20 +77,18 @@ export function LoginPageClient() {
                 disabled={isLoading}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
+            <PasswordInput
+              id="password"
+              label="Mot de passe"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+              className="space-y-2"
+            />
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+          <CardFooter className="flex flex-col space-y-4 pt-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
