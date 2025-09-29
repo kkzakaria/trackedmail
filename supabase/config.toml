@@ -341,7 +341,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.mailbox-email-processor]
 enabled = true
 verify_jwt = false
-import_map = "./functions/mailbox-email-processor/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/mailbox-email-processor/index.ts"
@@ -352,31 +351,26 @@ entrypoint = "./functions/mailbox-email-processor/index.ts"
 [functions.microsoft-subscriptions]
 enabled = true
 verify_jwt = false
-import_map = "./functions/microsoft-subscriptions/deno.json"
 entrypoint = "./functions/microsoft-subscriptions/index.ts"
 
 [functions.microsoft-auth]
 enabled = true
 verify_jwt = false
-import_map = "./functions/microsoft-auth/deno.json"
 entrypoint = "./functions/microsoft-auth/index.ts"
 
 [functions.followup-scheduler]
 enabled = true
 verify_jwt = false
-import_map = "./functions/followup-scheduler/deno.json"
 entrypoint = "./functions/followup-scheduler/index.ts"
 
 [functions.followup-sender]
 enabled = true
 verify_jwt = false
-import_map = "./functions/followup-sender/deno.json"
 entrypoint = "./functions/followup-sender/index.ts"
 
 [functions.followup-maintenance]
 enabled = true
 verify_jwt = true
-import_map = "./functions/followup-maintenance/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/followup-maintenance/index.ts"

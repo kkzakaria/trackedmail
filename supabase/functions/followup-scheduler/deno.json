@@ -3,7 +3,6 @@
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
   },
   "compilerOptions": {
-    "allowJs": true,
     "lib": ["deno.ns", "deno.window", "es2022"],
     "strict": true
   },
