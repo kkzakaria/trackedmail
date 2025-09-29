@@ -7,6 +7,9 @@ import {
   EdgeSupabaseClient
 } from '../_shared/types.ts'
 import {
+  MailboxRow
+} from './shared-types.ts'
+import {
   analyzeConversationContext,
   shouldCreateNewTrackedEmail,
   enhancedResponseDetection,
@@ -20,7 +23,6 @@ import {
   handleEmailResponse
 } from '../microsoft-webhook/response-detector.ts'
 import {
-  getMailboxByUserId,
   logDetectionAttempt
 } from '../microsoft-webhook/database-manager.ts'
 import {
@@ -136,7 +138,7 @@ function convertToEmailMessage(graphEmail: GraphEmail): {
 export async function processEmailWithEnhancedDetection(
   supabase: EdgeSupabaseClient,
   graphEmail: GraphEmail,
-  mailboxId: string,
+  mailbox: MailboxRow,
   _tenantConfig: unknown
 ): Promise<{
   processed: boolean
@@ -163,16 +165,6 @@ export async function processEmailWithEnhancedDetection(
         processed: false,
         action: 'skipped',
         reason: 'internal_email'
-      }
-    }
-
-    // Récupérer la mailbox pour classification
-    const mailbox = await getMailboxByUserId(supabase, mailboxId)
-    if (!mailbox) {
-      return {
-        processed: false,
-        action: 'error',
-        reason: 'mailbox_not_found'
       }
     }
 

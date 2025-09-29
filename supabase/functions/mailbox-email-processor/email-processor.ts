@@ -154,7 +154,7 @@ async function processMailboxEmails_Single(
           const processingResult = await processEmailWithEnhancedDetection(
             supabase,
             email,
-            mailbox.id,
+            mailbox,
             tenantConfig
           )
 
