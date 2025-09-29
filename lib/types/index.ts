@@ -36,6 +36,8 @@ export interface TrackedEmailWithDetails {
   followup_count: number;
   last_followup_sent: string | null;
   days_since_sent: number;
+  requires_manual_review: boolean;
+  last_followup_sent_at: string | null;
 }
 
 // Additional application types
@@ -59,7 +61,8 @@ export type EmailStatus =
   | "stopped"
   | "max_reached"
   | "bounced"
-  | "expired";
+  | "expired"
+  | "requires_manual_handling";
 export type FollowupStatus = "scheduled" | "sent" | "failed" | "cancelled";
 export type ResponseType = "direct_reply" | "forward" | "auto_reply" | "bounce";
 export type EmailImportance = "low" | "normal" | "high";

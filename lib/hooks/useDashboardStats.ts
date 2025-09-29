@@ -8,6 +8,9 @@ export interface DashboardStats {
   totalFollowups: number;
   totalMailboxes: number;
   statusCounts: Record<string, number>;
+  manualReviewCount: number;
+  highFollowupCount: number;
+  manualReviewPercentage: number;
 }
 
 export function useDashboardStats() {
@@ -18,6 +21,9 @@ export function useDashboardStats() {
     totalFollowups: 0,
     totalMailboxes: 0,
     statusCounts: {},
+    manualReviewCount: 0,
+    highFollowupCount: 0,
+    manualReviewPercentage: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +73,34 @@ export function useDashboardStats() {
 
       if (mailboxesError) throw mailboxesError;
 
+      // Get emails requiring manual review count
+      const { count: manualReviewCount, error: manualReviewError } =
+        await supabase
+          .from("tracked_emails")
+          .select("*", { count: "exact", head: true })
+          .eq("requires_manual_review", true);
+
+      if (manualReviewError) throw manualReviewError;
+
+      // Get emails with 4+ followups count
+      const { count: highFollowupCount, error: highFollowupError } =
+        await supabase
+          .from("tracked_emails")
+          .select("*", { count: "exact", head: true })
+          .gte("followup_count", 4);
+
+      if (highFollowupError) throw highFollowupError;
+
       // Calculate response rate
       const responseRate =
         totalEmails > 0
           ? Math.round(((totalResponses || 0) / totalEmails) * 100)
+          : 0;
+
+      // Calculate manual review percentage
+      const manualReviewPercentage =
+        totalEmails > 0
+          ? Math.round(((manualReviewCount || 0) / totalEmails) * 100)
           : 0;
 
       setStats({
@@ -80,6 +110,9 @@ export function useDashboardStats() {
         totalFollowups: totalFollowups || 0,
         totalMailboxes: totalMailboxes || 0,
         statusCounts,
+        manualReviewCount: manualReviewCount || 0,
+        highFollowupCount: highFollowupCount || 0,
+        manualReviewPercentage,
       });
     } catch (err) {
       setError(

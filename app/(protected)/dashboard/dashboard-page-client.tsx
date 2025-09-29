@@ -1,8 +1,16 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Users, BarChart3, Settings, Loader2 } from "lucide-react";
+import {
+  Mail,
+  Users,
+  BarChart3,
+  Settings,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import TrackedEmailsTable from "@/components/tracked-emails/TrackedEmailsTable";
+import { ManualReviewQueue } from "@/components/dashboard/ManualReviewQueue";
 import { useDashboardStats } from "@/lib/hooks/useDashboardStats";
 
 interface User {
@@ -32,7 +40,7 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
           </div>
 
           {/* Stats Cards */}
-          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -106,6 +114,51 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
               </CardContent>
             </Card>
 
+            <Card
+              className={
+                stats.manualReviewCount > 0
+                  ? "border-red-200 dark:border-red-800"
+                  : ""
+              }
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Révision manuelle
+                </CardTitle>
+                <AlertTriangle
+                  className={`h-4 w-4 ${
+                    stats.manualReviewCount > 0
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-yellow-500 dark:text-yellow-400"
+                  }`}
+                />
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`text-2xl font-bold ${
+                    stats.manualReviewCount > 0
+                      ? "text-red-600 dark:text-red-400"
+                      : ""
+                  }`}
+                >
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : error ? (
+                    "—"
+                  ) : (
+                    stats.manualReviewCount
+                  )}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {loading
+                    ? "..."
+                    : stats.manualReviewCount === 0
+                      ? "Aucun email à revoir"
+                      : `${stats.manualReviewCount} email${stats.manualReviewCount > 1 ? "s" : ""} (${stats.manualReviewPercentage}%) requiert${stats.manualReviewCount > 1 ? "ent" : ""} une intervention`}
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -131,6 +184,13 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Manual Review Queue - Show only if there are emails requiring manual review */}
+          {stats.manualReviewCount > 0 && (
+            <div className="mb-8">
+              <ManualReviewQueue />
+            </div>
+          )}
 
           {/* Tracked Emails Section */}
           <div className="mb-8">

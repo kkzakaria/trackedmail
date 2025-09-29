@@ -173,6 +173,8 @@ export class TrackedEmailService {
       followup_count: followupCount,
       last_followup_sent: lastFollowupSent,
       days_since_sent: daysSinceSent,
+      requires_manual_review: email.requires_manual_review || false,
+      last_followup_sent_at: email.last_followup_sent_at,
     };
   }
 

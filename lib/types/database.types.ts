@@ -134,6 +134,13 @@ export type Database = {
             foreignKeyName: "detection_logs_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
+            referencedRelation: "emails_requiring_manual_handling";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "detection_logs_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
             referencedRelation: "followup_activity_summary";
             referencedColumns: ["id"];
           },
@@ -146,6 +153,114 @@ export type Database = {
           },
           {
             foreignKeyName: "detection_logs_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "tracked_emails";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_bounces: {
+        Row: {
+          bounce_category: string | null;
+          bounce_code: string | null;
+          bounce_reason: string | null;
+          bounce_type: string;
+          created_at: string | null;
+          detected_at: string | null;
+          diagnostic_code: string | null;
+          failed_recipients: string[] | null;
+          followups_cancelled: number | null;
+          id: string;
+          microsoft_message_id: string;
+          ndr_headers: Json | null;
+          ndr_received_at: string | null;
+          ndr_sender: string | null;
+          original_sent_at: string | null;
+          original_subject: string | null;
+          processed: boolean | null;
+          processed_at: string | null;
+          reporting_mta: string | null;
+          tracked_email_id: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          bounce_category?: string | null;
+          bounce_code?: string | null;
+          bounce_reason?: string | null;
+          bounce_type: string;
+          created_at?: string | null;
+          detected_at?: string | null;
+          diagnostic_code?: string | null;
+          failed_recipients?: string[] | null;
+          followups_cancelled?: number | null;
+          id?: string;
+          microsoft_message_id: string;
+          ndr_headers?: Json | null;
+          ndr_received_at?: string | null;
+          ndr_sender?: string | null;
+          original_sent_at?: string | null;
+          original_subject?: string | null;
+          processed?: boolean | null;
+          processed_at?: string | null;
+          reporting_mta?: string | null;
+          tracked_email_id?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          bounce_category?: string | null;
+          bounce_code?: string | null;
+          bounce_reason?: string | null;
+          bounce_type?: string;
+          created_at?: string | null;
+          detected_at?: string | null;
+          diagnostic_code?: string | null;
+          failed_recipients?: string[] | null;
+          followups_cancelled?: number | null;
+          id?: string;
+          microsoft_message_id?: string;
+          ndr_headers?: Json | null;
+          ndr_received_at?: string | null;
+          ndr_sender?: string | null;
+          original_sent_at?: string | null;
+          original_subject?: string | null;
+          processed?: boolean | null;
+          processed_at?: string | null;
+          reporting_mta?: string | null;
+          tracked_email_id?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_bounces_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_bounces_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_requiring_manual_handling";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_bounces_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "followup_activity_summary";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_bounces_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "pending_response_detection";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_bounces_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
             referencedRelation: "tracked_emails";
@@ -214,6 +329,13 @@ export type Database = {
             columns: ["tracked_email_id"];
             isOneToOne: false;
             referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "email_responses_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_requiring_manual_handling";
             referencedColumns: ["id"];
           },
           {
@@ -367,6 +489,13 @@ export type Database = {
             foreignKeyName: "followups_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
+            referencedRelation: "emails_requiring_manual_handling";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
             referencedRelation: "followup_activity_summary";
             referencedColumns: ["id"];
           },
@@ -471,6 +600,13 @@ export type Database = {
             foreignKeyName: "manual_followups_tracked_email_id_fkey";
             columns: ["tracked_email_id"];
             isOneToOne: false;
+            referencedRelation: "emails_requiring_manual_handling";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "manual_followups_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
             referencedRelation: "followup_activity_summary";
             referencedColumns: ["id"];
           },
@@ -528,6 +664,13 @@ export type Database = {
             columns: ["tracked_email_id"];
             isOneToOne: false;
             referencedRelation: "emails_needing_followup";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_headers_tracked_email_id_fkey";
+            columns: ["tracked_email_id"];
+            isOneToOne: false;
+            referencedRelation: "emails_requiring_manual_handling";
             referencedColumns: ["id"];
           },
           {
@@ -633,21 +776,28 @@ export type Database = {
           bcc_emails: string[] | null;
           body_content: string | null;
           body_preview: string | null;
+          bounce_count: number | null;
+          bounce_detected_at: string | null;
+          bounce_reason: string | null;
+          bounce_type: string | null;
           cc_emails: string[] | null;
           conversation_id: string | null;
           conversation_index: string | null;
           created_at: string | null;
+          followup_count: number | null;
           has_attachments: boolean | null;
           id: string;
           importance: string | null;
           in_reply_to: string | null;
           internet_message_id: string | null;
           is_reply: boolean | null;
+          last_followup_sent_at: string | null;
           mailbox_id: string | null;
           microsoft_message_id: string;
           parent_message_id: string | null;
           recipient_emails: string[];
           references: string | null;
+          requires_manual_review: boolean | null;
           responded_at: string | null;
           sender_email: string;
           sent_at: string;
@@ -661,21 +811,28 @@ export type Database = {
           bcc_emails?: string[] | null;
           body_content?: string | null;
           body_preview?: string | null;
+          bounce_count?: number | null;
+          bounce_detected_at?: string | null;
+          bounce_reason?: string | null;
+          bounce_type?: string | null;
           cc_emails?: string[] | null;
           conversation_id?: string | null;
           conversation_index?: string | null;
           created_at?: string | null;
+          followup_count?: number | null;
           has_attachments?: boolean | null;
           id?: string;
           importance?: string | null;
           in_reply_to?: string | null;
           internet_message_id?: string | null;
           is_reply?: boolean | null;
+          last_followup_sent_at?: string | null;
           mailbox_id?: string | null;
           microsoft_message_id: string;
           parent_message_id?: string | null;
           recipient_emails: string[];
           references?: string | null;
+          requires_manual_review?: boolean | null;
           responded_at?: string | null;
           sender_email: string;
           sent_at: string;
@@ -689,21 +846,28 @@ export type Database = {
           bcc_emails?: string[] | null;
           body_content?: string | null;
           body_preview?: string | null;
+          bounce_count?: number | null;
+          bounce_detected_at?: string | null;
+          bounce_reason?: string | null;
+          bounce_type?: string | null;
           cc_emails?: string[] | null;
           conversation_id?: string | null;
           conversation_index?: string | null;
           created_at?: string | null;
+          followup_count?: number | null;
           has_attachments?: boolean | null;
           id?: string;
           importance?: string | null;
           in_reply_to?: string | null;
           internet_message_id?: string | null;
           is_reply?: boolean | null;
+          last_followup_sent_at?: string | null;
           mailbox_id?: string | null;
           microsoft_message_id?: string;
           parent_message_id?: string | null;
           recipient_emails?: string[];
           references?: string | null;
+          requires_manual_review?: boolean | null;
           responded_at?: string | null;
           sender_email?: string;
           sent_at?: string;
@@ -714,6 +878,13 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "tracked_emails_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
+            referencedRelation: "mailbox_bounce_rates";
+            referencedColumns: ["mailbox_id"];
+          },
           {
             foreignKeyName: "tracked_emails_mailbox_id_fkey";
             columns: ["mailbox_id"];
@@ -766,6 +937,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_mailbox_assignments_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
+            referencedRelation: "mailbox_bounce_rates";
+            referencedColumns: ["mailbox_id"];
           },
           {
             foreignKeyName: "user_mailbox_assignments_mailbox_id_fkey";
@@ -920,6 +1098,13 @@ export type Database = {
             foreignKeyName: "webhook_subscriptions_mailbox_id_fkey";
             columns: ["mailbox_id"];
             isOneToOne: false;
+            referencedRelation: "mailbox_bounce_rates";
+            referencedColumns: ["mailbox_id"];
+          },
+          {
+            foreignKeyName: "webhook_subscriptions_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
             referencedRelation: "mailbox_statistics";
             referencedColumns: ["id"];
           },
@@ -967,6 +1152,17 @@ export type Database = {
         };
         Relationships: [];
       };
+      bounce_statistics: {
+        Row: {
+          bounce_category: string | null;
+          bounce_codes: string[] | null;
+          bounce_type: string | null;
+          count: number | null;
+          date: string | null;
+          unique_emails: number | null;
+        };
+        Relationships: [];
+      };
       emails_needing_followup: {
         Row: {
           bcc_emails: string[] | null;
@@ -999,6 +1195,13 @@ export type Database = {
             foreignKeyName: "tracked_emails_mailbox_id_fkey";
             columns: ["mailbox_id"];
             isOneToOne: false;
+            referencedRelation: "mailbox_bounce_rates";
+            referencedColumns: ["mailbox_id"];
+          },
+          {
+            foreignKeyName: "tracked_emails_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
             referencedRelation: "mailbox_statistics";
             referencedColumns: ["id"];
           },
@@ -1010,6 +1213,28 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      emails_requiring_manual_handling: {
+        Row: {
+          days_since_last_followup: number | null;
+          days_since_sent: number | null;
+          followup_count: number | null;
+          id: string | null;
+          last_followup_sent_at: string | null;
+          last_followup_subject: string | null;
+          mailbox_email: string | null;
+          mailbox_name: string | null;
+          microsoft_message_id: string | null;
+          next_possible_action_at: string | null;
+          recipient_emails: string[] | null;
+          requires_manual_review: boolean | null;
+          sender_email: string | null;
+          sent_at: string | null;
+          status: string | null;
+          subject: string | null;
+          verified_sent_count: number | null;
+        };
+        Relationships: [];
       };
       followup_activity_summary: {
         Row: {
@@ -1028,6 +1253,19 @@ export type Database = {
           status: string | null;
           subject: string | null;
           total_followups: number | null;
+        };
+        Relationships: [];
+      };
+      mailbox_bounce_rates: {
+        Row: {
+          bounce_rate_percent: number | null;
+          bounced_emails: number | null;
+          email_address: string | null;
+          hard_bounces: number | null;
+          health_status: string | null;
+          mailbox_id: string | null;
+          soft_bounces: number | null;
+          total_emails: number | null;
         };
         Relationships: [];
       };
@@ -1078,6 +1316,13 @@ export type Database = {
             foreignKeyName: "tracked_emails_mailbox_id_fkey";
             columns: ["mailbox_id"];
             isOneToOne: false;
+            referencedRelation: "mailbox_bounce_rates";
+            referencedColumns: ["mailbox_id"];
+          },
+          {
+            foreignKeyName: "tracked_emails_mailbox_id_fkey";
+            columns: ["mailbox_id"];
+            isOneToOne: false;
             referencedRelation: "mailbox_statistics";
             referencedColumns: ["id"];
           },
@@ -1092,9 +1337,28 @@ export type Database = {
       };
     };
     Functions: {
+      analyze_bounce_smtp_code: {
+        Args: { p_smtp_code: string };
+        Returns: {
+          bounce_category: string;
+          bounce_type: string;
+          is_permanent: boolean;
+          should_retry: boolean;
+        }[];
+      };
       can_access_followup: {
         Args: { tracked_email_id_param: string };
         Returns: boolean;
+      };
+      check_email_bounce_status: {
+        Args: { p_tracked_email_id: string };
+        Returns: {
+          bounce_reason: string;
+          bounce_type: string;
+          can_retry: boolean;
+          has_bounced: boolean;
+          retry_count: number;
+        }[];
       };
       clean_email_subject: {
         Args: { subject: string };
@@ -1120,6 +1384,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      get_emails_with_max_followups: {
+        Args: { p_max_followups: number };
+        Returns: {
+          id: string;
+        }[];
+      };
       get_total_followup_count: {
         Args: { p_tracked_email_id: string };
         Returns: number;
@@ -1138,6 +1408,18 @@ export type Database = {
       };
       is_user_deleted: {
         Args: { user_id: string };
+        Returns: boolean;
+      };
+      mark_email_as_bounced: {
+        Args: {
+          p_bounce_reason: string;
+          p_bounce_type: string;
+          p_tracked_email_id: string;
+        };
+        Returns: undefined;
+      };
+      mark_email_manually_handled: {
+        Args: { p_action?: string; p_email_id: string; p_reason?: string };
         Returns: boolean;
       };
       reschedule_pending_followups: {

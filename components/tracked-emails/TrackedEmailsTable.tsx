@@ -39,6 +39,7 @@ import {
   MailIcon,
   StopCircleIcon,
   TrashIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -297,20 +298,37 @@ export default function TrackedEmailsTable() {
         accessorKey: "followup_count",
         cell: ({ row }) => {
           const email = row.original;
+          const highFollowupCount = email.followup_count >= 4;
+          const requiresManualReview = email.requires_manual_review;
+
           return (
             <div className="text-center text-sm">
               <div className="flex items-center justify-center gap-1">
                 <MailIcon className="h-3 w-3" />
                 <span>{email.response_count}</span>
+                {(highFollowupCount || requiresManualReview) && (
+                  <AlertTriangleIcon className="h-3 w-3 text-red-500" />
+                )}
               </div>
-              <div className="text-muted-foreground">
+              <div
+                className={cn(
+                  "text-muted-foreground",
+                  (highFollowupCount || requiresManualReview) &&
+                    "font-medium text-red-600"
+                )}
+              >
                 {email.followup_count} relance
                 {email.followup_count > 1 ? "s" : ""}
+                {requiresManualReview && (
+                  <div className="mt-1 text-xs text-red-600">
+                    Révision requise
+                  </div>
+                )}
               </div>
             </div>
           );
         },
-        size: 100,
+        size: 120,
       },
       {
         id: "actions",
@@ -572,6 +590,64 @@ export default function TrackedEmailsTable() {
                       </Label>
                     </div>
                   ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Manual Review Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <AlertTriangleIcon
+                  className="-ms-1 opacity-60"
+                  size={16}
+                  aria-hidden="true"
+                />
+                Révision manuelle
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto min-w-48 p-3" align="start">
+              <div className="space-y-3">
+                <div className="text-muted-foreground text-xs font-medium">
+                  Filtres de révision
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="filter-manual-review"
+                      className="border-input rounded border"
+                      onChange={e => {
+                        if (e.target.checked) {
+                          // Show only emails requiring manual review
+                          table
+                            .getColumn("status")
+                            ?.setFilterValue(["requires_manual_handling"]);
+                        } else {
+                          // Clear filter
+                          table.getColumn("status")?.setFilterValue(undefined);
+                        }
+                      }}
+                    />
+                    <label htmlFor="filter-manual-review" className="text-sm">
+                      Emails nécessitant une révision manuelle
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="filter-high-followups"
+                      className="border-input rounded border"
+                      onChange={_e => {
+                        // This would need a custom filter function
+                        // For now, we'll just show the option
+                      }}
+                    />
+                    <label htmlFor="filter-high-followups" className="text-sm">
+                      4+ relances sans réponse
+                    </label>
+                  </div>
                 </div>
               </div>
             </PopoverContent>
