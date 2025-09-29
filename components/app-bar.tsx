@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 // import InfoMenu from "@/components/navbar-components/info-menu";
@@ -44,6 +45,17 @@ interface AppBarProps {
 
 export function AppBar({ user }: AppBarProps) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const [currentPath, setCurrentPath] = useState("");
+
+  // Éviter l'hydratation mismatch et forcer la mise à jour du pathname
+  useEffect(() => {
+    setMounted(true);
+    setCurrentPath(pathname);
+  }, [pathname]);
+
+  // Utiliser currentPath pour l'état actif, avec fallback sur pathname
+  const activePath = mounted ? currentPath : pathname;
 
   // Build navigation links based on user role
   const navigationLinks = [...baseNavigationLinks];
@@ -96,10 +108,10 @@ export function AppBar({ user }: AppBarProps) {
             <PopoverContent align="start" className="w-40 p-1 md:hidden">
               <NavigationMenu className="max-w-none *:w-full">
                 <NavigationMenuList className="flex-col items-start gap-0 md:gap-2">
-                  {navigationLinks.map((link, index) => {
-                    const isActive = pathname === link.href;
+                  {navigationLinks.map(link => {
+                    const isActive = activePath === link.href;
                     return (
-                      <NavigationMenuItem key={index} className="w-full">
+                      <NavigationMenuItem key={link.href} className="w-full">
                         <NavigationMenuLink asChild>
                           <Link
                             href={link.href}
@@ -130,10 +142,10 @@ export function AppBar({ user }: AppBarProps) {
             {/* Navigation menu */}
             <NavigationMenu className="max-md:hidden">
               <NavigationMenuList className="gap-2">
-                {navigationLinks.map((link, index) => {
-                  const isActive = pathname === link.href;
+                {navigationLinks.map(link => {
+                  const isActive = activePath === link.href;
                   return (
-                    <NavigationMenuItem key={index}>
+                    <NavigationMenuItem key={link.href}>
                       <NavigationMenuLink asChild>
                         <Link
                           href={link.href}
