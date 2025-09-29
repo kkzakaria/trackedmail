@@ -4,7 +4,7 @@
   },
   "compilerOptions": {
     "allowJs": true,
-    "lib": ["deno.ns", "es2022"],
+    "lib": ["deno.ns", "deno.window", "es2022"],
     "strict": true
   },
   "lint": {
