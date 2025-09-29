@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 // import InfoMenu from "@/components/navbar-components/info-menu";
 import { Logo } from "@/components/ui/logo";
 // import NotificationMenu from "@/components/navbar-components/notification-menu";
@@ -44,19 +42,6 @@ interface AppBarProps {
 }
 
 export function AppBar({ user }: AppBarProps) {
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-  const [currentPath, setCurrentPath] = useState("");
-
-  // Éviter l'hydratation mismatch et forcer la mise à jour du pathname
-  useEffect(() => {
-    setMounted(true);
-    setCurrentPath(pathname);
-  }, [pathname]);
-
-  // Utiliser currentPath pour l'état actif, avec fallback sur pathname
-  const activePath = mounted ? currentPath : pathname;
-
   // Build navigation links based on user role
   const navigationLinks = [...baseNavigationLinks];
 
@@ -108,25 +93,18 @@ export function AppBar({ user }: AppBarProps) {
             <PopoverContent align="start" className="w-40 p-1 md:hidden">
               <NavigationMenu className="max-w-none *:w-full">
                 <NavigationMenuList className="flex-col items-start gap-0 md:gap-2">
-                  {navigationLinks.map(link => {
-                    const isActive = activePath === link.href;
-                    return (
-                      <NavigationMenuItem key={link.href} className="w-full">
-                        <NavigationMenuLink asChild>
-                          <Link
-                            href={link.href}
-                            className={`block w-full rounded-md px-2 py-1.5 transition-colors ${
-                              isActive
-                                ? "bg-primary/10 text-primary dark:bg-primary/20"
-                                : "hover:bg-accent/50"
-                            }`}
-                          >
-                            {link.label}
-                          </Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
-                    );
-                  })}
+                  {navigationLinks.map(link => (
+                    <NavigationMenuItem key={link.href} className="w-full">
+                      <NavigationMenuLink asChild>
+                        <Link
+                          href={link.href}
+                          className="hover:bg-accent/50 block w-full rounded-md px-2 py-1.5 transition-colors"
+                        >
+                          {link.label}
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  ))}
                 </NavigationMenuList>
               </NavigationMenu>
             </PopoverContent>
@@ -142,25 +120,18 @@ export function AppBar({ user }: AppBarProps) {
             {/* Navigation menu */}
             <NavigationMenu className="max-md:hidden">
               <NavigationMenuList className="gap-2">
-                {navigationLinks.map(link => {
-                  const isActive = activePath === link.href;
-                  return (
-                    <NavigationMenuItem key={link.href}>
-                      <NavigationMenuLink asChild>
-                        <Link
-                          href={link.href}
-                          className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
-                            isActive
-                              ? "bg-primary/10 text-primary dark:bg-primary/20"
-                              : "text-muted-foreground hover:text-primary hover:bg-accent/50"
-                          }`}
-                        >
-                          {link.label}
-                        </Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                  );
-                })}
+                {navigationLinks.map(link => (
+                  <NavigationMenuItem key={link.href}>
+                    <NavigationMenuLink asChild>
+                      <Link
+                        href={link.href}
+                        className="text-muted-foreground hover:text-primary hover:bg-accent/50 rounded-md px-3 py-1.5 font-medium transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                ))}
               </NavigationMenuList>
             </NavigationMenu>
           </div>
