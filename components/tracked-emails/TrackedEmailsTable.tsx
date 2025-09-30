@@ -38,7 +38,6 @@ import {
   FilterIcon,
   ListFilterIcon,
   MailIcon,
-  RefreshCw,
   StopCircleIcon,
   TrashIcon,
   AlertTriangleIcon,
@@ -177,7 +176,6 @@ export default function TrackedEmailsTable() {
   const {
     emails,
     loading,
-    refreshing,
     error,
     count,
     totalPages,
@@ -501,14 +499,6 @@ export default function TrackedEmailsTable() {
 
   return (
     <div className="space-y-4">
-      {/* Refresh indicator */}
-      {refreshing && (
-        <div className="flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-400">
-          <RefreshCw className="h-4 w-4 animate-spin" />
-          <span>Mise à jour des données...</span>
-        </div>
-      )}
-
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
