@@ -20,6 +20,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  PaginationState,
   SortingState,
   useReactTable,
   VisibilityState,
@@ -37,6 +38,7 @@ import {
   FilterIcon,
   ListFilterIcon,
   MailIcon,
+  RefreshCw,
   StopCircleIcon,
   TrashIcon,
   AlertTriangleIcon,
@@ -155,8 +157,13 @@ export default function TrackedEmailsTable() {
   const id = useId();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  // Removed local pagination state - using hook's pagination instead
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Local pagination state (template pattern)
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
   const [sorting, setSorting] = useState<SortingState>([
     {
@@ -170,10 +177,9 @@ export default function TrackedEmailsTable() {
   const {
     emails,
     loading,
+    refreshing,
     error,
     count,
-    page,
-    pageSize,
     totalPages,
     statusCounts,
     setPage,
@@ -184,8 +190,8 @@ export default function TrackedEmailsTable() {
     bulkUpdateStatus,
     refetch,
   } = useTrackedEmails({
-    page: 0,
-    pageSize: 10,
+    page: pagination.pageIndex,
+    pageSize: pagination.pageSize,
     sortBy: sorting[0]?.id || "sent_at",
     sortOrder: sorting[0]?.desc ? "desc" : "asc",
   });
@@ -414,32 +420,26 @@ export default function TrackedEmailsTable() {
     },
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
-    onPaginationChange: updater => {
-      if (typeof updater === "function") {
-        const currentPagination = { pageIndex: page, pageSize };
-        const newPagination = updater(currentPagination);
-
-        if (newPagination.pageIndex !== page) {
-          setPage(newPagination.pageIndex);
-        }
-        if (newPagination.pageSize !== pageSize) {
-          setPageSize(newPagination.pageSize);
-        }
-      }
-    },
+    onPaginationChange: setPagination, // ✅ Direct state setter (template pattern)
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     state: {
       sorting,
-      pagination: { pageIndex: page, pageSize },
+      pagination, // ✅ Local state (template pattern)
       columnFilters,
       columnVisibility,
     },
     manualPagination: true,
     pageCount: totalPages,
   });
+
+  // Synchronize local pagination with hook when pagination changes
+  useEffect(() => {
+    setPage(pagination.pageIndex);
+    setPageSize(pagination.pageSize);
+  }, [pagination.pageIndex, pagination.pageSize, setPage, setPageSize]);
 
   // Update filters when search changes
   useEffect(() => {
@@ -501,6 +501,14 @@ export default function TrackedEmailsTable() {
 
   return (
     <div className="space-y-4">
+      {/* Refresh indicator */}
+      {refreshing && (
+        <div className="flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-400">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span>Mise à jour des données...</span>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -917,18 +925,18 @@ export default function TrackedEmailsTable() {
             Lignes par page
           </Label>
           <Select
-            value={pageSize.toString()}
+            value={pagination.pageSize.toString()}
             onValueChange={value => {
-              setPageSize(Number(value));
+              table.setPageSize(Number(value));
             }}
           >
             <SelectTrigger id={id} className="w-fit whitespace-nowrap">
               <SelectValue placeholder="Nombre de résultats" />
             </SelectTrigger>
             <SelectContent className="[&_*[role=option]]:ps-2 [&_*[role=option]]:pe-8 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:end-2">
-              {[5, 10, 25, 50].map(pageSize => (
-                <SelectItem key={pageSize} value={pageSize.toString()}>
-                  {pageSize}
+              {[5, 10, 25, 50].map(size => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -942,8 +950,11 @@ export default function TrackedEmailsTable() {
             aria-live="polite"
           >
             <span className="text-foreground">
-              {Math.max(1, page * pageSize + 1)}-
-              {Math.min((page + 1) * pageSize, count)}
+              {Math.max(1, pagination.pageIndex * pagination.pageSize + 1)}-
+              {Math.min(
+                (pagination.pageIndex + 1) * pagination.pageSize,
+                count
+              )}
             </span>{" "}
             sur <span className="text-foreground">{count}</span>
           </p>
