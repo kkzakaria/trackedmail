@@ -28,6 +28,7 @@ import { getEmailsEligibleForTimeSlot } from './eligibility-checker.ts'
 import { renderTemplate } from './template-renderer.ts'
 import { sendFollowup, markEmailForManualHandling } from './email-sender.ts'
 import { getMicrosoftGraphToken } from './utils.ts'
+import { validateInternalKey, unauthorizedResponse } from '../_shared/auth-validator.ts'
 
 // Configuration
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -52,6 +53,12 @@ Deno.serve(async (req) => {
     // Vérifier que c'est une requête POST
     if (req.method !== 'POST') {
       return new Response('Method not allowed', { status: 405 })
+    }
+
+    // Valider l'authentification
+    if (!validateInternalKey(req)) {
+      console.error('❌ Unauthorized request - missing or invalid authentication')
+      return unauthorizedResponse()
     }
 
     const requestBody = await req.json() as TimeSlotProcessor
