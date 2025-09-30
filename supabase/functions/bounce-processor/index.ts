@@ -14,6 +14,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import type { EdgeSupabaseClient } from '../_shared/types.ts'
+import { validateInternalKey, unauthorizedResponse } from '../_shared/auth-validator.ts'
 
 // Configuration
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -49,6 +50,12 @@ Deno.serve(async (req) => {
     // Only accept POST requests
     if (req.method !== 'POST') {
       return new Response('Method not allowed', { status: 405 })
+    }
+
+    // Valider l'authentification
+    if (!validateInternalKey(req)) {
+      console.error('❌ Unauthorized request - missing or invalid authentication')
+      return unauthorizedResponse()
     }
 
     console.log('📨 Starting bounce processing...')

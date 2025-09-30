@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   EdgeSupabaseClient
 } from '../_shared/types.ts';
+import { validateInternalKey, unauthorizedResponse } from '../_shared/auth-validator.ts';
 
 // Interface pour le retour de la fonction RPC get_emails_with_max_followups
 interface EmailWithMaxFollowups {
@@ -19,6 +20,12 @@ Deno.serve(async (req) => {
     // Vérifier que c'est une requête POST
     if (req.method !== 'POST') {
       return new Response('Method not allowed', { status: 405 });
+    }
+
+    // Valider l'authentification
+    if (!validateInternalKey(req)) {
+      console.error('❌ Unauthorized request - missing or invalid authentication')
+      return unauthorizedResponse()
     }
 
     console.log('🧹 Starting followup maintenance process...');
@@ -350,11 +357,11 @@ async function processUnprocessedBounces(supabase: EdgeSupabaseClient): Promise<
 
     console.log(`🔔 Found ${count} unprocessed bounces, calling bounce-processor...`);
 
-    // Call the bounce-processor function
+    // Call the bounce-processor function with X-Internal-Key
     const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/bounce-processor`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'X-Internal-Key': Deno.env.get('CRON_INTERNAL_KEY') || 'default-dev-key-change-in-production',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({})
