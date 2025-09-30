@@ -8,6 +8,7 @@ import {
   Settings,
   Loader2,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import TrackedEmailsTable from "@/components/tracked-emails/TrackedEmailsTable";
 import { ManualReviewQueue } from "@/components/dashboard/ManualReviewQueue";
@@ -25,7 +26,7 @@ interface DashboardPageClientProps {
 }
 
 export function DashboardPageClient({ user }: DashboardPageClientProps) {
-  const { stats, loading, error } = useDashboardStats();
+  const { stats, loading, refreshing, error } = useDashboardStats();
   return (
     <div className="bg-background min-h-screen">
       {/* Main Content */}
@@ -55,7 +56,12 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                   ) : error ? (
                     "—"
                   ) : (
-                    stats.totalEmails
+                    <div className="flex items-center gap-2">
+                      <span>{stats.totalEmails}</span>
+                      {refreshing && (
+                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                      )}
+                    </div>
                   )}
                 </div>
                 <p className="text-muted-foreground text-xs">
@@ -80,7 +86,12 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                   ) : error ? (
                     "—"
                   ) : (
-                    stats.totalResponses
+                    <div className="flex items-center gap-2">
+                      <span>{stats.totalResponses}</span>
+                      {refreshing && (
+                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                      )}
+                    </div>
                   )}
                 </div>
                 <p className="text-muted-foreground text-xs">
@@ -103,7 +114,12 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                   ) : error ? (
                     "—"
                   ) : (
-                    stats.totalFollowups
+                    <div className="flex items-center gap-2">
+                      <span>{stats.totalFollowups}</span>
+                      {refreshing && (
+                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                      )}
+                    </div>
                   )}
                 </div>
                 <p className="text-muted-foreground text-xs">
@@ -146,7 +162,12 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                   ) : error ? (
                     "—"
                   ) : (
-                    stats.manualReviewCount
+                    <div className="flex items-center gap-2">
+                      <span>{stats.manualReviewCount}</span>
+                      {refreshing && (
+                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                      )}
+                    </div>
                   )}
                 </div>
                 <p className="text-muted-foreground text-xs">
@@ -173,7 +194,12 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                   ) : error ? (
                     "—"
                   ) : (
-                    stats.totalMailboxes
+                    <div className="flex items-center gap-2">
+                      <span>{stats.totalMailboxes}</span>
+                      {refreshing && (
+                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                      )}
+                    </div>
                   )}
                 </div>
                 <p className="text-muted-foreground text-xs">

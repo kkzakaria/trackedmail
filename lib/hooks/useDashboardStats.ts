@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export interface DashboardStats {
@@ -13,7 +13,10 @@ export interface DashboardStats {
   manualReviewPercentage: number;
 }
 
+type FetchType = "initial" | "manual" | "realtime";
+
 export function useDashboardStats() {
+  // États séparés pour loading vs refreshing
   const [stats, setStats] = useState<DashboardStats>({
     totalEmails: 0,
     totalResponses: 0,
@@ -25,12 +28,29 @@ export function useDashboardStats() {
     highFollowupCount: 0,
     manualReviewPercentage: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Chargement initial uniquement
+  const [refreshing, setRefreshing] = useState(false); // Rafraîchissement manuel
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = useCallback(async () => {
+  // Refs pour stabilité et éviter les re-renders infinis
+  const initialLoadRef = useRef(true);
+  const fetchStatsRef = useRef<
+    ((type: FetchType) => Promise<void>) | undefined
+  >(undefined);
+  const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const mountedRef = useRef(true);
+
+  // Fonction de fetch avec gestion intelligente du loading
+  const fetchStats = useCallback(async (type: FetchType = "initial") => {
     try {
-      setLoading(true);
+      // Gestion des états de chargement selon le type
+      if (type === "initial") {
+        setLoading(true);
+      } else if (type === "manual") {
+        setRefreshing(true);
+      }
+      // type === 'realtime' → Pas d'indicateur de chargement (mise à jour silencieuse)
+
       setError(null);
 
       const supabase = createClient();
@@ -103,31 +123,59 @@ export function useDashboardStats() {
           ? Math.round(((manualReviewCount || 0) / totalEmails) * 100)
           : 0;
 
-      setStats({
-        totalEmails,
-        totalResponses: totalResponses || 0,
-        responseRate,
-        totalFollowups: totalFollowups || 0,
-        totalMailboxes: totalMailboxes || 0,
-        statusCounts,
-        manualReviewCount: manualReviewCount || 0,
-        highFollowupCount: highFollowupCount || 0,
-        manualReviewPercentage,
-      });
+      // Seulement mettre à jour si le composant est monté
+      if (mountedRef.current) {
+        setStats({
+          totalEmails,
+          totalResponses: totalResponses || 0,
+          responseRate,
+          totalFollowups: totalFollowups || 0,
+          totalMailboxes: totalMailboxes || 0,
+          statusCounts,
+          manualReviewCount: manualReviewCount || 0,
+          highFollowupCount: highFollowupCount || 0,
+          manualReviewPercentage,
+        });
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch dashboard stats"
-      );
+      if (mountedRef.current) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch dashboard stats"
+        );
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
+  }, []); // ✅ Dépendances vides - fonction stable
+
+  // Garder la référence à jour pour les subscriptions
+  useEffect(() => {
+    fetchStatsRef.current = fetchStats;
+  });
+
+  // Debounced realtime update pour éviter trop de refetch
+  const debouncedRealtimeUpdate = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      fetchStatsRef.current?.("realtime");
+    }, 300); // 300ms de délai pour grouper les événements rapides
   }, []);
 
+  // Chargement initial uniquement
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false; // ✅ Marquer AVANT l'appel pour éviter race condition
+      fetchStats("initial");
+    }
+  }, [fetchStats]); // ✅ Ajouter fetchStats pour cohérence
 
-  // Real-time subscription
+  // Real-time subscription avec debounce
   useEffect(() => {
     const supabase = createClient();
 
@@ -140,10 +188,7 @@ export function useDashboardStats() {
           schema: "public",
           table: "tracked_emails",
         },
-        () => {
-          // Refetch stats when tracked emails change
-          fetchStats();
-        }
+        debouncedRealtimeUpdate
       )
       .on(
         "postgres_changes",
@@ -152,10 +197,7 @@ export function useDashboardStats() {
           schema: "public",
           table: "email_responses",
         },
-        () => {
-          // Refetch stats when responses change
-          fetchStats();
-        }
+        debouncedRealtimeUpdate
       )
       .on(
         "postgres_changes",
@@ -164,22 +206,36 @@ export function useDashboardStats() {
           schema: "public",
           table: "followups",
         },
-        () => {
-          // Refetch stats when followups change
-          fetchStats();
-        }
+        debouncedRealtimeUpdate
       )
       .subscribe();
 
     return () => {
+      // Cleanup du debounce timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       subscription.unsubscribe();
     };
+  }, [debouncedRealtimeUpdate]); // ✅ debouncedRealtimeUpdate est stable
+
+  // Cleanup au démontage du composant
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Fonction de refetch manuel avec indicateur visuel
+  const refetch = useCallback(() => {
+    return fetchStats("manual");
   }, [fetchStats]);
 
   return {
     stats,
-    loading,
+    loading, // true seulement au chargement initial
+    refreshing, // true pendant les refetch manuels
     error,
-    refetch: fetchStats,
+    refetch, // Pour les refetch manuels depuis l'UI
   };
 }
