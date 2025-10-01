@@ -8,13 +8,9 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { AlertTriangleIcon, MailIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { TrackedEmailStatusBadge } from "../TrackedEmailStatusBadge";
 import { TrackedEmailActions } from "../TrackedEmailActions";
+import { TruncatedTextWithTooltip } from "../TruncatedTextWithTooltip";
 import { cn } from "@/lib/utils";
 import {
   formatDate,
@@ -78,35 +74,17 @@ export function createTrackedEmailsColumns(
         const subject = email.subject;
 
         return (
-          <div className="min-w-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-help truncate font-medium">
-                  {recipients}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="top"
-                className="max-w-md break-words"
-                sideOffset={5}
-              >
-                {recipients}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-muted-foreground cursor-help truncate text-sm">
-                  {subject}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="max-w-md break-words"
-                sideOffset={5}
-              >
-                {subject}
-              </TooltipContent>
-            </Tooltip>
+          <div className="max-w-[250px] min-w-0">
+            <TruncatedTextWithTooltip
+              text={recipients}
+              className="font-medium"
+              tooltipSide="top"
+            />
+            <TruncatedTextWithTooltip
+              text={subject}
+              className="text-muted-foreground text-sm"
+              tooltipSide="bottom"
+            />
           </div>
         );
       },
