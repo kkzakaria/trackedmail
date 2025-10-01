@@ -35,6 +35,16 @@ import { TrackedEmailStatusBadge } from "../TrackedEmailStatusBadge";
 import { cn } from "@/lib/utils";
 import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types";
 
+// Column name translations
+const COLUMN_LABELS: Record<string, string> = {
+  recipient_emails: "Destinataire",
+  mailbox: "Boîte mail",
+  status: "Statut",
+  sent_at: "Envoyé le",
+  followup_count: "Suivi",
+  actions: "Actions",
+};
+
 export interface TrackedEmailsFiltersProps {
   table: Table<TrackedEmailWithDetails>;
   uniqueStatusValues: string[];
@@ -169,12 +179,11 @@ export function TrackedEmailsFilters({
             .map(column => (
               <DropdownMenuCheckboxItem
                 key={column.id}
-                className="capitalize"
                 checked={column.getIsVisible()}
                 onCheckedChange={value => column.toggleVisibility(!!value)}
                 onSelect={event => event.preventDefault()}
               >
-                {column.id}
+                {COLUMN_LABELS[column.id] || column.id}
               </DropdownMenuCheckboxItem>
             ))}
         </DropdownMenuContent>
