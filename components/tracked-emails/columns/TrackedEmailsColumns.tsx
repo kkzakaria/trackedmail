@@ -8,6 +8,11 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { AlertTriangleIcon, MailIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TrackedEmailStatusBadge } from "../TrackedEmailStatusBadge";
 import { TrackedEmailActions } from "../TrackedEmailActions";
 import { cn } from "@/lib/utils";
@@ -69,14 +74,39 @@ export function createTrackedEmailsColumns(
       accessorKey: "recipient_emails",
       cell: ({ row }) => {
         const email = row.original;
+        const recipients = formatRecipients(email.recipient_emails);
+        const subject = email.subject;
+
         return (
           <div className="min-w-0">
-            <div className="truncate font-medium">
-              {formatRecipients(email.recipient_emails)}
-            </div>
-            <div className="text-muted-foreground truncate text-sm">
-              {email.subject}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="cursor-help truncate font-medium">
+                  {recipients}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                className="max-w-md break-words"
+                sideOffset={5}
+              >
+                {recipients}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-muted-foreground cursor-help truncate text-sm">
+                  {subject}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="max-w-md break-words"
+                sideOffset={5}
+              >
+                {subject}
+              </TooltipContent>
+            </Tooltip>
           </div>
         );
       },
