@@ -100,6 +100,26 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { isAdmin } from "@/lib/utils/auth-utils";
 import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types";
 
+// Format date for display
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// Format recipient list
+const formatRecipients = (recipients: string[], maxShow = 2) => {
+  if (recipients.length <= maxShow) {
+    return recipients.join(", ");
+  }
+  return `${recipients.slice(0, maxShow).join(", ")} +${recipients.length - maxShow}`;
+};
+
 // Custom filter function for multi-column searching
 const multiColumnFilterFn: FilterFn<TrackedEmailWithDetails> = (
   row,
@@ -130,26 +150,6 @@ const statusFilterFn: FilterFn<TrackedEmailWithDetails> = (
   return filterValue.includes(status);
 };
 
-// Format date for display
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-// Format recipient list
-const formatRecipients = (recipients: string[], maxShow = 2) => {
-  if (recipients.length <= maxShow) {
-    return recipients.join(", ");
-  }
-  return `${recipients.slice(0, maxShow).join(", ")} +${recipients.length - maxShow}`;
-};
-
 export default function TrackedEmailsTable() {
   const router = useRouter();
   const { user } = useAuth();
@@ -158,7 +158,6 @@ export default function TrackedEmailsTable() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Local pagination state (template pattern)
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -170,6 +169,7 @@ export default function TrackedEmailsTable() {
       desc: true,
     },
   ]);
+
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [bulkOperationLoading, setBulkOperationLoading] = useState(false);
 
@@ -201,14 +201,13 @@ export default function TrackedEmailsTable() {
       try {
         await TrackedEmailService.deleteTrackedEmail(email.id);
         toast.success("Email supprimé avec succès");
-        // Trigger refetch
-        window.location.reload(); // Simple refresh for now
+        refetch();
       } catch (error) {
         console.error("Failed to delete email:", error);
         toast.error("Erreur lors de la suppression de l'email");
       }
     },
-    [user]
+    [user, refetch]
   );
 
   const columns: ColumnDef<TrackedEmailWithDetails>[] = useMemo(
@@ -390,9 +389,8 @@ export default function TrackedEmailsTable() {
       }
 
       table.resetRowSelection();
-      // Trigger refetch from parent
       if (result.deleted > 0) {
-        window.location.reload(); // Simple refresh for now
+        refetch();
       }
     } catch (error) {
       console.error("Failed to delete emails:", error);
@@ -418,14 +416,14 @@ export default function TrackedEmailsTable() {
     },
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
-    onPaginationChange: setPagination, // ✅ Direct state setter (template pattern)
+    onPaginationChange: setPagination,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     state: {
       sorting,
-      pagination, // ✅ Local state (template pattern)
+      pagination,
       columnFilters,
       columnVisibility,
     },
@@ -588,64 +586,6 @@ export default function TrackedEmailsTable() {
                       </Label>
                     </div>
                   ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Manual Review Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <AlertTriangleIcon
-                  className="-ms-1 opacity-60"
-                  size={16}
-                  aria-hidden="true"
-                />
-                Révision manuelle
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto min-w-48 p-3" align="start">
-              <div className="space-y-3">
-                <div className="text-muted-foreground text-xs font-medium">
-                  Filtres de révision
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="filter-manual-review"
-                      className="border-input rounded border"
-                      onChange={e => {
-                        if (e.target.checked) {
-                          // Show only emails requiring manual review
-                          table
-                            .getColumn("status")
-                            ?.setFilterValue(["requires_manual_handling"]);
-                        } else {
-                          // Clear filter
-                          table.getColumn("status")?.setFilterValue(undefined);
-                        }
-                      }}
-                    />
-                    <label htmlFor="filter-manual-review" className="text-sm">
-                      Emails nécessitant une révision manuelle
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="filter-high-followups"
-                      className="border-input rounded border"
-                      onChange={_e => {
-                        // This would need a custom filter function
-                        // For now, we'll just show the option
-                      }}
-                    />
-                    <label htmlFor="filter-high-followups" className="text-sm">
-                      4+ relances sans réponse
-                    </label>
-                  </div>
                 </div>
               </div>
             </PopoverContent>
