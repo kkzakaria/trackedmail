@@ -532,10 +532,10 @@ export function FollowupMetrics({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              Performance Templates (7j)
+              Performance des Modèles (7j)
             </CardTitle>
             <CardDescription>
-              Utilisation et efficacité des templates cette semaine
+              Utilisation et efficacité des modèles cette semaine
             </CardDescription>
           </CardHeader>
           <CardContent>

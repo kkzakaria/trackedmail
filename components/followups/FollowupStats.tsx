@@ -281,7 +281,7 @@ export function FollowupStats({
 
               <div>
                 <label className="mb-2 block text-sm font-medium">
-                  Template spécifique
+                  Modèle spécifique
                 </label>
                 <Select
                   value={selectedTemplate}
@@ -291,7 +291,7 @@ export function FollowupStats({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tous les templates</SelectItem>
+                    <SelectItem value="all">Tous les modèles</SelectItem>
                     {metrics.templates_performance.map(template => (
                       <SelectItem
                         key={template.template_id}
@@ -393,9 +393,9 @@ export function FollowupStats({
         {/* Performance by Template */}
         <Card>
           <CardHeader>
-            <CardTitle>Performance par Template</CardTitle>
+            <CardTitle>Performance par Modèle</CardTitle>
             <CardDescription>
-              Nombre d&apos;envois et taux de succès par template
+              Nombre d&apos;envois et taux de succès par modèle
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -565,9 +565,9 @@ export function FollowupStats({
       {!compactMode && metrics.templates_performance.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Détails des Templates</CardTitle>
+            <CardTitle>Détails des Modèles</CardTitle>
             <CardDescription>
-              Performance détaillée de chaque template
+              Performance détaillée de chaque modèle
             </CardDescription>
           </CardHeader>
           <CardContent>

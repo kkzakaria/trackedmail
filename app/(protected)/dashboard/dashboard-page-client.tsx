@@ -103,7 +103,7 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Follow-ups envoyés
+                  Relances envoyées
                 </CardTitle>
                 <Users className="h-4 w-4 text-orange-500 dark:text-orange-400" />
               </CardHeader>
@@ -124,7 +124,7 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
                 </div>
                 <p className="text-muted-foreground text-xs">
                   {stats.totalFollowups === 0
-                    ? "Aucun follow-up envoyé"
+                    ? "Aucune relance envoyée"
                     : `${stats.totalFollowups} relance${stats.totalFollowups > 1 ? "s" : ""} envoyée${stats.totalFollowups > 1 ? "s" : ""}`}
                 </p>
               </CardContent>
