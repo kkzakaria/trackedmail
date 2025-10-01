@@ -74,7 +74,7 @@ export function createTrackedEmailsColumns(
         const subject = email.subject;
 
         return (
-          <div className="max-w-[250px] min-w-0">
+          <div className="max-w-[300px] min-w-0">
             <TruncatedTextWithTooltip
               text={recipients}
               className="font-medium"
@@ -88,7 +88,7 @@ export function createTrackedEmailsColumns(
           </div>
         );
       },
-      size: 250,
+      size: 300,
       filterFn: multiColumnFilterFn,
       enableHiding: false,
     },
