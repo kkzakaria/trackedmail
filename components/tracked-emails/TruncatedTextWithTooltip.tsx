@@ -64,12 +64,15 @@ export function TruncatedTextWithTooltip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="cursor-help">{content}</div>
+        <div>{content}</div>
       </TooltipTrigger>
       <TooltipContent
         side={tooltipSide}
-        className={cn("max-w-md break-words", tooltipClassName)}
-        sideOffset={5}
+        className={cn(
+          "max-w-md bg-slate-900 px-4 py-2 text-sm break-words text-slate-50 shadow-lg",
+          tooltipClassName
+        )}
+        sideOffset={8}
       >
         {text}
       </TooltipContent>
