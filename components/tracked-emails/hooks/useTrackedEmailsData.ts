@@ -58,84 +58,111 @@ export function useTrackedEmailsData(): UseTrackedEmailsDataReturn {
   useEffect(() => {
     const supabase = createClient();
 
-    const channel = supabase
-      .channel("tracked_emails_realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tracked_emails",
-        },
-        async payload => {
-          console.warn("[Realtime] Event received:", payload.eventType);
+    // Initialize Realtime subscription
+    const initRealtime = async () => {
+      // Set auth for Realtime (required for RLS)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.realtime.setAuth(session.access_token);
+        console.warn("[Realtime] Auth configured successfully");
+      }
 
-          switch (payload.eventType) {
-            case "INSERT": {
-              // Nouvel email : enrichir et ajouter au début
-              try {
-                const newEmailId = (payload.new as { id: string }).id;
-                const enrichedEmail =
-                  await TrackedEmailService.getTrackedEmailById(newEmailId);
+      const channel = supabase
+        .channel("tracked_emails_realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "tracked_emails",
+          },
+          async payload => {
+            console.warn("[Realtime] Event received:", payload.eventType);
 
-                if (enrichedEmail) {
-                  setData(prev => [enrichedEmail, ...prev]);
-                  toast.success("Nouveau email détecté");
+            switch (payload.eventType) {
+              case "INSERT": {
+                // Nouvel email : enrichir et ajouter au début
+                try {
+                  const newEmailId = (payload.new as { id: string }).id;
+                  const enrichedEmail =
+                    await TrackedEmailService.getTrackedEmailById(newEmailId);
+
+                  if (enrichedEmail) {
+                    setData(prev => [enrichedEmail, ...prev]);
+                    toast.success("Nouveau email détecté");
+                  }
+                } catch (err) {
+                  console.error("Failed to enrich new email:", err);
                 }
-              } catch (err) {
-                console.error("Failed to enrich new email:", err);
+                break;
               }
-              break;
-            }
 
-            case "UPDATE": {
-              // Mise à jour : enrichir l'email pour avoir les données complètes
-              const updatedId = (payload.new as { id: string }).id;
+              case "UPDATE": {
+                // Mise à jour : enrichir l'email pour avoir les données complètes
+                const updatedId = (payload.new as { id: string }).id;
 
-              try {
-                const enrichedEmail =
-                  await TrackedEmailService.getTrackedEmailById(updatedId);
+                try {
+                  const enrichedEmail =
+                    await TrackedEmailService.getTrackedEmailById(updatedId);
 
-                if (enrichedEmail) {
+                  if (enrichedEmail) {
+                    setData(prev =>
+                      prev.map(email =>
+                        email.id === updatedId ? enrichedEmail : email
+                      )
+                    );
+                  }
+                } catch (err) {
+                  console.error("Failed to enrich updated email:", err);
+                  // Fallback : simple merge
                   setData(prev =>
                     prev.map(email =>
-                      email.id === updatedId ? enrichedEmail : email
+                      email.id === updatedId
+                        ? {
+                            ...email,
+                            ...(payload.new as Partial<TrackedEmailWithDetails>),
+                          }
+                        : email
                     )
                   );
                 }
-              } catch (err) {
-                console.error("Failed to enrich updated email:", err);
-                // Fallback : simple merge
-                setData(prev =>
-                  prev.map(email =>
-                    email.id === updatedId
-                      ? {
-                          ...email,
-                          ...(payload.new as Partial<TrackedEmailWithDetails>),
-                        }
-                      : email
-                  )
-                );
+                break;
               }
-              break;
-            }
 
-            case "DELETE": {
-              // Suppression : retirer de la liste
-              const deletedId = (payload.old as { id: string }).id;
+              case "DELETE": {
+                // Suppression : retirer de la liste
+                const deletedId = (payload.old as { id: string }).id;
 
-              setData(prev => prev.filter(email => email.id !== deletedId));
-              toast.info("Email supprimé");
-              break;
+                setData(prev => prev.filter(email => email.id !== deletedId));
+                toast.info("Email supprimé");
+                break;
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    // Initialize and store channel reference
+    let channelRef: ReturnType<typeof supabase.channel> | null = null;
+
+    initRealtime()
+      .then(channel => {
+        channelRef = channel;
+      })
+      .catch(error => {
+        console.error("[Realtime] Failed to initialize:", error);
+      });
 
     // Cleanup : se désabonner lors du démontage
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef) {
+        supabase.removeChannel(channelRef);
+      }
     };
   }, []); // Dépendances vides : s'abonne une seule fois au montage
 
