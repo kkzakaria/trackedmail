@@ -1,12 +1,13 @@
 /**
- * useTrackedEmailsData Hook
+ * useTrackedEmailsData Hook (avec Supabase Realtime)
  *
- * Manages data loading and state for tracked emails.
- * Follows Single Responsibility Principle - handles only data fetching and state.
+ * Manages data loading and real-time updates for tracked emails.
+ * Follows Single Responsibility Principle - handles data fetching and real-time synchronization.
  */
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import { TrackedEmailService } from "@/lib/services/tracked-email.service";
 import type { TrackedEmailWithDetails } from "@/lib/types";
 
@@ -19,7 +20,7 @@ export interface UseTrackedEmailsDataReturn {
 }
 
 /**
- * Hook to manage tracked emails data loading
+ * Hook to manage tracked emails data loading with real-time updates
  * @returns Data, loading state, error state, and refetch function
  */
 export function useTrackedEmailsData(): UseTrackedEmailsDataReturn {
@@ -52,6 +53,118 @@ export function useTrackedEmailsData(): UseTrackedEmailsDataReturn {
   useEffect(() => {
     fetchEmails();
   }, []);
+
+  // Realtime subscription
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Initialize Realtime subscription
+    const initRealtime = async () => {
+      // Set auth for Realtime (required for RLS)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.realtime.setAuth(session.access_token);
+        console.warn("[Realtime] Auth configured successfully");
+      }
+
+      const channel = supabase
+        .channel("tracked_emails_realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "tracked_emails",
+          },
+          async payload => {
+            console.warn("[Realtime] Event received:", payload.eventType);
+
+            switch (payload.eventType) {
+              case "INSERT": {
+                // Nouvel email : enrichir et ajouter au début
+                try {
+                  const newEmailId = (payload.new as { id: string }).id;
+                  const enrichedEmail =
+                    await TrackedEmailService.getTrackedEmailById(newEmailId);
+
+                  if (enrichedEmail) {
+                    setData(prev => [enrichedEmail, ...prev]);
+                    toast.success("Nouveau email détecté");
+                  }
+                } catch (err) {
+                  console.error("Failed to enrich new email:", err);
+                }
+                break;
+              }
+
+              case "UPDATE": {
+                // Mise à jour : enrichir l'email pour avoir les données complètes
+                const updatedId = (payload.new as { id: string }).id;
+
+                try {
+                  const enrichedEmail =
+                    await TrackedEmailService.getTrackedEmailById(updatedId);
+
+                  if (enrichedEmail) {
+                    setData(prev =>
+                      prev.map(email =>
+                        email.id === updatedId ? enrichedEmail : email
+                      )
+                    );
+                  }
+                } catch (err) {
+                  console.error("Failed to enrich updated email:", err);
+                  // Fallback : simple merge
+                  setData(prev =>
+                    prev.map(email =>
+                      email.id === updatedId
+                        ? {
+                            ...email,
+                            ...(payload.new as Partial<TrackedEmailWithDetails>),
+                          }
+                        : email
+                    )
+                  );
+                }
+                break;
+              }
+
+              case "DELETE": {
+                // Suppression : retirer de la liste
+                const deletedId = (payload.old as { id: string }).id;
+
+                setData(prev => prev.filter(email => email.id !== deletedId));
+                toast.info("Email supprimé");
+                break;
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    // Initialize and store channel reference
+    let channelRef: ReturnType<typeof supabase.channel> | null = null;
+
+    initRealtime()
+      .then(channel => {
+        channelRef = channel;
+      })
+      .catch(error => {
+        console.error("[Realtime] Failed to initialize:", error);
+      });
+
+    // Cleanup : se désabonner lors du démontage
+    return () => {
+      if (channelRef) {
+        supabase.removeChannel(channelRef);
+      }
+    };
+  }, []); // Dépendances vides : s'abonne une seule fois au montage
 
   return {
     data,
