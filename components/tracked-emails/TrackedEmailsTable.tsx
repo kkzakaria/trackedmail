@@ -94,7 +94,6 @@ import {
 
 import { TrackedEmailStatusBadge } from "./TrackedEmailStatusBadge";
 import { TrackedEmailActions } from "./TrackedEmailActions";
-import { useTrackedEmails } from "@/lib/hooks/useTrackedEmails";
 import { TrackedEmailService } from "@/lib/services/tracked-email.service";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { isAdmin } from "@/lib/utils/auth-utils";
@@ -156,12 +155,11 @@ export default function TrackedEmailsTable() {
   const id = useId();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const inputRef = useRef<HTMLInputElement>(null);
-
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [sorting, setSorting] = useState<SortingState>([
     {
@@ -170,29 +168,32 @@ export default function TrackedEmailsTable() {
     },
   ]);
 
+  const [data, setData] = useState<TrackedEmailWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [bulkOperationLoading, setBulkOperationLoading] = useState(false);
 
-  const {
-    emails,
-    loading,
-    error,
-    count,
-    totalPages,
-    statusCounts,
-    setPage,
-    setPageSize,
-    setFilters,
-    setSorting: setTableSorting,
-    updateEmailStatus,
-    bulkUpdateStatus,
-    refetch,
-  } = useTrackedEmails({
-    page: pagination.pageIndex,
-    pageSize: pagination.pageSize,
-    sortBy: sorting[0]?.id || "sent_at",
-    sortOrder: sorting[0]?.desc ? "desc" : "asc",
-  });
+  // Fetch all emails (client-side pagination)
+  useEffect(() => {
+    async function fetchEmails() {
+      try {
+        setLoading(true);
+        const result = await TrackedEmailService.getTrackedEmails({
+          page: 0,
+          pageSize: 1000, // Load all emails for client-side pagination
+          sortBy: "sent_at",
+          sortOrder: "desc",
+        });
+        setData(result.data);
+      } catch (error) {
+        console.error("Failed to fetch emails:", error);
+        toast.error("Erreur lors du chargement des emails");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchEmails();
+  }, []);
 
   const handleDeleteEmail = useCallback(
     async (email: TrackedEmailWithDetails) => {
@@ -201,13 +202,42 @@ export default function TrackedEmailsTable() {
       try {
         await TrackedEmailService.deleteTrackedEmail(email.id);
         toast.success("Email supprimé avec succès");
-        refetch();
+        // Remove from local state
+        setData(prev => prev.filter(e => e.id !== email.id));
       } catch (error) {
         console.error("Failed to delete email:", error);
         toast.error("Erreur lors de la suppression de l'email");
       }
     },
-    [user, refetch]
+    [user]
+  );
+
+  const handleStatusUpdate = useCallback(
+    async (emailId: string, status: EmailStatus) => {
+      try {
+        await TrackedEmailService.updateEmailStatus(emailId, status);
+        toast.success("Statut mis à jour");
+        // Update local state
+        setData(prev =>
+          prev.map(email =>
+            email.id === emailId
+              ? {
+                  ...email,
+                  status,
+                  stopped_at:
+                    status === "stopped"
+                      ? new Date().toISOString()
+                      : email.stopped_at,
+                }
+              : email
+          )
+        );
+      } catch (error) {
+        console.error("Failed to update status:", error);
+        toast.error("Erreur lors de la mise à jour du statut");
+      }
+    },
+    []
   );
 
   const columns: ColumnDef<TrackedEmailWithDetails>[] = useMemo(
@@ -284,12 +314,15 @@ export default function TrackedEmailsTable() {
         accessorKey: "sent_at",
         cell: ({ row }) => {
           const email = row.original;
+          const daysSince = Math.floor(
+            (new Date().getTime() - new Date(email.sent_at).getTime()) /
+              (1000 * 60 * 60 * 24)
+          );
           return (
             <div className="text-sm">
               <div>{formatDate(email.sent_at)}</div>
               <div className="text-muted-foreground">
-                Il y a {email.days_since_sent} jour
-                {email.days_since_sent > 1 ? "s" : ""}
+                Il y a {daysSince} jour{daysSince > 1 ? "s" : ""}
               </div>
             </div>
           );
@@ -308,7 +341,7 @@ export default function TrackedEmailsTable() {
             <div className="text-center text-sm">
               <div className="flex items-center justify-center gap-1">
                 <MailIcon className="h-3 w-3" />
-                <span>{email.response_count}</span>
+                <span>0</span>
                 {(highFollowupCount || requiresManualReview) && (
                   <AlertTriangleIcon className="h-3 w-3 text-red-500" />
                 )}
@@ -339,7 +372,7 @@ export default function TrackedEmailsTable() {
         cell: ({ row }) => (
           <TrackedEmailActions
             row={row}
-            onStatusUpdate={updateEmailStatus}
+            onStatusUpdate={handleStatusUpdate}
             onViewDetails={email => {
               router.push(`/dashboard/emails/${email.id}`);
             }}
@@ -354,7 +387,7 @@ export default function TrackedEmailsTable() {
         enableHiding: false,
       },
     ],
-    [updateEmailStatus, router, handleDeleteEmail]
+    [router, handleDeleteEmail, handleStatusUpdate]
   );
 
   const handleBulkStop = async () => {
@@ -362,10 +395,24 @@ export default function TrackedEmailsTable() {
     const emailIds = selectedRows.map(row => row.original.id);
 
     try {
-      await bulkUpdateStatus(emailIds, "stopped");
+      await TrackedEmailService.bulkUpdateStatus(emailIds, "stopped");
+      toast.success("Emails arrêtés avec succès");
+      // Update local state
+      setData(prev =>
+        prev.map(email =>
+          emailIds.includes(email.id)
+            ? {
+                ...email,
+                status: "stopped",
+                stopped_at: new Date().toISOString(),
+              }
+            : email
+        )
+      );
       table.resetRowSelection();
     } catch (error) {
       console.error("Failed to stop emails:", error);
+      toast.error("Erreur lors de l'arrêt des emails");
     }
   };
 
@@ -388,10 +435,9 @@ export default function TrackedEmailsTable() {
         toast.success(`${result.deleted} email(s) supprimé(s) avec succès`);
       }
 
+      // Remove deleted emails from local state
+      setData(prev => prev.filter(email => !emailIds.includes(email.id)));
       table.resetRowSelection();
-      if (result.deleted > 0) {
-        refetch();
-      }
     } catch (error) {
       console.error("Failed to delete emails:", error);
       toast.error("Erreur lors de la suppression des emails");
@@ -402,18 +448,11 @@ export default function TrackedEmailsTable() {
   };
 
   const table = useReactTable({
-    data: emails,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    onSortingChange: updater => {
-      const newSorting =
-        typeof updater === "function" ? updater(sorting) : updater;
-      setSorting(newSorting);
-      if (newSorting[0]) {
-        setTableSorting(newSorting[0].id, newSorting[0].desc ? "desc" : "asc");
-      }
-    },
+    onSortingChange: setSorting,
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
@@ -427,37 +466,25 @@ export default function TrackedEmailsTable() {
       columnFilters,
       columnVisibility,
     },
-    manualPagination: true,
-    pageCount: totalPages,
   });
 
-  // Synchronize local pagination with hook when pagination changes
-  useEffect(() => {
-    setPage(pagination.pageIndex);
-    setPageSize(pagination.pageSize);
-  }, [pagination.pageIndex, pagination.pageSize, setPage, setPageSize]);
-
-  // Update filters when search changes
-  useEffect(() => {
-    const searchFilter = columnFilters.find(
-      filter => filter.id === "recipient_emails"
-    );
-    const statusFilter = columnFilters.find(filter => filter.id === "status");
-
-    setFilters({
-      search: searchFilter?.value as string,
-      status: statusFilter?.value as EmailStatus[],
-    });
-  }, [columnFilters, setFilters]);
-
-  // Get unique status values for filter
-  const uniqueStatusValues = useMemo(() => {
-    return Object.keys(statusCounts) as EmailStatus[];
-  }, [statusCounts]);
-
-  // Extract complex expression for React hooks dependencies
+  // Extract column references for stable dependencies
   const statusColumn = table.getColumn("status");
+  const statusFacetedValues = statusColumn?.getFacetedUniqueValues();
   const statusFilterValue = statusColumn?.getFilterValue() as EmailStatus[];
+
+  // Get unique status values
+  const uniqueStatusValues = useMemo(() => {
+    if (!statusColumn) return [];
+    const values = Array.from(statusFacetedValues?.keys() || []);
+    return values.sort();
+  }, [statusColumn, statusFacetedValues]);
+
+  // Get counts for each status
+  const statusCounts = useMemo(() => {
+    if (!statusColumn) return new Map();
+    return statusFacetedValues || new Map();
+  }, [statusColumn, statusFacetedValues]);
 
   const selectedStatuses = useMemo(() => {
     return statusFilterValue ?? [];
@@ -483,14 +510,10 @@ export default function TrackedEmailsTable() {
       ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
   };
 
-  if (error) {
+  if (loading) {
     return (
       <div className="p-8 text-center">
-        <div className="mb-2 text-red-600">Erreur de chargement</div>
-        <div className="text-muted-foreground text-sm">{error}</div>
-        <Button onClick={refetch} className="mt-4">
-          Réessayer
-        </Button>
+        <div className="text-muted-foreground">Chargement des emails...</div>
       </div>
     );
   }
@@ -570,18 +593,22 @@ export default function TrackedEmailsTable() {
                     <div key={value} className="flex items-center gap-2">
                       <Checkbox
                         id={`${id}-${i}`}
-                        checked={selectedStatuses.includes(value)}
+                        checked={selectedStatuses.includes(
+                          value as EmailStatus
+                        )}
                         onCheckedChange={(checked: boolean) =>
-                          handleStatusChange(checked, value)
+                          handleStatusChange(checked, value as EmailStatus)
                         }
                       />
                       <Label
                         htmlFor={`${id}-${i}`}
                         className="flex grow justify-between gap-2 font-normal"
                       >
-                        <TrackedEmailStatusBadge status={value} />
+                        <TrackedEmailStatusBadge
+                          status={value as EmailStatus}
+                        />
                         <span className="text-muted-foreground ms-2 text-xs">
-                          {statusCounts[value] || 0}
+                          {statusCounts.get(value)}
                         </span>
                       </Label>
                     </div>
@@ -808,16 +835,7 @@ export default function TrackedEmailsTable() {
             ))}
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  Chargement...
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
+            {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map(row => (
                 <TableRow
                   key={row.id}
@@ -855,7 +873,7 @@ export default function TrackedEmailsTable() {
             Lignes par page
           </Label>
           <Select
-            value={pagination.pageSize.toString()}
+            value={table.getState().pagination.pageSize.toString()}
             onValueChange={value => {
               table.setPageSize(Number(value));
             }}
@@ -864,9 +882,9 @@ export default function TrackedEmailsTable() {
               <SelectValue placeholder="Nombre de résultats" />
             </SelectTrigger>
             <SelectContent className="[&_*[role=option]]:ps-2 [&_*[role=option]]:pe-8 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:end-2">
-              {[5, 10, 25, 50].map(size => (
-                <SelectItem key={size} value={size.toString()}>
-                  {size}
+              {[5, 10, 25, 50].map(pageSize => (
+                <SelectItem key={pageSize} value={pageSize.toString()}>
+                  {pageSize}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -880,13 +898,24 @@ export default function TrackedEmailsTable() {
             aria-live="polite"
           >
             <span className="text-foreground">
-              {Math.max(1, pagination.pageIndex * pagination.pageSize + 1)}-
+              {table.getState().pagination.pageIndex *
+                table.getState().pagination.pageSize +
+                1}
+              -
               {Math.min(
-                (pagination.pageIndex + 1) * pagination.pageSize,
-                count
+                Math.max(
+                  table.getState().pagination.pageIndex *
+                    table.getState().pagination.pageSize +
+                    table.getState().pagination.pageSize,
+                  0
+                ),
+                table.getRowCount()
               )}
             </span>{" "}
-            sur <span className="text-foreground">{count}</span>
+            sur{" "}
+            <span className="text-foreground">
+              {table.getRowCount().toString()}
+            </span>
           </p>
         </div>
 
