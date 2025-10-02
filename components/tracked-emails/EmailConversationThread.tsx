@@ -187,13 +187,13 @@ export default function EmailConversationThread({
     );
   }
 
-  // Extraire l'adresse de l'expéditeur et le sujet du premier message
-  const firstMessage = messages[0];
+  // Extraire l'adresse de l'expéditeur et le sujet du message initial (le plus ancien)
+  const initialMessage = messages[messages.length - 1];
   const senderEmail =
-    firstMessage?.sender?.emailAddress?.address ||
-    firstMessage?.from?.emailAddress?.address ||
+    initialMessage?.sender?.emailAddress?.address ||
+    initialMessage?.from?.emailAddress?.address ||
     "Expéditeur inconnu";
-  const subject = firstMessage?.subject || "Sans objet";
+  const subject = initialMessage?.subject || "Sans objet";
 
   return (
     <Card className="flex h-[calc(100vh-200px)] flex-col">
@@ -270,8 +270,8 @@ export default function EmailConversationThread({
                   )}
                 </div>
 
-                {/* Subject if different from first message */}
-                {index > 0 && message.subject !== messages[0]?.subject && (
+                {/* Subject if different from initial message */}
+                {message.subject !== initialMessage?.subject && (
                   <div className="text-sm font-medium text-gray-700">
                     {message.subject}
                   </div>
