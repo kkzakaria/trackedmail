@@ -468,6 +468,52 @@ export class MicrosoftGraphService {
   }
 
   /**
+   * Récupère tous les messages d'une conversation complète
+   */
+  async getConversationThread(
+    userId: string,
+    conversationId: string
+  ): Promise<MicrosoftGraphEmailMessage[]> {
+    try {
+      const client = await this.initializeClient();
+
+      const response = await client
+        .api(`/users/${userId}/messages`)
+        .filter(`conversationId eq '${conversationId}'`)
+        .select([
+          "id",
+          "conversationId",
+          "internetMessageId",
+          "subject",
+          "sender",
+          "from",
+          "toRecipients",
+          "ccRecipients",
+          "sentDateTime",
+          "receivedDateTime",
+          "hasAttachments",
+          "importance",
+          "bodyPreview",
+          "body",
+          "isRead",
+          "isDraft",
+        ])
+        .orderby("sentDateTime asc")
+        .expand("internetMessageHeaders")
+        .top(100)
+        .get();
+
+      return response.value as MicrosoftGraphEmailMessage[];
+    } catch (error) {
+      throw this.createGraphError(
+        "CONVERSATION_FETCH_FAILED",
+        `Failed to get conversation thread ${conversationId}`,
+        error
+      );
+    }
+  }
+
+  /**
    * Teste la connectivité et les permissions
    */
   async testConnection(): Promise<{
