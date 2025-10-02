@@ -79,8 +79,9 @@ export function useEmailConversation(
     fetchConversation();
   }, [fetchConversation]);
 
-  // Cleanup
+  // Cleanup et réinitialisation pour React Strict Mode
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };

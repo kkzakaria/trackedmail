@@ -477,6 +477,12 @@ export class MicrosoftGraphService {
     try {
       const client = await this.initializeClient();
 
+      // IMPORTANT: Microsoft Graph limitations:
+      // 1. Ne supporte PAS $orderby avec $filter sur conversationId
+      //    Erreur: "InefficientFilter - The restriction or sort order is too complex"
+      //    Solution: Retirer $orderby et trier côté serveur
+      // 2. internetMessageHeaders n'est PAS une propriété de navigation
+      //    Ne peut pas être utilisé avec .expand()
       const response = await client
         .api(`/users/${userId}/messages`)
         .filter(`conversationId eq '${conversationId}'`)
@@ -498,12 +504,18 @@ export class MicrosoftGraphService {
           "isRead",
           "isDraft",
         ])
-        .orderby("sentDateTime asc")
-        .expand("internetMessageHeaders")
         .top(100)
         .get();
 
-      return response.value as MicrosoftGraphEmailMessage[];
+      // Tri côté serveur par sentDateTime (ascendant)
+      const messages = (response.value as MicrosoftGraphEmailMessage[]) || [];
+      messages.sort((a, b) => {
+        const dateA = new Date(a.sentDateTime || a.receivedDateTime).getTime();
+        const dateB = new Date(b.sentDateTime || b.receivedDateTime).getTime();
+        return dateA - dateB;
+      });
+
+      return messages;
     } catch (error) {
       throw this.createGraphError(
         "CONVERSATION_FETCH_FAILED",
