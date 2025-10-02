@@ -512,12 +512,12 @@ export class MicrosoftGraphService {
         .top(100)
         .get();
 
-      // Tri côté serveur par sentDateTime (ascendant)
+      // Tri côté serveur par sentDateTime (descendant - du plus récent au plus ancien)
       const messages = (response.value as MicrosoftGraphEmailMessage[]) || [];
       messages.sort((a, b) => {
         const dateA = new Date(a.sentDateTime || a.receivedDateTime).getTime();
         const dateB = new Date(b.sentDateTime || b.receivedDateTime).getTime();
-        return dateA - dateB;
+        return dateB - dateA;
       });
 
       return messages;
