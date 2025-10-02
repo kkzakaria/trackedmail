@@ -86,8 +86,10 @@ export default function EmailConversationThread({
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <MailIcon className="h-5 w-5" />
-              Fil de conversation
+              <div className="flex flex-col gap-1">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
             </CardTitle>
           </div>
         </CardHeader>
@@ -117,8 +119,10 @@ export default function EmailConversationThread({
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <AlertCircleIcon className="text-destructive h-5 w-5" />
-              Erreur
+              <div className="flex items-center gap-2">
+                <AlertCircleIcon className="text-destructive h-5 w-5" />
+                <span>Erreur lors du chargement</span>
+              </div>
             </CardTitle>
           </div>
         </CardHeader>
@@ -153,8 +157,12 @@ export default function EmailConversationThread({
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <MailIcon className="h-5 w-5" />
-              Fil de conversation
+              <div className="flex flex-col gap-1">
+                <span className="text-base">Aucune conversation</span>
+                <span className="text-muted-foreground text-xs font-normal">
+                  Aucun message trouvé
+                </span>
+              </div>
             </CardTitle>
           </div>
         </CardHeader>
@@ -168,6 +176,14 @@ export default function EmailConversationThread({
     );
   }
 
+  // Extraire l'adresse de l'expéditeur et le sujet du premier message
+  const firstMessage = messages[0];
+  const senderEmail =
+    firstMessage?.sender?.emailAddress?.address ||
+    firstMessage?.from?.emailAddress?.address ||
+    "Expéditeur inconnu";
+  const subject = firstMessage?.subject || "Sans objet";
+
   return (
     <Card className="flex h-[calc(100vh-200px)] flex-col">
       <CardHeader className="flex-none border-b">
@@ -178,8 +194,12 @@ export default function EmailConversationThread({
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <MailIcon className="h-5 w-5" />
-            Fil de conversation ({messages.length})
+            <div className="flex flex-col gap-1">
+              <span className="text-base">{senderEmail}</span>
+              <span className="text-muted-foreground text-xs font-semibold">
+                {subject}
+              </span>
+            </div>
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={refetch}>
             <RefreshCwIcon className="h-4 w-4" />
