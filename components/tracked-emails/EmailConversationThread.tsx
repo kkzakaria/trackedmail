@@ -91,13 +91,13 @@ export default function EmailConversationThread({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard" className="flex items-center gap-2">
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 <Skeleton className="h-4 w-48" />
                 <Skeleton className="h-3 w-32" />
               </div>
@@ -124,15 +124,15 @@ export default function EmailConversationThread({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard" className="flex items-center gap-2">
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
               <div className="flex items-center gap-2">
-                <AlertCircleIcon className="text-destructive h-5 w-5" />
-                <span>Erreur lors du chargement</span>
+                <AlertCircleIcon className="text-destructive h-4 w-4" />
+                <span className="text-sm">Erreur lors du chargement</span>
               </div>
             </CardTitle>
           </div>
@@ -162,14 +162,14 @@ export default function EmailConversationThread({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard" className="flex items-center gap-2">
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <div className="flex flex-col gap-1">
-                <span className="text-base">Aucune conversation</span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm">Aucune conversation</span>
                 <span className="text-muted-foreground text-xs font-normal">
                   Aucun message trouvé
                 </span>
@@ -199,14 +199,14 @@ export default function EmailConversationThread({
     <Card className="flex h-[calc(100vh-200px)] flex-col">
       <CardHeader className="flex-none border-b">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard" className="flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <div className="flex flex-col gap-1">
-              <span className="text-base">{senderEmail}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm">{senderEmail}</span>
               <span className="text-muted-foreground text-xs font-semibold">
                 {subject}
               </span>
