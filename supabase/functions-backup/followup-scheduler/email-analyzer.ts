@@ -1,7 +1,11 @@
 import {
   EdgeSupabaseClient,
-  TrackedEmailWithFollowupInfo
-} from './shared-types.ts';
+  TrackedEmailWithFollowupInfo,
+  TrackedEmailRow,
+  FollowupData,
+  ManualFollowupData,
+  EmailBounceStatus,
+} from "./shared-types";
 
 /**
  * Récupère les emails nécessitant des relances avec analyse d'activité
@@ -11,12 +15,12 @@ export async function getEmailsNeedingFollowup(
 ): Promise<TrackedEmailWithFollowupInfo[]> {
   // Récupérer tous les emails pending nécessitant des relances
   const { data: emailsData, error: emailsError } = await supabase
-    .from('tracked_emails')
-    .select('*')
-    .eq('status', 'pending')
-    .order('sent_at', { ascending: true });
+    .from("tracked_emails")
+    .select("*")
+    .eq("status", "pending")
+    .order("sent_at", { ascending: true });
 
-  console.log(`📧 Found ${emailsData?.length || 0} pending emails to process`);
+  console.warn(`📧 Found ${emailsData?.length || 0} pending emails to process`);
 
   if (emailsError) {
     throw new Error(`Failed to fetch emails: ${emailsError.message}`);
@@ -32,7 +36,9 @@ export async function getEmailsNeedingFollowup(
     // Check if email has bounced - skip if it has
     const bounceStatus = await checkEmailBounceStatus(supabase, email.id);
     if (bounceStatus.has_bounced && !bounceStatus.can_retry) {
-      console.log(`📧 Skipping email ${email.id} - bounced (${bounceStatus.bounce_type}: ${bounceStatus.bounce_reason})`);
+      console.warn(
+        `📧 Skipping email ${email.id} - bounced (${bounceStatus.bounce_type}: ${bounceStatus.bounce_reason})`
+      );
       continue;
     }
 
@@ -40,7 +46,9 @@ export async function getEmailsNeedingFollowup(
     enrichedEmails.push(enrichedEmail);
   }
 
-  console.log(`📊 Enriched ${enrichedEmails.length} emails with followup data`);
+  console.warn(
+    `📊 Enriched ${enrichedEmails.length} emails with followup data`
+  );
   return enrichedEmails;
 }
 
@@ -49,14 +57,14 @@ export async function getEmailsNeedingFollowup(
  */
 async function enrichEmailWithFollowupData(
   supabase: EdgeSupabaseClient,
-  email: any
+  email: TrackedEmailRow
 ): Promise<TrackedEmailWithFollowupInfo> {
   // Récupérer les relances automatiques
   const { data: followupData, error: followupError } = await supabase
-    .from('followups')
-    .select('followup_number, sent_at')
-    .eq('tracked_email_id', email.id)
-    .order('followup_number', { ascending: false })
+    .from("followups")
+    .select("followup_number, sent_at")
+    .eq("tracked_email_id", email.id)
+    .order("followup_number", { ascending: false })
     .limit(1);
 
   if (followupError) {
@@ -65,14 +73,17 @@ async function enrichEmailWithFollowupData(
 
   // Récupérer les relances manuelles
   const { data: manualFollowupData, error: manualError } = await supabase
-    .from('manual_followups')
-    .select('followup_sequence_number, detected_at')
-    .eq('tracked_email_id', email.id)
-    .order('detected_at', { ascending: false })
+    .from("manual_followups")
+    .select("followup_sequence_number, detected_at")
+    .eq("tracked_email_id", email.id)
+    .order("detected_at", { ascending: false })
     .limit(1);
 
   if (manualError) {
-    console.error(`Error fetching manual followups for ${email.id}:`, manualError);
+    console.error(
+      `Error fetching manual followups for ${email.id}:`,
+      manualError
+    );
   }
 
   const lastAutomaticFollowup = followupData?.[0];
@@ -95,7 +106,7 @@ async function enrichEmailWithFollowupData(
     last_manual_followup_at: lastManualFollowup?.detected_at || null,
     last_activity_at: activityAnalysis.lastActivity.toISOString(),
     last_activity_type: activityAnalysis.lastActivityType,
-    total_followups: totalFollowups
+    total_followups: totalFollowups,
   };
 }
 
@@ -103,12 +114,12 @@ async function enrichEmailWithFollowupData(
  * Analyse l'activité d'un email pour déterminer la dernière action
  */
 function analyzeLastActivity(
-  email: any,
-  lastAutomaticFollowup: any,
-  lastManualFollowup: any
+  email: TrackedEmailRow,
+  lastAutomaticFollowup: FollowupData | undefined,
+  lastManualFollowup: ManualFollowupData | undefined
 ): {
   lastActivity: Date;
-  lastActivityType: 'automatic' | 'manual' | 'original';
+  lastActivityType: "automatic" | "manual" | "original";
 } {
   const automaticAt = lastAutomaticFollowup?.sent_at
     ? new Date(lastAutomaticFollowup.sent_at)
@@ -118,25 +129,25 @@ function analyzeLastActivity(
     : null;
 
   let lastActivity: Date;
-  let lastActivityType: 'automatic' | 'manual' | 'original';
+  let lastActivityType: "automatic" | "manual" | "original";
 
   if (automaticAt && manualAt) {
     if (automaticAt > manualAt) {
       lastActivity = automaticAt;
-      lastActivityType = 'automatic';
+      lastActivityType = "automatic";
     } else {
       lastActivity = manualAt;
-      lastActivityType = 'manual';
+      lastActivityType = "manual";
     }
   } else if (automaticAt) {
     lastActivity = automaticAt;
-    lastActivityType = 'automatic';
+    lastActivityType = "automatic";
   } else if (manualAt) {
     lastActivity = manualAt;
-    lastActivityType = 'manual';
+    lastActivityType = "manual";
   } else {
     lastActivity = new Date(email.sent_at);
-    lastActivityType = 'original';
+    lastActivityType = "original";
   }
 
   return { lastActivity, lastActivityType };
@@ -150,11 +161,15 @@ export async function getTotalFollowupsForEmail(
   trackedEmailId: string
 ): Promise<number> {
   try {
-    const { data, error } = await supabase
-      .rpc('get_total_followup_count', { p_tracked_email_id: trackedEmailId });
+    const { data, error } = await supabase.rpc("get_total_followup_count", {
+      p_tracked_email_id: trackedEmailId,
+    });
 
     if (error) {
-      console.error(`Error getting total followup count for ${trackedEmailId}:`, error);
+      console.error(
+        `Error getting total followup count for ${trackedEmailId}:`,
+        error
+      );
       return 0;
     }
 
@@ -171,30 +186,21 @@ export async function getTotalFollowupsForEmail(
 async function checkEmailBounceStatus(
   supabase: EdgeSupabaseClient,
   trackedEmailId: string
-): Promise<{
-  has_bounced: boolean;
-  bounce_type?: string;
-  bounce_reason?: string;
-  can_retry: boolean;
-  retry_count: number;
-}> {
+): Promise<EmailBounceStatus> {
   try {
     const { data, error } = await supabase
-      .rpc('check_email_bounce_status', { p_tracked_email_id: trackedEmailId })
+      .rpc("check_email_bounce_status", { p_tracked_email_id: trackedEmailId })
       .single();
 
     if (error) {
-      console.error(`Error checking bounce status for ${trackedEmailId}:`, error);
+      console.error(
+        `Error checking bounce status for ${trackedEmailId}:`,
+        error
+      );
       return { has_bounced: false, can_retry: true, retry_count: 0 };
     }
 
-    return {
-      has_bounced: (data as any).has_bounced,
-      bounce_type: (data as any).bounce_type,
-      bounce_reason: (data as any).bounce_reason,
-      can_retry: (data as any).can_retry,
-      retry_count: (data as any).retry_count
-    };
+    return data as EmailBounceStatus;
   } catch (error) {
     console.error(`Error calling check_email_bounce_status:`, error);
     return { has_bounced: false, can_retry: true, retry_count: 0 };

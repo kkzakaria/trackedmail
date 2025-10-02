@@ -1,8 +1,8 @@
 import {
   EdgeSupabaseClient,
   TrackedEmailRow,
-  FollowupTemplateRow
-} from '../_shared/types.ts';
+  FollowupTemplateRow,
+} from "../_shared/types.ts";
 
 /**
  * Configuration des heures ouvrables
@@ -33,7 +33,7 @@ export interface TrackedEmailWithFollowupInfo extends TrackedEmailRow {
   last_followup_at?: string;
   last_manual_followup_at?: string;
   last_activity_at?: string;
-  last_activity_type?: 'automatic' | 'manual' | 'original';
+  last_activity_type?: "automatic" | "manual" | "original";
   total_followups?: number;
 }
 
@@ -68,6 +68,33 @@ export interface TemplateVariables {
   jours_depuis_envoi: number;
   expediteur_nom: string;
   expediteur_email: string;
+}
+
+/**
+ * Données de relance automatique
+ */
+export interface FollowupData {
+  followup_number: number;
+  sent_at: string;
+}
+
+/**
+ * Données de relance manuelle
+ */
+export interface ManualFollowupData {
+  followup_sequence_number: number;
+  detected_at: string;
+}
+
+/**
+ * Status de bounce d'un email
+ */
+export interface EmailBounceStatus {
+  has_bounced: boolean;
+  bounce_type?: string;
+  bounce_reason?: string;
+  can_retry: boolean;
+  retry_count: number;
 }
 
 /**

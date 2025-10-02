@@ -1,8 +1,8 @@
 import {
   EdgeSupabaseClient,
   WorkingHoursConfig,
-  SchedulingResult
-} from './shared-types.ts';
+  SchedulingResult,
+} from "./shared-types.ts";
 
 /**
  * Récupère la configuration des heures ouvrables depuis la base de données
@@ -11,19 +11,19 @@ export async function getWorkingHoursConfig(
   supabase: EdgeSupabaseClient
 ): Promise<WorkingHoursConfig> {
   const { data, error } = await supabase
-    .from('system_config')
-    .select('value')
-    .eq('key', 'working_hours')
+    .from("system_config")
+    .select("value")
+    .eq("key", "working_hours")
     .single();
 
   if (error || !data) {
     // Configuration par défaut
     return {
-      timezone: 'UTC',
-      start: '07:00',
-      end: '18:00',
-      working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-      holidays: []
+      timezone: "UTC",
+      start: "07:00",
+      end: "18:00",
+      working_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      holidays: [],
     };
   }
 
@@ -38,18 +38,22 @@ export function calculateNextSendTime(
   delayHours: number,
   workingHours: WorkingHoursConfig
 ): SchedulingResult {
-  const originalTarget = new Date(baseDate.getTime() + delayHours * 60 * 60 * 1000);
+  const originalTarget = new Date(
+    baseDate.getTime() + delayHours * 60 * 60 * 1000
+  );
 
   // Ajuster pour les heures ouvrables
   const adjustedTime = adjustForWorkingHours(originalTarget, workingHours);
 
-  const actualDelay = (adjustedTime.getTime() - baseDate.getTime()) / (1000 * 60 * 60);
+  const actualDelay =
+    (adjustedTime.getTime() - baseDate.getTime()) / (1000 * 60 * 60);
 
   return {
     scheduled_for: adjustedTime.toISOString(),
     original_target: originalTarget.toISOString(),
-    adjusted_for_working_hours: adjustedTime.getTime() !== originalTarget.getTime(),
-    delay_applied_hours: actualDelay
+    adjusted_for_working_hours:
+      adjustedTime.getTime() !== originalTarget.getTime(),
+    delay_applied_hours: actualDelay,
   };
 }
 
@@ -74,26 +78,49 @@ export function adjustForWorkingHours(
 /**
  * Vérifie si une date/heure est dans les heures ouvrables
  */
-export function isWorkingTime(dateTime: Date, workingHours: WorkingHoursConfig): boolean {
-  return isWorkingDay(dateTime, workingHours) && isWithinWorkingHours(dateTime, workingHours);
+export function isWorkingTime(
+  dateTime: Date,
+  workingHours: WorkingHoursConfig
+): boolean {
+  return (
+    isWorkingDay(dateTime, workingHours) &&
+    isWithinWorkingHours(dateTime, workingHours)
+  );
 }
 
 /**
  * Vérifie si c'est un jour ouvrable (hors week-end et jours fériés)
  */
-export function isWorkingDay(date: Date, workingHours: WorkingHoursConfig): boolean {
-  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+export function isWorkingDay(
+  date: Date,
+  workingHours: WorkingHoursConfig
+): boolean {
+  const dayNames = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
   const dayName = dayNames[date.getDay()];
 
-  return workingHours.working_days.includes(dayName) && !isHoliday(date, workingHours);
+  return (
+    workingHours.working_days.includes(dayName) &&
+    !isHoliday(date, workingHours)
+  );
 }
 
 /**
  * Vérifie si l'heure est dans la plage de travail
  */
-export function isWithinWorkingHours(dateTime: Date, workingHours: WorkingHoursConfig): boolean {
-  const [startHour, startMinute] = workingHours.start.split(':').map(Number);
-  const [endHour, endMinute] = workingHours.end.split(':').map(Number);
+export function isWithinWorkingHours(
+  dateTime: Date,
+  workingHours: WorkingHoursConfig
+): boolean {
+  const [startHour, startMinute] = workingHours.start.split(":").map(Number);
+  const [endHour, endMinute] = workingHours.end.split(":").map(Number);
 
   const startTime = startHour * 60 + startMinute;
   const endTime = endHour * 60 + endMinute;
@@ -105,15 +132,21 @@ export function isWithinWorkingHours(dateTime: Date, workingHours: WorkingHoursC
 /**
  * Vérifie si c'est un jour férié
  */
-export function isHoliday(date: Date, workingHours: WorkingHoursConfig): boolean {
-  const dateString = date.toISOString().split('T')[0];
+export function isHoliday(
+  date: Date,
+  workingHours: WorkingHoursConfig
+): boolean {
+  const dateString = date.toISOString().split("T")[0];
   return workingHours.holidays.includes(dateString);
 }
 
 /**
  * Trouve le prochain créneau de travail disponible
  */
-export function findNextWorkingTime(fromTime: Date, workingHours: WorkingHoursConfig): Date {
+export function findNextWorkingTime(
+  fromTime: Date,
+  workingHours: WorkingHoursConfig
+): Date {
   const maxIterations = 14; // 2 semaines max pour éviter les boucles infinies
   let iterations = 0;
   let current = new Date(fromTime);
@@ -136,7 +169,7 @@ export function findNextWorkingTime(fromTime: Date, workingHours: WorkingHoursCo
   }
 
   // Solution de secours : dans 24h si aucun créneau trouvé
-  console.warn('No working time found within 2 weeks, falling back to +24h');
+  console.warn("No working time found within 2 weeks, falling back to +24h");
   return new Date(fromTime.getTime() + 24 * 60 * 60 * 1000);
 }
 
@@ -148,8 +181,8 @@ export function adjustTimeToWorkingHours(
   workingHours: WorkingHoursConfig
 ): Date {
   const result = new Date(date);
-  const [startHour, startMinute] = workingHours.start.split(':').map(Number);
-  const [endHour, endMinute] = workingHours.end.split(':').map(Number);
+  const [startHour, startMinute] = workingHours.start.split(":").map(Number);
+  const [endHour, endMinute] = workingHours.end.split(":").map(Number);
 
   const startTime = startHour * 60 + startMinute;
   const endTime = endHour * 60 + endMinute;
@@ -177,9 +210,10 @@ export function calculateWorkingHoursBetween(
 ): number {
   if (startDate >= endDate) return 0;
 
-  const [startHour, startMinute] = workingHours.start.split(':').map(Number);
-  const [endHour, endMinute] = workingHours.end.split(':').map(Number);
-  const _dailyWorkingMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+  const [startHour, startMinute] = workingHours.start.split(":").map(Number);
+  const [endHour, endMinute] = workingHours.end.split(":").map(Number);
+  const _dailyWorkingMinutes =
+    endHour * 60 + endMinute - (startHour * 60 + startMinute);
 
   let totalMinutes = 0;
   let current = new Date(startDate);
@@ -196,7 +230,8 @@ export function calculateWorkingHoursBetween(
       const effectiveEnd = endDate < dayEnd ? endDate : dayEnd;
 
       if (effectiveStart < effectiveEnd) {
-        totalMinutes += (effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60);
+        totalMinutes +=
+          (effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60);
       }
     }
 
@@ -212,30 +247,40 @@ export function calculateWorkingHoursBetween(
 /**
  * Valide une configuration d'heures ouvrables
  */
-export function validateWorkingHoursConfig(config: WorkingHoursConfig): string[] {
+export function validateWorkingHoursConfig(
+  config: WorkingHoursConfig
+): string[] {
   const errors: string[] = [];
 
   // Vérifier le format des heures
   const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
   if (!timeRegex.test(config.start)) {
-    errors.push('Start time must be in HH:MM format');
+    errors.push("Start time must be in HH:MM format");
   }
   if (!timeRegex.test(config.end)) {
-    errors.push('End time must be in HH:MM format');
+    errors.push("End time must be in HH:MM format");
   }
 
   // Vérifier que l'heure de fin est après l'heure de début
   if (config.start >= config.end) {
-    errors.push('End time must be after start time');
+    errors.push("End time must be after start time");
   }
 
   // Vérifier qu'il y a au moins un jour ouvrable
   if (!config.working_days || config.working_days.length === 0) {
-    errors.push('At least one working day must be specified');
+    errors.push("At least one working day must be specified");
   }
 
   // Vérifier les jours valides
-  const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const validDays = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ];
   for (const day of config.working_days) {
     if (!validDays.includes(day)) {
       errors.push(`Invalid working day: ${day}`);

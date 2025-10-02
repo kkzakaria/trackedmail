@@ -3,8 +3,8 @@ import {
   FollowupTemplateRow,
   TrackedEmailWithFollowupInfo,
   RenderedTemplate,
-  TemplateVariables
-} from './shared-types.ts';
+  TemplateVariables,
+} from "./shared-types.ts";
 
 /**
  * Récupère les templates actifs triés par ordre de relance
@@ -13,10 +13,10 @@ export async function getActiveTemplates(
   supabase: EdgeSupabaseClient
 ): Promise<FollowupTemplateRow[]> {
   const { data, error } = await supabase
-    .from('followup_templates')
-    .select('*')
-    .eq('is_active', true)
-    .order('followup_number', { ascending: true });
+    .from("followup_templates")
+    .select("*")
+    .eq("is_active", true)
+    .order("followup_number", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to fetch active templates: ${error.message}`);
@@ -34,16 +34,18 @@ export function renderTemplate(
 ): RenderedTemplate {
   // Construire les variables disponibles pour le template
   const variables: TemplateVariables = {
-    destinataire_nom: extractNameFromEmail(email.recipient_emails[0] || ''),
-    destinataire_entreprise: extractCompanyFromEmail(email.recipient_emails[0] || ''),
+    destinataire_nom: extractNameFromEmail(email.recipient_emails[0] || ""),
+    destinataire_entreprise: extractCompanyFromEmail(
+      email.recipient_emails[0] || ""
+    ),
     objet_original: email.subject,
-    date_envoi_original: new Date(email.sent_at).toLocaleDateString('fr-FR'),
+    date_envoi_original: new Date(email.sent_at).toLocaleDateString("fr-FR"),
     numero_relance: template.followup_number,
     jours_depuis_envoi: Math.floor(
       (Date.now() - new Date(email.sent_at).getTime()) / (1000 * 60 * 60 * 24)
     ),
     expediteur_nom: extractNameFromEmail(email.sender_email),
-    expediteur_email: email.sender_email
+    expediteur_email: email.sender_email,
   };
 
   // Rendre le sujet et le corps avec les variables
@@ -51,14 +53,14 @@ export function renderTemplate(
   let renderedBody = template.body;
 
   Object.entries(variables).forEach(([key, value]) => {
-    const regex = new RegExp(`{{${key}}}`, 'g');
+    const regex = new RegExp(`{{${key}}}`, "g");
     renderedSubject = renderedSubject.replace(regex, String(value));
     renderedBody = renderedBody.replace(regex, String(value));
   });
 
   return {
     subject: renderedSubject,
-    body: renderedBody
+    body: renderedBody,
   };
 }
 
@@ -67,11 +69,11 @@ export function renderTemplate(
  * Ex: "john.doe@company.com" → "John Doe"
  */
 export function extractNameFromEmail(email: string): string {
-  const localPart = email.split('@')[0];
+  const localPart = email.split("@")[0];
   return localPart
     .split(/[._-]/)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+    .join(" ");
 }
 
 /**
@@ -79,10 +81,10 @@ export function extractNameFromEmail(email: string): string {
  * Ex: "user@acmecorp.com" → "Acmecorp"
  */
 export function extractCompanyFromEmail(email: string): string {
-  const domain = email.split('@')[1];
-  if (!domain) return 'Entreprise';
+  const domain = email.split("@")[1];
+  if (!domain) return "Entreprise";
 
-  const company = domain.split('.')[0];
+  const company = domain.split(".")[0];
   return company.charAt(0).toUpperCase() + company.slice(1);
 }
 
@@ -92,20 +94,20 @@ export function extractCompanyFromEmail(email: string): string {
 export function validateTemplate(template: FollowupTemplateRow): string[] {
   const errors: string[] = [];
 
-  if (!template.subject || template.subject.trim() === '') {
-    errors.push('Subject is required');
+  if (!template.subject || template.subject.trim() === "") {
+    errors.push("Subject is required");
   }
 
-  if (!template.body || template.body.trim() === '') {
-    errors.push('Body is required');
+  if (!template.body || template.body.trim() === "") {
+    errors.push("Body is required");
   }
 
   if (template.followup_number < 1 || template.followup_number > 10) {
-    errors.push('Followup number must be between 1 and 10');
+    errors.push("Followup number must be between 1 and 10");
   }
 
   if (template.delay_hours < 1) {
-    errors.push('Delay hours must be positive');
+    errors.push("Delay hours must be positive");
   }
 
   return errors;
@@ -114,7 +116,9 @@ export function validateTemplate(template: FollowupTemplateRow): string[] {
 /**
  * Extrait toutes les variables utilisées dans un template
  */
-export function extractTemplateVariables(template: FollowupTemplateRow): string[] {
+export function extractTemplateVariables(
+  template: FollowupTemplateRow
+): string[] {
   const text = `${template.subject} ${template.body}`;
   const regex = /\{\{([^}]+)\}\}/g;
   const variables: string[] = [];
