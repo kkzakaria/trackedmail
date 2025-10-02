@@ -1,11 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEmailConversation } from "@/lib/hooks/use-email-conversation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircleIcon, MailIcon, RefreshCwIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  ArrowLeft,
+  MailIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -73,10 +79,17 @@ export default function EmailConversationThread({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MailIcon className="h-5 w-5" />
-            Fil de conversation
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <MailIcon className="h-5 w-5" />
+              Fil de conversation
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {[1, 2, 3].map(i => (
@@ -95,21 +108,37 @@ export default function EmailConversationThread({
 
   if (error) {
     return (
-      <Alert>
-        <AlertCircleIcon className="h-4 w-4" />
-        <AlertDescription>
-          {error}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refetch}
-            className="ml-2"
-          >
-            <RefreshCwIcon className="mr-1 h-3 w-3" />
-            Réessayer
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <AlertCircleIcon className="text-destructive h-5 w-5" />
+              Erreur
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertDescription>
+              {error}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refetch}
+                className="ml-2"
+              >
+                <RefreshCwIcon className="mr-1 h-3 w-3" />
+                Réessayer
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -117,10 +146,17 @@ export default function EmailConversationThread({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MailIcon className="h-5 w-5" />
-            Fil de conversation
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <MailIcon className="h-5 w-5" />
+              Fil de conversation
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-muted-foreground py-8 text-center">
@@ -137,6 +173,11 @@ export default function EmailConversationThread({
       <CardHeader className="flex-none border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
             <MailIcon className="h-5 w-5" />
             Fil de conversation ({messages.length})
           </CardTitle>
