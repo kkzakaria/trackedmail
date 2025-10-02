@@ -358,10 +358,10 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/microsoft-auth/index.ts"
 
-[functions.followup-scheduler]
-enabled = true
-verify_jwt = false
-entrypoint = "./functions/followup-scheduler/index.ts"
+# [functions.followup-scheduler]
+# enabled = true
+# verify_jwt = false
+# entrypoint = "./functions/followup-scheduler/index.ts"
 
 [functions.followup-sender]
 enabled = true
