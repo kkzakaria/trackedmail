@@ -277,31 +277,9 @@ export default function EmailConversationThread({
                   </div>
                 )}
 
-                {/* Body */}
-                <div
-                  className={`rounded-lg px-4 py-3 ${
-                    isSentMessage
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-900"
-                  }`}
-                >
-                  {message.body?.contentType === "html" ? (
-                    <div
-                      className="prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{
-                        __html: message.body.content,
-                      }}
-                    />
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap">
-                      {extractTextFromBody(message.body) || message.bodyPreview}
-                    </p>
-                  )}
-                </div>
-
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mb-2 space-y-1">
                     {message.attachments
                       .filter(att => !att.isInline)
                       .map(attachment => (
@@ -327,6 +305,28 @@ export default function EmailConversationThread({
                       ))}
                   </div>
                 )}
+
+                {/* Body */}
+                <div
+                  className={`rounded-lg px-4 py-3 ${
+                    isSentMessage
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {message.body?.contentType === "html" ? (
+                    <div
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{
+                        __html: message.body.content,
+                      }}
+                    />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">
+                      {extractTextFromBody(message.body) || message.bodyPreview}
+                    </p>
+                  )}
+                </div>
 
                 {/* Recipients (for sent messages) */}
                 {isSentMessage && message.toRecipients?.length > 0 && (
