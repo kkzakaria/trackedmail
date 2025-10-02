@@ -14,9 +14,9 @@ export const metadata: Metadata = {
 };
 
 interface EmailDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 function EmailDetailsSkeleton() {
@@ -46,7 +46,11 @@ function EmailDetailsSkeleton() {
   );
 }
 
-export default function EmailDetailsPage({ params }: EmailDetailsPageProps) {
+export default async function EmailDetailsPage({
+  params,
+}: EmailDetailsPageProps) {
+  const { id } = await params;
+
   return (
     <div className="container mx-auto max-w-6xl space-y-6 py-6">
       {/* Header with breadcrumb */}
@@ -70,7 +74,7 @@ export default function EmailDetailsPage({ params }: EmailDetailsPageProps) {
 
       {/* Main Content */}
       <Suspense fallback={<EmailDetailsSkeleton />}>
-        <EmailDetailsCard emailId={params.id} />
+        <EmailDetailsCard emailId={id} />
       </Suspense>
     </div>
   );
