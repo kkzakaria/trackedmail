@@ -19,6 +19,7 @@ import type {
   WebhookSubscriptionResponse,
   MicrosoftGraphApiError,
   MicrosoftGraphConfig,
+  FileAttachment,
 } from "@/lib/types/microsoft-graph";
 
 /**
@@ -483,6 +484,7 @@ export class MicrosoftGraphService {
       //    Solution: Retirer $orderby et trier côté serveur
       // 2. internetMessageHeaders n'est PAS une propriété de navigation
       //    Ne peut pas être utilisé avec .expand()
+      // 3. attachments EST une propriété de navigation et peut être expand()
       const response = await client
         .api(`/users/${userId}/messages`)
         .filter(`conversationId eq '${conversationId}'`)
@@ -504,6 +506,9 @@ export class MicrosoftGraphService {
           "isRead",
           "isDraft",
         ])
+        .expand(
+          "attachments($select=id,name,contentType,size,isInline,lastModifiedDateTime)"
+        )
         .top(100)
         .get();
 
@@ -520,6 +525,33 @@ export class MicrosoftGraphService {
       throw this.createGraphError(
         "CONVERSATION_FETCH_FAILED",
         `Failed to get conversation thread ${conversationId}`,
+        error
+      );
+    }
+  }
+
+  /**
+   * Récupère une pièce jointe spécifique avec son contenu
+   */
+  async getAttachment(
+    userId: string,
+    messageId: string,
+    attachmentId: string
+  ): Promise<FileAttachment> {
+    try {
+      const client = await this.initializeClient();
+
+      const attachment = await client
+        .api(
+          `/users/${userId}/messages/${messageId}/attachments/${attachmentId}`
+        )
+        .get();
+
+      return attachment as FileAttachment;
+    } catch (error) {
+      throw this.createGraphError(
+        "ATTACHMENT_FETCH_FAILED",
+        `Failed to get attachment ${attachmentId} from message ${messageId}`,
         error
       );
     }

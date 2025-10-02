@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   MailIcon,
   RefreshCwIcon,
+  FileIcon,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +65,15 @@ const extractTextFromBody = (
 
   // Pour HTML, on affiche tel quel (le navigateur va le rendre)
   return body.content;
+};
+
+// Formater la taille des fichiers
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${Math.round((bytes / Math.pow(k, i)) * 10) / 10} ${sizes[i]}`;
 };
 
 export default function EmailConversationThread({
@@ -287,6 +298,35 @@ export default function EmailConversationThread({
                     </p>
                   )}
                 </div>
+
+                {/* Attachments */}
+                {message.attachments && message.attachments.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {message.attachments
+                      .filter(att => !att.isInline)
+                      .map(attachment => (
+                        <a
+                          key={attachment.id}
+                          href={`/api/attachments/${message.id}/${attachment.id}?mailboxId=${mailboxId}`}
+                          download={attachment.name}
+                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs transition-colors ${
+                            isSentMessage
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-200 text-gray-900 hover:bg-gray-300"
+                          }`}
+                        >
+                          <FileIcon className="h-4 w-4 flex-shrink-0" />
+                          <span className="flex-1 truncate font-medium">
+                            {attachment.name}
+                          </span>
+                          <span className="text-xs opacity-75">
+                            {formatFileSize(attachment.size)}
+                          </span>
+                          <Download className="h-3 w-3 flex-shrink-0" />
+                        </a>
+                      ))}
+                  </div>
+                )}
 
                 {/* Recipients (for sent messages) */}
                 {isSentMessage && message.toRecipients?.length > 0 && (
