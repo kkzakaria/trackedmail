@@ -141,27 +141,32 @@ export function ManualHandlingModal({
               <User className="h-4 w-4" />
               Emails sélectionnés ({emails.length})
             </h4>
-            <div className="max-h-32 space-y-2 overflow-y-auto">
+            <div className="max-h-60 space-y-3 overflow-y-auto pr-2">
               {emails.slice(0, 5).map(email => (
                 <div
                   key={email.id}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-start justify-between gap-3 overflow-hidden text-sm"
                 >
-                  <div className="flex-1 truncate">
-                    <span className="font-medium">{email.subject}</span>
-                    <span className="text-muted-foreground ml-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="line-clamp-1 font-medium">
+                      {email.subject}
+                    </div>
+                    <div className="text-muted-foreground line-clamp-1 text-xs">
                       → {email.recipient_emails[0]}
-                    </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <Badge
                       variant="outline"
-                      className="flex items-center gap-1"
+                      className="flex items-center gap-1 text-xs whitespace-nowrap"
                     >
                       <Clock className="h-3 w-3" />
-                      {email.followup_count} relances
+                      {email.followup_count}
                     </Badge>
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge
+                      variant="destructive"
+                      className="text-xs whitespace-nowrap"
+                    >
                       {email.days_since_sent}j
                     </Badge>
                   </div>
