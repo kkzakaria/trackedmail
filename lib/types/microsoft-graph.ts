@@ -140,13 +140,52 @@ export interface InternetMessageHeader {
   value: string;
 }
 
+// Types de pièces jointes Microsoft Graph
+export type AttachmentType =
+  | "#microsoft.graph.fileAttachment"
+  | "#microsoft.graph.itemAttachment"
+  | "#microsoft.graph.referenceAttachment";
+
 export interface EmailAttachment {
+  "@odata.type": AttachmentType;
   id: string;
   name: string;
   contentType: string;
   size: number;
   isInline: boolean;
   lastModifiedDateTime: string;
+}
+
+export interface FileAttachment extends EmailAttachment {
+  "@odata.type": "#microsoft.graph.fileAttachment";
+  contentBytes?: string; // Base64 encoded
+  contentId?: string;
+  contentLocation?: string;
+}
+
+export interface ItemAttachment extends EmailAttachment {
+  "@odata.type": "#microsoft.graph.itemAttachment";
+  item?: {
+    "@odata.type": string;
+    id: string;
+    subject?: string;
+  };
+}
+
+export interface ReferenceAttachment extends EmailAttachment {
+  "@odata.type": "#microsoft.graph.referenceAttachment";
+  sourceUrl?: string;
+  providerType?: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
+  permission?:
+    | "view"
+    | "edit"
+    | "anonymousView"
+    | "anonymousEdit"
+    | "organizationView"
+    | "organizationEdit";
+  isFolder?: boolean;
 }
 
 // ===== UTILISATEURS =====
