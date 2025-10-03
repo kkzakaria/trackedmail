@@ -17,8 +17,8 @@ interface UseEmailConversationResult {
 }
 
 export function useEmailConversation(
-  conversationId: string | null,
-  mailboxId: string | null
+  trackedEmailId: string | null,
+  _mailboxId: string | null
 ): UseEmailConversationResult {
   const [messages, setMessages] = useState<MicrosoftGraphEmailMessage[]>([]);
   const [mailboxEmail, setMailboxEmail] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export function useEmailConversation(
   );
 
   const fetchConversation = useCallback(async () => {
-    if (!conversationId || !mailboxId) {
+    if (!trackedEmailId) {
       setLoading(false);
       return;
     }
@@ -41,7 +41,7 @@ export function useEmailConversation(
       setError(null);
 
       const response = await fetch(
-        `/api/conversations/${conversationId}?mailboxId=${mailboxId}`
+        `/api/tracked-emails/${trackedEmailId}/thread`
       );
 
       if (!response.ok) {
@@ -69,7 +69,7 @@ export function useEmailConversation(
         setLoading(false);
       }
     }
-  }, [conversationId, mailboxId]);
+  }, [trackedEmailId]);
 
   // Stocker la référence de la fonction
   fetchConversationRef.current = fetchConversation;

@@ -78,9 +78,9 @@ export default function EmailDetailsCard({ emailId }: EmailDetailsCardProps) {
 
   return (
     <div>
-      {email.conversation_id && email.mailbox ? (
+      {email.mailbox ? (
         <EmailConversationThread
-          conversationId={email.conversation_id}
+          trackedEmailId={emailId}
           mailboxId={email.mailbox.id}
           mailboxEmail={email.mailbox.email_address}
         />
@@ -88,7 +88,7 @@ export default function EmailDetailsCard({ emailId }: EmailDetailsCardProps) {
         <Alert>
           <AlertCircleIcon className="h-4 w-4" />
           <AlertDescription>
-            Conversation ID ou informations de mailbox manquantes
+            Informations de mailbox manquantes
           </AlertDescription>
         </Alert>
       )}

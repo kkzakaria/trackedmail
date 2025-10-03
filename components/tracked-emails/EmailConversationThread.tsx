@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface EmailConversationThreadProps {
-  conversationId: string;
+  trackedEmailId: string;
   mailboxId: string;
   mailboxEmail: string;
 }
@@ -77,12 +77,12 @@ const formatFileSize = (bytes: number): string => {
 };
 
 export default function EmailConversationThread({
-  conversationId,
+  trackedEmailId,
   mailboxId,
   mailboxEmail,
 }: EmailConversationThreadProps) {
   const { messages, loading, error, refetch } = useEmailConversation(
-    conversationId,
+    trackedEmailId,
     mailboxId
   );
 

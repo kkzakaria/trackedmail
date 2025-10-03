@@ -305,12 +305,18 @@ async function processIncomingEmail(
     if (responseDetection.originalEmailId) {
       console.log(`   Original email found: ${responseDetection.originalEmailId}`)
 
-      // Insérer la réponse directement
+      // Insérer la réponse directement avec identifiants Microsoft pour thread
       const { error } = await supabase
         .from('email_responses')
         .insert({
           tracked_email_id: responseDetection.originalEmailId,
           microsoft_message_id: messageDetails.id,
+
+          // Identifiants Microsoft pour charger le thread complet via Graph API
+          conversation_id: messageDetails.conversationId,
+          internet_message_id: messageDetails.internetMessageId,
+
+          // Métadonnées minimales
           sender_email: messageDetails.sender.emailAddress.address,
           subject: messageDetails.subject,
           body_preview: messageDetails.bodyPreview,

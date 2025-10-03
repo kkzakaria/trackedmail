@@ -176,6 +176,12 @@ export async function handleEmailResponse(
       .insert({
         tracked_email_id: originalEmail.id,
         microsoft_message_id: responseMessage.id,
+
+        // Identifiants Microsoft pour charger le thread complet via Graph API
+        conversation_id: responseMessage.conversationId,
+        internet_message_id: responseMessage.internetMessageId,
+
+        // Métadonnées minimales
         sender_email: responseMessage.sender.emailAddress.address,
         subject: responseMessage.subject,
         body_preview: responseMessage.bodyPreview,
