@@ -187,12 +187,21 @@ export default function EmailConversationThread({
     );
   }
 
-  // Extraire l'adresse de l'expéditeur et le sujet du message initial (le plus ancien)
+  // Extraire le destinataire et le sujet du message initial (le plus ancien avec le tri inversé)
   const initialMessage = messages[messages.length - 1];
-  const senderEmail =
-    initialMessage?.sender?.emailAddress?.address ||
-    initialMessage?.from?.emailAddress?.address ||
-    "Expéditeur inconnu";
+
+  // Déterminer l'email du contact (pas la mailbox)
+  const isSentByMailbox =
+    (initialMessage?.sender?.emailAddress?.address || "").toLowerCase() ===
+    mailboxEmail.toLowerCase();
+
+  const contactEmail = isSentByMailbox
+    ? initialMessage?.toRecipients?.[0]?.emailAddress?.address ||
+      "Destinataire inconnu"
+    : initialMessage?.sender?.emailAddress?.address ||
+      initialMessage?.from?.emailAddress?.address ||
+      "Expéditeur inconnu";
+
   const subject = initialMessage?.subject || "Sans objet";
 
   return (
@@ -206,7 +215,7 @@ export default function EmailConversationThread({
               </Link>
             </Button>
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm">{senderEmail}</span>
+              <span className="text-sm">{contactEmail}</span>
               <span className="text-muted-foreground text-xs font-semibold">
                 {subject}
               </span>
