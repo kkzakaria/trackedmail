@@ -314,6 +314,7 @@ export async function enhancedResponseDetection(
     {
       name: 'bodyAnalysis',
       weight: 5,
+      // deno-lint-ignore require-await
       check: async () => {
         const replyPatterns = [
           /^on .+ wrote:$/im,

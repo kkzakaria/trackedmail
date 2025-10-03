@@ -163,3 +163,91 @@ export function formatLogTimestamp(date: Date = new Date()): string {
 export function getElapsedTime(startTime: number): number {
   return Date.now() - startTime
 }
+
+/**
+ * Calcule la distance de Levenshtein entre 2 chaînes
+ * (nombre minimal d'opérations pour transformer s1 en s2)
+ */
+function levenshteinDistance(s1: string, s2: string): number {
+  const len1 = s1.length
+  const len2 = s2.length
+
+  // Optimisation: si une des chaînes est vide
+  if (len1 === 0) return len2
+  if (len2 === 0) return len1
+
+  // Matrice de programmation dynamique
+  const matrix: number[][] = []
+
+  // Initialisation de la première ligne et colonne
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i]
+  }
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j
+  }
+
+  // Remplissage de la matrice
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,      // Suppression
+        matrix[i][j - 1] + 1,      // Insertion
+        matrix[i - 1][j - 1] + cost // Substitution
+      )
+    }
+  }
+
+  return matrix[len1][len2]
+}
+
+/**
+ * Calcule la similarité entre 2 sujets d'emails (0-1)
+ * Utilise l'algorithme Levenshtein normalisé
+ *
+ * @returns Valeur entre 0 (aucune similarité) et 1 (identique)
+ */
+export function calculateSubjectSimilarity(subject1: string, subject2: string): number {
+  // Normaliser les sujets (minuscules, trim)
+  const s1 = subject1.toLowerCase().trim()
+  const s2 = subject2.toLowerCase().trim()
+
+  // Cas identiques
+  if (s1 === s2) return 1.0
+
+  // Cas vides
+  if (s1.length === 0 || s2.length === 0) return 0.0
+
+  // Calculer la distance de Levenshtein
+  const distance = levenshteinDistance(s1, s2)
+  const maxLength = Math.max(s1.length, s2.length)
+
+  // Normaliser: 1 - (distance / longueur max)
+  const similarity = 1 - (distance / maxLength)
+
+  return Math.max(0, Math.min(1, similarity)) // Clamp entre 0 et 1
+}
+
+/**
+ * Calcule un bonus basé sur la proximité temporelle
+ * - < 24h: 100% (1.0)
+ * - < 72h: 50% (0.5)
+ * - < 168h (7j): 25% (0.25)
+ * - > 7j: 0% (0)
+ *
+ * @returns Valeur entre 0 et 1
+ */
+export function calculateTimingBonus(sentDate: Date, receivedDate: Date): number {
+  const hoursDiff = Math.abs(receivedDate.getTime() - sentDate.getTime()) / (1000 * 60 * 60)
+
+  if (hoursDiff < 24) {
+    return 1.0 // Réponse dans les 24h
+  } else if (hoursDiff < 72) {
+    return 0.5 // Réponse dans les 72h
+  } else if (hoursDiff < 168) {
+    return 0.25 // Réponse dans les 7 jours
+  } else {
+    return 0.0 // Trop vieux
+  }
+}

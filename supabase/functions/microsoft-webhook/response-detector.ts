@@ -15,7 +15,9 @@ import {
   getElapsedTime,
   parseReferences,
   hasHeader,
-  cleanSubject
+  cleanSubject,
+  calculateSubjectSimilarity,
+  calculateTimingBonus
 } from './utils.ts'
 import { logDetectionAttempt } from './database-manager.ts'
 
@@ -174,6 +176,12 @@ export async function handleEmailResponse(
       .insert({
         tracked_email_id: originalEmail.id,
         microsoft_message_id: responseMessage.id,
+
+        // Identifiants Microsoft pour charger le thread complet via Graph API
+        conversation_id: responseMessage.conversationId,
+        internet_message_id: responseMessage.internetMessageId,
+
+        // Métadonnées minimales
         sender_email: responseMessage.sender.emailAddress.address,
         subject: responseMessage.subject,
         body_preview: responseMessage.bodyPreview,
@@ -441,10 +449,81 @@ export async function enhancedResponseDetection(
         return false
       }
     },
-    // Méthode 4: Analyse du contenu (confiance faible)
+    // Méthode 4: Détection manuelle de réponse (sans threading)
+    {
+      name: 'manualReplyDetection',
+      weight: 30,
+      check: async () => {
+        // Récupérer emails trackés récents (7 derniers jours) avec status pending
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+        const { data: recentTracked } = await supabase
+          .from('tracked_emails')
+          .select('id, subject, recipient_emails, sent_at')
+          .eq('status', 'pending')
+          .gte('sent_at', sevenDaysAgo.toISOString())
+          .order('sent_at', { ascending: false })
+
+        if (!recentTracked || recentTracked.length === 0) {
+          return false
+        }
+
+        let bestMatch: { id: string; score: number } | null = null
+
+        for (const tracked of recentTracked) {
+          let score = 0
+
+          // Critère 1: Expéditeur dans les destinataires (40%)
+          const senderEmail = message.sender.emailAddress.address.toLowerCase()
+          const recipientEmails = tracked.recipient_emails.map((e: string) => e.toLowerCase())
+
+          if (recipientEmails.includes(senderEmail)) {
+            score += 40
+          } else {
+            continue // Si l'expéditeur n'est pas destinataire, skip
+          }
+
+          // Critère 2: Similarité du sujet (30%)
+          const cleanedIncoming = cleanSubject(message.subject)
+          const cleanedTracked = cleanSubject(tracked.subject)
+          const similarity = calculateSubjectSimilarity(cleanedIncoming, cleanedTracked)
+          score += similarity * 30
+
+          // Critère 3: Proximité temporelle (30%)
+          const timingBonus = calculateTimingBonus(
+            new Date(tracked.sent_at),
+            new Date(message.sentDateTime)
+          )
+          score += timingBonus * 30
+
+          // Logs détaillés pour débogage
+          console.log(`Manual reply check for tracked email ${tracked.id}:`)
+          console.log(`  → Sender: ${senderEmail}`)
+          console.log(`  → In recipients: ${recipientEmails.includes(senderEmail)}`)
+          console.log(`  → Subject similarity: ${(similarity * 100).toFixed(1)}%`)
+          console.log(`  → Timing bonus: ${(timingBonus * 100).toFixed(1)}%`)
+          console.log(`  → Total score: ${score.toFixed(1)}%`)
+
+          // Garder le meilleur match
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { id: tracked.id, score }
+          }
+        }
+
+        // Retourner le match si score >= 60% (sur 100)
+        if (bestMatch && bestMatch.score >= 60) {
+          console.log(`✅ Manual reply detected with ${bestMatch.score.toFixed(1)}% confidence for email ${bestMatch.id}`)
+          return bestMatch.id
+        }
+
+        return false
+      }
+    },
+    // Méthode 5: Analyse du contenu (confiance faible)
     {
       name: 'bodyAnalysis',
       weight: 5,
+      // deno-lint-ignore require-await
       check: async () => {
         const replyPatterns = [
           /^on .+ wrote:$/im,
