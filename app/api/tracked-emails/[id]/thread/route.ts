@@ -121,12 +121,12 @@ export async function GET(_request: NextRequest, context: RouteParams) {
       }
     }
 
-    // 5. Dédupliquer par ID (au cas où) et trier par date
+    // 5. Dédupliquer par ID (au cas où) et trier par date (du plus récent au plus ancien)
     const uniqueMessages = Array.from(
       new Map(allMessages.map(m => [m.id, m])).values()
     ).sort(
       (a, b) =>
-        new Date(a.sentDateTime).getTime() - new Date(b.sentDateTime).getTime()
+        new Date(b.sentDateTime).getTime() - new Date(a.sentDateTime).getTime()
     );
 
     console.log(`[Thread API] Total unique messages: ${uniqueMessages.length}`);
