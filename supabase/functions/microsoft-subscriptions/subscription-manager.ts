@@ -260,6 +260,94 @@ export async function deleteSubscription(
 }
 
 /**
+ * Renouvelle automatiquement toutes les souscriptions qui expirent bientôt
+ */
+export async function autoRenewSubscriptions(
+  supabase: EdgeSupabaseClient
+): Promise<{
+  success: boolean
+  renewed?: number
+  failed?: number
+  details?: Array<{ subscriptionId: string; success: boolean; error?: string }>
+  error?: string
+  message?: string
+}> {
+  try {
+    console.log('🔄 Auto-renewing subscriptions that expire soon...')
+
+    const now = new Date()
+    const renewThreshold = new Date(now.getTime() + SUBSCRIPTION_CONFIG.renewBeforeHours * 60 * 60 * 1000)
+
+    // Récupérer les souscriptions qui expirent dans moins de renewBeforeHours
+    const { data: subscriptions, error: fetchError } = await supabase
+      .from('webhook_subscriptions')
+      .select('subscription_id')
+      .eq('is_active', true)
+      .lt('expiration_date_time', renewThreshold.toISOString())
+      .gte('expiration_date_time', now.toISOString()) // Pas encore expirées
+
+    if (fetchError) {
+      throw fetchError
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.log('✅ No subscriptions need renewal at this time')
+      return {
+        success: true,
+        message: 'No subscriptions need renewal',
+        renewed: 0,
+        failed: 0
+      }
+    }
+
+    console.log(`📋 Found ${subscriptions.length} subscriptions to renew`)
+
+    const results = await Promise.allSettled(
+      subscriptions.map((sub: { subscription_id: string }) =>
+        renewSubscription(supabase, {
+          action: 'renew',
+          subscriptionId: sub.subscription_id
+        })
+      )
+    )
+
+    const details = results.map((result, index) => {
+      const subscriptionId = subscriptions[index].subscription_id
+      if (result.status === 'fulfilled' && result.value.success) {
+        return { subscriptionId, success: true }
+      } else {
+        const error = result.status === 'rejected'
+          ? result.reason?.message || 'Unknown error'
+          : result.value.message || result.value.error || 'Failed'
+        return { subscriptionId, success: false, error }
+      }
+    })
+
+    const renewed = details.filter(d => d.success).length
+    const failed = details.filter(d => !d.success).length
+
+    console.log(`✅ Auto-renewal complete: ${renewed} renewed, ${failed} failed`)
+
+    return {
+      success: true,
+      renewed,
+      failed,
+      details,
+      message: `Renewed ${renewed} subscriptions, ${failed} failed`
+    }
+
+  } catch (error) {
+    console.error('❌ Error auto-renewing subscriptions:', error)
+
+    return {
+      success: false,
+      error: 'Failed to auto-renew subscriptions',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
  * Supprime tous les abonnements d'une mailbox
  */
 export async function deleteMailboxSubscriptions(
