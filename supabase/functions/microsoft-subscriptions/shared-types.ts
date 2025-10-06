@@ -10,7 +10,7 @@ export type EdgeSupabaseClient = ReturnType<typeof createClient>
  * Interface pour les requêtes d'abonnement
  */
 export interface SubscriptionRequest {
-  action: 'create' | 'renew' | 'delete' | 'list' | 'cleanup'
+  action: 'create' | 'renew' | 'auto-renew' | 'delete' | 'list' | 'cleanup'
   mailboxId?: string
   subscriptionId?: string
   userId?: string

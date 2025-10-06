@@ -16,6 +16,7 @@ import {
 import {
   createSubscription,
   renewSubscription,
+  autoRenewSubscriptions,
   deleteSubscription,
   deleteMailboxSubscriptions
 } from './subscription-manager.ts'
@@ -110,12 +111,15 @@ async function handlePostRequest(
       case 'renew':
         result = await renewSubscription(supabase, subscriptionRequest)
         break
+      case 'auto-renew':
+        result = await autoRenewSubscriptions(supabase)
+        break
       case 'cleanup':
         result = await cleanupExpiredSubscriptions(supabase)
         break
       default:
         return new Response(
-          JSON.stringify({ error: 'Invalid action for POST request. Valid actions: create, renew, cleanup' }),
+          JSON.stringify({ error: 'Invalid action for POST request. Valid actions: create, renew, auto-renew, cleanup' }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
