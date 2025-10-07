@@ -109,33 +109,28 @@ export default function EmailDetailsSheet({
         )}
 
         {email && !loading && !error && (
-          <>
-            <SheetHeader>
-              <SheetTitle className="text-base">
-                {email.recipient_emails}
-              </SheetTitle>
-              <SheetDescription className="text-sm">
-                {email.subject}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="mt-6">
-              {email.mailbox ? (
-                <EmailConversationThread
-                  trackedEmailId={email.id}
-                  mailboxId={email.mailbox.id}
-                  mailboxEmail={email.mailbox.email_address}
-                  isInSheet={true}
-                />
-              ) : (
-                <Alert>
+          <div className="flex h-full flex-col overflow-hidden">
+            {email.mailbox ? (
+              <EmailConversationThread
+                trackedEmailId={email.id}
+                mailboxId={email.mailbox.id}
+                mailboxEmail={email.mailbox.email_address}
+                isInSheet={true}
+              />
+            ) : (
+              <>
+                <SheetHeader>
+                  <SheetTitle>Erreur</SheetTitle>
+                </SheetHeader>
+                <Alert className="mt-6">
                   <AlertCircleIcon className="h-4 w-4" />
                   <AlertDescription>
                     Informations de mailbox manquantes
                   </AlertDescription>
                 </Alert>
-              )}
-            </div>
-          </>
+              </>
+            )}
+          </div>
         )}
       </SheetContent>
     </Sheet>
