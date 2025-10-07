@@ -212,18 +212,166 @@ export default function EmailConversationThread({
 
   const subject = initialMessage?.subject || "Sans objet";
 
+  // Rendu pour le Sheet (sans Card)
+  if (isInSheet) {
+    return (
+      <div className="flex h-full flex-col">
+        {/* Header */}
+        <div className="flex-none border-b px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={refetch}>
+              <RefreshCwIcon className="h-4 w-4" />
+            </Button>
+            <div className="flex flex-1 flex-col gap-0.5">
+              <span className="text-sm font-semibold">{contactEmail}</span>
+              <span className="text-muted-foreground text-xs">{subject}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-6 py-4">
+          {messages.map((message, index) => {
+            const senderEmail =
+              message.sender?.emailAddress?.address ||
+              message.from?.emailAddress?.address ||
+              "Inconnu";
+            const senderName =
+              message.sender?.emailAddress?.name ||
+              message.from?.emailAddress?.name ||
+              senderEmail;
+
+            // Déterminer si c'est un message envoyé ou reçu
+            const isSentMessage =
+              senderEmail.toLowerCase() === mailboxEmail.toLowerCase();
+
+            return (
+              <div
+                key={message.id || index}
+                className={`flex min-w-0 gap-3 ${isSentMessage ? "flex-row-reverse" : "flex-row"}`}
+              >
+                {/* Avatar */}
+                <Avatar className="h-10 w-10 flex-none">
+                  <AvatarFallback
+                    className={
+                      isSentMessage
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    }
+                  >
+                    {getInitials(senderEmail)}
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* Message content */}
+                <div
+                  className={`flex max-w-[85%] min-w-0 flex-1 flex-col gap-1 ${isSentMessage ? "items-end" : "items-start"}`}
+                >
+                  {/* Header */}
+                  <div
+                    className={`flex items-center gap-2 ${isSentMessage ? "flex-row-reverse" : "flex-row"}`}
+                  >
+                    <span className="text-sm font-medium">{senderName}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {formatMessageDate(message.sentDateTime)}
+                    </span>
+                    {message.hasAttachments && (
+                      <Badge variant="outline" className="text-xs">
+                        📎
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Subject - always show for first message, or if different from initial */}
+                  {(index === messages.length - 1 ||
+                    message.subject !== initialMessage?.subject) &&
+                    message.subject && (
+                      <div className="text-foreground text-sm font-semibold">
+                        {message.subject}
+                      </div>
+                    )}
+
+                  {/* Attachments */}
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className="mb-2 w-full space-y-1">
+                      {message.attachments
+                        .filter(att => !att.isInline)
+                        .map(attachment => (
+                          <a
+                            key={attachment.id}
+                            href={`/api/attachments/${message.id}/${attachment.id}?mailboxId=${mailboxId}`}
+                            download={attachment.name}
+                            className={`flex min-w-0 items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors ${
+                              isSentMessage
+                                ? "border-primary text-foreground hover:bg-primary/5"
+                                : "border-border text-foreground hover:bg-muted/50"
+                            }`}
+                          >
+                            <FileIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {attachment.name}
+                            </span>
+                            <span className="flex-shrink-0 text-xs opacity-75">
+                              {formatFileSize(attachment.size)}
+                            </span>
+                            <Download className="h-3 w-3 flex-shrink-0" />
+                          </a>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Body */}
+                  <div
+                    className={`w-full min-w-0 overflow-hidden rounded-lg border px-4 py-3 ${
+                      isSentMessage
+                        ? "border-primary text-foreground"
+                        : "border-border text-foreground"
+                    }`}
+                  >
+                    {message.body?.contentType === "html" ? (
+                      <div
+                        className="prose prose-sm max-w-none overflow-x-auto [&_*]:max-w-full [&_div]:max-w-full [&_img]:h-auto [&_img]:max-w-full [&_p]:break-words [&_span]:break-words [&_table]:w-full [&_table]:table-auto"
+                        dangerouslySetInnerHTML={{
+                          __html: message.body.content,
+                        }}
+                      />
+                    ) : (
+                      <p className="text-sm break-words whitespace-pre-wrap">
+                        {extractTextFromBody(message.body) ||
+                          message.bodyPreview}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Recipients (for sent messages) */}
+                  {isSentMessage && message.toRecipients?.length > 0 && (
+                    <div className="text-muted-foreground text-xs">
+                      À:{" "}
+                      {message.toRecipients
+                        .map(r => r.emailAddress.name || r.emailAddress.address)
+                        .join(", ")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Rendu pour la page dédiée (avec Card)
   return (
     <Card className="flex h-[calc(100vh-200px)] flex-col">
       <CardHeader className="flex-none border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            {!isInSheet && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-            )}
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
             <div className="flex flex-col gap-0.5">
               <span className="text-sm">{contactEmail}</span>
               <span className="text-muted-foreground text-xs font-semibold">
@@ -262,8 +410,8 @@ export default function EmailConversationThread({
                 <AvatarFallback
                   className={
                     isSentMessage
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-gray-100 text-gray-700"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground"
                   }
                 >
                   {getInitials(senderEmail)}
@@ -272,7 +420,7 @@ export default function EmailConversationThread({
 
               {/* Message content */}
               <div
-                className={`flex max-w-[75%] flex-col gap-1 ${isSentMessage ? "items-end" : "items-start"}`}
+                className={`flex max-w-[85%] min-w-0 flex-1 flex-col gap-1 ${isSentMessage ? "items-end" : "items-start"}`}
               >
                 {/* Header */}
                 <div
@@ -289,16 +437,18 @@ export default function EmailConversationThread({
                   )}
                 </div>
 
-                {/* Subject if different from initial message */}
-                {message.subject !== initialMessage?.subject && (
-                  <div className="text-sm font-medium text-gray-700">
-                    {message.subject}
-                  </div>
-                )}
+                {/* Subject - always show for first message, or if different from initial */}
+                {(index === messages.length - 1 ||
+                  message.subject !== initialMessage?.subject) &&
+                  message.subject && (
+                    <div className="text-foreground text-sm font-semibold">
+                      {message.subject}
+                    </div>
+                  )}
 
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
-                  <div className="mb-2 space-y-1">
+                  <div className="mb-2 w-full space-y-1">
                     {message.attachments
                       .filter(att => !att.isInline)
                       .map(attachment => (
@@ -306,17 +456,17 @@ export default function EmailConversationThread({
                           key={attachment.id}
                           href={`/api/attachments/${message.id}/${attachment.id}?mailboxId=${mailboxId}`}
                           download={attachment.name}
-                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs transition-colors ${
+                          className={`flex min-w-0 items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors ${
                             isSentMessage
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-gray-200 text-gray-900 hover:bg-gray-300"
+                              ? "border-primary text-foreground hover:bg-primary/5"
+                              : "border-border text-foreground hover:bg-muted/50"
                           }`}
                         >
                           <FileIcon className="h-4 w-4 flex-shrink-0" />
-                          <span className="flex-1 truncate font-medium">
+                          <span className="min-w-0 flex-1 truncate font-medium">
                             {attachment.name}
                           </span>
-                          <span className="text-xs opacity-75">
+                          <span className="flex-shrink-0 text-xs opacity-75">
                             {formatFileSize(attachment.size)}
                           </span>
                           <Download className="h-3 w-3 flex-shrink-0" />
@@ -327,21 +477,21 @@ export default function EmailConversationThread({
 
                 {/* Body */}
                 <div
-                  className={`rounded-lg px-4 py-3 ${
+                  className={`w-full min-w-0 overflow-hidden rounded-lg border px-4 py-3 ${
                     isSentMessage
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-900"
+                      ? "border-primary text-foreground"
+                      : "border-border text-foreground"
                   }`}
                 >
                   {message.body?.contentType === "html" ? (
                     <div
-                      className="prose prose-sm max-w-none"
+                      className="prose prose-sm max-w-none overflow-x-auto [&_*]:max-w-full [&_div]:max-w-full [&_img]:h-auto [&_img]:max-w-full [&_p]:break-words [&_span]:break-words [&_table]:w-full [&_table]:table-auto"
                       dangerouslySetInnerHTML={{
                         __html: message.body.content,
                       }}
                     />
                   ) : (
-                    <p className="text-sm whitespace-pre-wrap">
+                    <p className="text-sm break-words whitespace-pre-wrap">
                       {extractTextFromBody(message.body) || message.bodyPreview}
                     </p>
                   )}
