@@ -21,6 +21,7 @@ interface EmailConversationThreadProps {
   trackedEmailId: string;
   mailboxId: string;
   mailboxEmail: string;
+  isInSheet?: boolean;
 }
 
 // Formater la date
@@ -80,6 +81,7 @@ export default function EmailConversationThread({
   trackedEmailId,
   mailboxId,
   mailboxEmail,
+  isInSheet = false,
 }: EmailConversationThreadProps) {
   const { messages, loading, error, refetch } = useEmailConversation(
     trackedEmailId,
@@ -92,11 +94,13 @@ export default function EmailConversationThread({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
+              {!isInSheet && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/dashboard" className="flex items-center gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
               <div className="flex flex-col gap-0.5">
                 <Skeleton className="h-4 w-48" />
                 <Skeleton className="h-3 w-32" />
@@ -125,11 +129,13 @@ export default function EmailConversationThread({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
+              {!isInSheet && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/dashboard" className="flex items-center gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
               <div className="flex items-center gap-2">
                 <AlertCircleIcon className="text-destructive h-4 w-4" />
                 <span className="text-sm">Erreur lors du chargement</span>
@@ -163,11 +169,13 @@ export default function EmailConversationThread({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
+              {!isInSheet && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/dashboard" className="flex items-center gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm">Aucune conversation</span>
                 <span className="text-muted-foreground text-xs font-normal">
@@ -209,11 +217,13 @@ export default function EmailConversationThread({
       <CardHeader className="flex-none border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard" className="flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
+            {!isInSheet && (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
             <div className="flex flex-col gap-0.5">
               <span className="text-sm">{contactEmail}</span>
               <span className="text-muted-foreground text-xs font-semibold">
