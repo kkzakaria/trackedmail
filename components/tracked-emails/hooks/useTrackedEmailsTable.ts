@@ -6,7 +6,6 @@
  */
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   ColumnFiltersState,
   getCoreRowModel,
@@ -29,6 +28,7 @@ export interface UseTrackedEmailsTableOptions {
   data: TrackedEmailWithDetails[];
   onStatusUpdate: (emailId: string, status: EmailStatus) => Promise<void>;
   onDelete: (email: TrackedEmailWithDetails) => Promise<void>;
+  onViewDetails: (email: TrackedEmailWithDetails) => void;
 }
 
 /**
@@ -37,8 +37,7 @@ export interface UseTrackedEmailsTableOptions {
  * @returns Table instance and related state
  */
 export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
-  const { data, onStatusUpdate, onDelete } = options;
-  const router = useRouter();
+  const { data, onStatusUpdate, onDelete, onViewDetails } = options;
 
   // Table state
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -58,9 +57,7 @@ export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
   const columns = useMemo(() => {
     const columnOptions: CreateColumnsOptions = {
       onStatusUpdate,
-      onViewDetails: email => {
-        router.push(`/dashboard/emails/${email.id}`);
-      },
+      onViewDetails,
       onSendFollowup: email => {
         console.warn("Send followup:", email);
         // TODO: Implement followup modal
@@ -68,7 +65,7 @@ export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
       onDelete,
     };
     return createTrackedEmailsColumns(columnOptions);
-  }, [router, onStatusUpdate, onDelete]);
+  }, [onStatusUpdate, onViewDetails, onDelete]);
 
   // Create table instance
   const table = useReactTable({

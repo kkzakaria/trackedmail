@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { flexRender } from "@tanstack/react-table";
 import {
@@ -34,8 +34,9 @@ import { useTrackedEmailsTable } from "./hooks/useTrackedEmailsTable";
 import { TrackedEmailsFilters } from "./filters/TrackedEmailsFilters";
 import { TrackedEmailsBulkActions } from "./bulk-actions/TrackedEmailsBulkActions";
 import { TrackedEmailsPagination } from "./pagination/TrackedEmailsPagination";
+import EmailDetailsSheet from "./EmailDetailsSheet";
 
-import type { EmailStatus } from "@/lib/types";
+import type { EmailStatus, TrackedEmailWithDetails } from "@/lib/types";
 
 /**
  * Main table component for tracked emails
@@ -43,6 +44,10 @@ import type { EmailStatus } from "@/lib/types";
  */
 export default function TrackedEmailsTable() {
   const { user } = useAuth();
+
+  // Sheet state
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // Data management hook
   const { data, setData, loading } = useTrackedEmailsData();
@@ -55,11 +60,18 @@ export default function TrackedEmailsTable() {
     handleBulkDelete,
   } = useEmailActions({ user, setData });
 
+  // Handler for opening email details in sheet
+  const handleViewDetails = useCallback((email: TrackedEmailWithDetails) => {
+    setSelectedEmailId(email.id);
+    setIsSheetOpen(true);
+  }, []);
+
   // Table configuration hook
   const { table, statusColumn, uniqueStatusValues } = useTrackedEmailsTable({
     data,
     onStatusUpdate: handleStatusUpdate,
     onDelete: handleDeleteEmail,
+    onViewDetails: handleViewDetails,
   });
 
   // Status filter handler
@@ -185,6 +197,13 @@ export default function TrackedEmailsTable() {
 
       {/* Pagination */}
       <TrackedEmailsPagination table={table} />
+
+      {/* Email Details Sheet */}
+      <EmailDetailsSheet
+        emailId={selectedEmailId}
+        open={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
+      />
     </div>
   );
 }
