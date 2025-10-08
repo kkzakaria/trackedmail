@@ -10,8 +10,6 @@ import {
   ColumnFiltersState,
   getCoreRowModel,
   getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   PaginationState,
   SortingState,
@@ -26,26 +24,42 @@ import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types";
 
 export interface UseTrackedEmailsTableOptions {
   data: TrackedEmailWithDetails[];
+  totalCount: number;
+  pagination: PaginationState;
+  onPaginationChange: (
+    updater: PaginationState | ((old: PaginationState) => PaginationState)
+  ) => void;
+  columnFilters: ColumnFiltersState;
+  onColumnFiltersChange: (
+    updater:
+      | ColumnFiltersState
+      | ((old: ColumnFiltersState) => ColumnFiltersState)
+  ) => void;
   onStatusUpdate: (emailId: string, status: EmailStatus) => Promise<void>;
   onDelete: (email: TrackedEmailWithDetails) => Promise<void>;
   onViewDetails: (email: TrackedEmailWithDetails) => void;
 }
 
 /**
- * Hook to configure and manage TanStack Table instance
+ * Hook to configure and manage TanStack Table instance with server-side pagination and filtering
  * @param options - Table configuration options
  * @returns Table instance and related state
  */
 export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
-  const { data, onStatusUpdate, onDelete, onViewDetails } = options;
+  const {
+    data,
+    totalCount,
+    pagination,
+    onPaginationChange,
+    columnFilters,
+    onColumnFiltersChange,
+    onStatusUpdate,
+    onDelete,
+    onViewDetails,
+  } = options;
 
-  // Table state
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  // Table state (pagination and columnFilters are now controlled from parent)
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10,
-  });
   const [sorting, setSorting] = useState<SortingState>([
     {
       id: "sent_at",
@@ -67,20 +81,21 @@ export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
     return createTrackedEmailsColumns(columnOptions);
   }, [onStatusUpdate, onViewDetails, onDelete]);
 
-  // Create table instance
+  // Create table instance with server-side pagination and filtering
   const table = useReactTable({
     data,
     columns,
+    pageCount: Math.ceil(totalCount / pagination.pageSize), // Server-side page count
+    manualPagination: true, // Enable server-side pagination
+    manualFiltering: true, // Enable server-side filtering
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     enableSortingRemoval: false,
-    getPaginationRowModel: getPaginationRowModel(),
-    onPaginationChange: setPagination,
-    onColumnFiltersChange: setColumnFilters,
+    onPaginationChange: onPaginationChange,
+    onColumnFiltersChange: onColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getFacetedUniqueValues: getFacetedUniqueValues(), // Keep for status counts (page-local)
     state: {
       sorting,
       pagination,
@@ -108,7 +123,5 @@ export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
     statusColumn,
     statusFilterValue,
     uniqueStatusValues,
-    columnFilters,
-    setColumnFilters,
   };
 }

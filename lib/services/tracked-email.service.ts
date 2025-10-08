@@ -59,9 +59,10 @@ export class TrackedEmailService {
 
     // Apply filters
     if (filters.search) {
-      query = query.or(
-        `subject.ilike.%${filters.search}%,recipient_emails.cs.{${filters.search}}`
-      );
+      // Search in subject (case-insensitive)
+      // Note: For array columns, PostgREST doesn't support direct text search
+      // We only search in subject field for now
+      query = query.ilike("subject", `%${filters.search}%`);
     }
 
     if (filters.status?.length) {
