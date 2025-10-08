@@ -3,19 +3,9 @@ import type {
   TrackedEmailWithDetails,
   EmailStatus,
   EmailImportance,
-  Database,
 } from "@/lib/types";
 
 const supabase = createClient();
-
-// Types de base de données
-type TrackedEmailRow = Database["public"]["Tables"]["tracked_emails"]["Row"];
-type MailboxRow = Database["public"]["Tables"]["mailboxes"]["Row"];
-
-// Type pour les emails avec mailbox jointe
-type TrackedEmailWithMailbox = TrackedEmailRow & {
-  mailbox: Pick<MailboxRow, "id" | "email_address" | "display_name"> | null;
-};
 
 // Type pour les mises à jour
 type EmailUpdateData = {
@@ -208,68 +198,6 @@ export class TrackedEmailService {
   }
 
   /**
-   * Enrich a tracked email with calculated data
-   * @deprecated This method is no longer used. Use the optimized batch enrichment in getTrackedEmails instead.
-   */
-  private static async enrichTrackedEmail(
-    email: TrackedEmailWithMailbox
-  ): Promise<TrackedEmailWithDetails> {
-    console.warn(
-      "[TrackedEmailService] enrichTrackedEmail is deprecated and should not be called"
-    );
-
-    // Get response count
-    const { count: responseCount } = await supabase
-      .from("email_responses")
-      .select("*", { count: "exact", head: true })
-      .eq("tracked_email_id", email.id)
-      .eq("is_auto_response", false);
-
-    // Get followup count and last sent
-    const { data: followups } = await supabase
-      .from("followups")
-      .select("sent_at")
-      .eq("tracked_email_id", email.id)
-      .eq("status", "sent")
-      .order("sent_at", { ascending: false });
-
-    const followupCount = followups?.length || 0;
-    const lastFollowupSent = followups?.[0]?.sent_at || null;
-
-    // Calculate days since sent
-    const sentDate = new Date(email.sent_at);
-    const now = new Date();
-    const daysSinceSent = Math.floor(
-      (now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    return {
-      id: email.id,
-      microsoft_message_id: email.microsoft_message_id,
-      conversation_id: email.conversation_id,
-      subject: email.subject,
-      sender_email: email.sender_email,
-      recipient_emails: email.recipient_emails,
-      cc_emails: email.cc_emails,
-      bcc_emails: email.bcc_emails,
-      body_preview: email.body_preview,
-      status: email.status as EmailStatus,
-      sent_at: email.sent_at,
-      responded_at: email.responded_at,
-      stopped_at: email.stopped_at,
-      has_attachments: email.has_attachments,
-      importance: email.importance as EmailImportance | null,
-      mailbox: email.mailbox,
-      response_count: responseCount || 0,
-      followup_count: followupCount,
-      last_followup_sent: lastFollowupSent,
-      days_since_sent: daysSinceSent,
-      requires_manual_review: email.requires_manual_review || false,
-      last_followup_sent_at: email.last_followup_sent_at,
-    };
-  }
-
-  /**
    * Get status counts for dashboard metrics
    */
   static async getStatusCounts() {
@@ -431,7 +359,55 @@ export class TrackedEmailService {
       throw new Error(`Failed to fetch tracked email: ${error.message}`);
     }
 
-    return this.enrichTrackedEmail(data);
+    // 🚀 OPTIMIZATION: Calculate stats directly from joined relations
+    // Avoids N+1 queries from deprecated enrichTrackedEmail function
+    const responses =
+      (data.email_responses as Array<{ is_auto_response: boolean }>) || [];
+    const followups =
+      (data.followups as Array<{ sent_at: string; status: string }>) || [];
+
+    const responseCount = responses.filter(r => !r.is_auto_response).length;
+    const sentFollowups = followups.filter(f => f.status === "sent");
+    const followupCount = sentFollowups.length;
+    const lastFollowupSent =
+      sentFollowups.length > 0
+        ? sentFollowups.sort(
+            (a, b) =>
+              new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+          )[0]?.sent_at || null
+        : null;
+
+    // Calculate days since sent
+    const sentDate = new Date(data.sent_at);
+    const now = new Date();
+    const daysSinceSent = Math.floor(
+      (now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    return {
+      id: data.id,
+      microsoft_message_id: data.microsoft_message_id,
+      conversation_id: data.conversation_id,
+      subject: data.subject,
+      sender_email: data.sender_email,
+      recipient_emails: data.recipient_emails,
+      cc_emails: data.cc_emails,
+      bcc_emails: data.bcc_emails,
+      body_preview: data.body_preview,
+      status: data.status as EmailStatus,
+      sent_at: data.sent_at,
+      responded_at: data.responded_at,
+      stopped_at: data.stopped_at,
+      has_attachments: data.has_attachments,
+      importance: data.importance as EmailImportance | null,
+      mailbox: data.mailbox,
+      response_count: responseCount,
+      followup_count: followupCount,
+      last_followup_sent: lastFollowupSent,
+      days_since_sent: daysSinceSent,
+      requires_manual_review: data.requires_manual_review || false,
+      last_followup_sent_at: data.last_followup_sent_at,
+    };
   }
 
   /**

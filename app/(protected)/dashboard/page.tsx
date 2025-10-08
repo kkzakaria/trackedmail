@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardPageClient } from "./dashboard-page-client";
+import { getDashboardStats } from "@/lib/services/dashboard-stats.server";
+import { getTrackedEmails } from "@/lib/services/tracked-email.server";
 
 export default async function DashboardPage() {
   // Server-side authentication check
@@ -38,6 +40,25 @@ export default async function DashboardPage() {
         role: undefined,
       };
 
-  // Pass user data to client component
-  return <DashboardPageClient user={userWithRole} />;
+  // 🚀 OPTIMIZATION: Pre-fetch dashboard data on server for instant display
+  // Parallelizes stats and emails fetching for optimal performance
+  const [initialStats, initialEmails] = await Promise.all([
+    getDashboardStats().catch(err => {
+      console.error("Failed to fetch dashboard stats:", err);
+      return null;
+    }),
+    getTrackedEmails({ page: 0, pageSize: 50 }).catch(err => {
+      console.error("Failed to fetch tracked emails:", err);
+      return null;
+    }),
+  ]);
+
+  // Pass user data and initial data to client component
+  return (
+    <DashboardPageClient
+      user={userWithRole}
+      initialStats={initialStats}
+      initialEmails={initialEmails?.data || null}
+    />
+  );
 }
