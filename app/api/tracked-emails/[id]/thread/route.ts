@@ -99,10 +99,6 @@ export async function GET(_request: NextRequest, context: RouteParams) {
       });
     }
 
-    console.log(
-      `[Thread API] Loading ${conversationIds.size} conversation(s) for tracked email ${trackedEmailId}`
-    );
-
     // 4. Charger TOUS les threads via Microsoft Graph
     const allMessages = [];
     for (const conversationId of conversationIds) {
@@ -110,9 +106,6 @@ export async function GET(_request: NextRequest, context: RouteParams) {
         const messages = await microsoftGraphService.getConversationThread(
           trackedEmail.mailbox.microsoft_user_id,
           conversationId
-        );
-        console.log(
-          `[Thread API] Loaded ${messages.length} message(s) from conversation ${conversationId}`
         );
         allMessages.push(...messages);
       } catch (error) {
@@ -128,8 +121,6 @@ export async function GET(_request: NextRequest, context: RouteParams) {
       (a, b) =>
         new Date(b.sentDateTime).getTime() - new Date(a.sentDateTime).getTime()
     );
-
-    console.log(`[Thread API] Total unique messages: ${uniqueMessages.length}`);
 
     return NextResponse.json({
       success: true,
