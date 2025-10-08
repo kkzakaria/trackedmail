@@ -12,7 +12,11 @@ import {
 } from "lucide-react";
 import TrackedEmailsTable from "@/components/tracked-emails/TrackedEmailsTable";
 import { ManualReviewQueue } from "@/components/dashboard/ManualReviewQueue";
-import { useDashboardStats } from "@/lib/hooks/useDashboardStats";
+import {
+  useDashboardStats,
+  type DashboardStats,
+} from "@/lib/hooks/useDashboardStats";
+import type { TrackedEmailWithDetails } from "@/lib/types";
 
 interface User {
   id: string;
@@ -23,10 +27,16 @@ interface User {
 
 interface DashboardPageClientProps {
   user: User;
+  initialStats: DashboardStats | null;
+  initialEmails: TrackedEmailWithDetails[] | null;
 }
 
-export function DashboardPageClient({ user }: DashboardPageClientProps) {
-  const { stats, loading, refreshing, error } = useDashboardStats();
+export function DashboardPageClient({
+  user,
+  initialStats,
+  initialEmails,
+}: DashboardPageClientProps) {
+  const { stats, loading, refreshing, error } = useDashboardStats(initialStats);
   return (
     <div className="bg-background min-h-screen">
       {/* Main Content */}
@@ -222,7 +232,7 @@ export function DashboardPageClient({ user }: DashboardPageClientProps) {
           <div className="mb-8">
             <Card>
               <CardContent className="px-6 py-4">
-                <TrackedEmailsTable />
+                <TrackedEmailsTable initialData={initialEmails} />
               </CardContent>
             </Card>
           </div>

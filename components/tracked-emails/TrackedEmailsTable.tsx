@@ -38,11 +38,17 @@ import EmailDetailsSheet from "./EmailDetailsSheet";
 
 import type { EmailStatus, TrackedEmailWithDetails } from "@/lib/types";
 
+interface TrackedEmailsTableProps {
+  initialData?: TrackedEmailWithDetails[] | null;
+}
+
 /**
  * Main table component for tracked emails
  * Orchestrates data loading, actions, filtering, and display
  */
-export default function TrackedEmailsTable() {
+export default function TrackedEmailsTable({
+  initialData,
+}: TrackedEmailsTableProps = {}) {
   const { user } = useAuth();
 
   // Sheet state
@@ -50,7 +56,7 @@ export default function TrackedEmailsTable() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // Data management hook
-  const { data, setData, loading } = useTrackedEmailsData();
+  const { data, setData, loading } = useTrackedEmailsData(initialData);
 
   // Actions hook
   const {
