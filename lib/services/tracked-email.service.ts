@@ -59,12 +59,32 @@ export class TrackedEmailService {
 
     // Apply filters
     if (filters.search) {
-      // Use PostgreSQL Full Text Search (bilingual: English + French)
-      // Searches across: subject, body_preview, body_content, sender_email, recipient_emails, cc_emails
-      // Search in both English and French FTS columns with OR logic
-      // PostgREST syntax: column.fts(config).query or column.wfts.query (websearch)
+      // Hybrid search strategy for maximum relevance:
+      // 1. FTS websearch: Full words with bilingual stemming (fast with GIN index)
+      // 2. FTS prefix (:*): Intelligent prefix completion
+      // 3. ILIKE: Partial matching accelerated by trigram indexes (pg_trgm)
+      //
+      // Examples:
+      // - "FACTURATION" → FTS finds complete words (80 results)
+      // - "factu" → ILIKE+trigram finds "Facturation", "facturé"
+      // - "maersk" → ILIKE+trigram finds "ci.import@maersk.com"
+      //
+      // Note: body_content excluded from FTS for performance (body_preview sufficient)
+      const searchTerm = filters.search;
+
       query = query.or(
-        `fts_en.wfts.${filters.search},fts_fr.wfts(french).${filters.search}`
+        [
+          // FTS websearch (complete words with stemming)
+          `fts_en.wfts.${searchTerm}`,
+          `fts_fr.wfts(french).${searchTerm}`,
+          // FTS prefix search (word prefixes with stemming)
+          `fts_en.plfts.${searchTerm}:*`,
+          `fts_fr.plfts(french).${searchTerm}:*`,
+          // ILIKE partial search (accelerated by trigram GIN indexes)
+          `subject.ilike.%${searchTerm}%`,
+          `body_preview.ilike.%${searchTerm}%`,
+          `sender_email.ilike.%${searchTerm}%`,
+        ].join(",")
       );
     }
 
