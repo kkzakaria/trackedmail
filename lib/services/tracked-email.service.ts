@@ -59,10 +59,13 @@ export class TrackedEmailService {
 
     // Apply filters
     if (filters.search) {
-      // Search in subject (case-insensitive)
-      // Note: For array columns, PostgREST doesn't support direct text search
-      // We only search in subject field for now
-      query = query.ilike("subject", `%${filters.search}%`);
+      // Use PostgreSQL Full Text Search (bilingual: English + French)
+      // Searches across: subject, body_preview, body_content, sender_email, recipient_emails, cc_emails
+      // Search in both English and French FTS columns with OR logic
+      // PostgREST syntax: column.fts(config).query or column.wfts.query (websearch)
+      query = query.or(
+        `fts_en.wfts.${filters.search},fts_fr.wfts(french).${filters.search}`
+      );
     }
 
     if (filters.status?.length) {
