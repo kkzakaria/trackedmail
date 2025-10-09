@@ -55,8 +55,17 @@ export default function TrackedEmailsTable({
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Data management hook
-  const { data, setData, loading } = useTrackedEmailsData(initialData);
+  // Data management hook with server-side pagination and filtering
+  const {
+    data,
+    setData,
+    loading,
+    totalCount,
+    pagination,
+    setPagination,
+    columnFilters,
+    setColumnFilters,
+  } = useTrackedEmailsData(initialData);
 
   // Actions hook
   const {
@@ -72,9 +81,14 @@ export default function TrackedEmailsTable({
     setIsSheetOpen(true);
   }, []);
 
-  // Table configuration hook
+  // Table configuration hook with server-side pagination and filtering
   const { table, statusColumn, uniqueStatusValues } = useTrackedEmailsTable({
     data,
+    totalCount,
+    pagination,
+    onPaginationChange: setPagination,
+    columnFilters,
+    onColumnFiltersChange: setColumnFilters,
     onStatusUpdate: handleStatusUpdate,
     onDelete: handleDeleteEmail,
     onViewDetails: handleViewDetails,
@@ -202,7 +216,7 @@ export default function TrackedEmailsTable({
       </div>
 
       {/* Pagination */}
-      <TrackedEmailsPagination table={table} />
+      <TrackedEmailsPagination table={table} totalCount={totalCount} />
 
       {/* Email Details Sheet */}
       <EmailDetailsSheet

@@ -33,14 +33,17 @@ import type { TrackedEmailWithDetails } from "@/lib/types";
 
 export interface TrackedEmailsPaginationProps {
   table: Table<TrackedEmailWithDetails>;
+  totalCount: number;
 }
 
 /**
  * Pagination component for tracked emails table
  * @param table - TanStack Table instance
+ * @param totalCount - Total number of rows from server (for server-side pagination)
  */
 export function TrackedEmailsPagination({
   table,
+  totalCount,
 }: TrackedEmailsPaginationProps) {
   const id = useId();
   const pageState = table.getState().pagination;
@@ -48,7 +51,7 @@ export function TrackedEmailsPagination({
   const startRow = pageState.pageIndex * pageState.pageSize + 1;
   const endRow = Math.min(
     (pageState.pageIndex + 1) * pageState.pageSize,
-    table.getRowCount()
+    totalCount
   );
 
   return (
@@ -86,10 +89,7 @@ export function TrackedEmailsPagination({
           <span className="text-foreground">
             {startRow}-{endRow}
           </span>{" "}
-          sur{" "}
-          <span className="text-foreground">
-            {table.getRowCount().toString()}
-          </span>
+          sur <span className="text-foreground">{totalCount.toString()}</span>
         </p>
       </div>
 
