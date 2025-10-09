@@ -412,6 +412,105 @@ export class TrackedEmailService {
   }
 
   /**
+   * 🚀 OPTIMIZATION: Get multiple tracked emails by IDs with single batch query
+   * Replaces N individual queries with 1 batch query
+   */
+  static async getBatchTrackedEmailsByIds(
+    ids: string[]
+  ): Promise<TrackedEmailWithDetails[]> {
+    if (ids.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from("tracked_emails")
+      .select(
+        `
+        *,
+        mailbox:mailboxes(
+          id,
+          email_address,
+          display_name
+        ),
+        email_responses(
+          id,
+          sender_email,
+          subject,
+          received_at,
+          response_type,
+          is_auto_response
+        ),
+        followups(
+          id,
+          followup_number,
+          status,
+          scheduled_for,
+          sent_at,
+          subject
+        )
+        `
+      )
+      .in("id", ids);
+
+    if (error) {
+      throw new Error(`Failed to fetch batch tracked emails: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) return [];
+
+    // Process all emails in batch
+    return data.map(emailData => {
+      const responses =
+        (emailData.email_responses as Array<{ is_auto_response: boolean }>) ||
+        [];
+      const followups =
+        (emailData.followups as Array<{ sent_at: string; status: string }>) ||
+        [];
+
+      const responseCount = responses.filter(r => !r.is_auto_response).length;
+      const sentFollowups = followups.filter(f => f.status === "sent");
+      const followupCount = sentFollowups.length;
+      const lastFollowupSent =
+        sentFollowups.length > 0
+          ? sentFollowups.sort(
+              (a, b) =>
+                new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+            )[0]?.sent_at || null
+          : null;
+
+      // Calculate days since sent
+      const sentDate = new Date(emailData.sent_at);
+      const now = new Date();
+      const daysSinceSent = Math.floor(
+        (now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        id: emailData.id,
+        microsoft_message_id: emailData.microsoft_message_id,
+        conversation_id: emailData.conversation_id,
+        subject: emailData.subject,
+        sender_email: emailData.sender_email,
+        recipient_emails: emailData.recipient_emails,
+        cc_emails: emailData.cc_emails,
+        bcc_emails: emailData.bcc_emails,
+        body_preview: emailData.body_preview,
+        status: emailData.status as EmailStatus,
+        sent_at: emailData.sent_at,
+        responded_at: emailData.responded_at,
+        stopped_at: emailData.stopped_at,
+        has_attachments: emailData.has_attachments,
+        importance: emailData.importance as EmailImportance | null,
+        mailbox: emailData.mailbox,
+        response_count: responseCount,
+        followup_count: followupCount,
+        last_followup_sent: lastFollowupSent,
+        days_since_sent: daysSinceSent,
+        requires_manual_review: emailData.requires_manual_review || false,
+        last_followup_sent_at: emailData.last_followup_sent_at,
+      };
+    });
+  }
+
+  /**
    * Subscribe to real-time updates for tracked emails
    */
   static subscribeToChanges(

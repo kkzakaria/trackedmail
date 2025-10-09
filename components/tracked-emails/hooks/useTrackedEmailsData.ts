@@ -22,6 +22,9 @@ export interface UseTrackedEmailsDataReturn {
   data: TrackedEmailWithDetails[];
   setData: React.Dispatch<React.SetStateAction<TrackedEmailWithDetails[]>>;
   loading: boolean;
+  initialLoading: boolean;
+  refetching: boolean;
+  filtering: boolean;
   error: Error | null;
   totalCount: number;
   pagination: PaginationState;
@@ -31,9 +34,14 @@ export interface UseTrackedEmailsDataReturn {
   refetch: () => Promise<void>;
 }
 
+export interface UseTrackedEmailsDataOptions {
+  initialData?: TrackedEmailWithDetails[] | null;
+  initialTotalCount?: number;
+}
+
 /**
  * Hook to manage tracked emails data loading with real-time updates and server-side pagination
- * @param initialData - Optional initial data from server-side rendering
+ * @param options - Initial data and total count from server-side rendering
  * @returns Data, loading state, error state, pagination state, and refetch function
  */
 /**
@@ -58,14 +66,21 @@ function buildFiltersFromColumnFilters(
 }
 
 export function useTrackedEmailsData(
-  initialData?: TrackedEmailWithDetails[] | null
+  options: UseTrackedEmailsDataOptions = {}
 ): UseTrackedEmailsDataReturn {
+  const { initialData, initialTotalCount = 0 } = options;
+
   const [data, setData] = useState<TrackedEmailWithDetails[]>(
     initialData || []
   );
-  const [loading, setLoading] = useState(!initialData);
+  // 🚀 OPTIMIZATION: Granular loading states for better UX
+  const [initialLoading, setInitialLoading] = useState(!initialData); // First load
+  const [refetching, setRefetching] = useState(false); // Pagination/sort changes
+  const [filtering, setFiltering] = useState(false); // Filter changes
+  const loading = initialLoading || refetching || filtering; // Backwards compatibility
+
   const [error, setError] = useState<Error | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -74,10 +89,40 @@ export function useTrackedEmailsData(
 
   // Debounce timer ref for search
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Request deduplication ref
+  const fetchingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Track fetch reason for granular loading states
+  const fetchReasonRef = useRef<"initial" | "refetch" | "filter">("initial");
+  // Retry logic state
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
 
   const fetchEmails = useCallback(async () => {
+    // 🚀 OPTIMIZATION: Request deduplication - prevent simultaneous fetches
+    if (fetchingRef.current) {
+      return;
+    }
+
+    // Cancel previous request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    fetchingRef.current = true;
+
     try {
-      setLoading(true);
+      // Set appropriate loading state based on reason
+      const fetchReason = fetchReasonRef.current;
+      if (fetchReason === "initial") {
+        setInitialLoading(true);
+      } else if (fetchReason === "refetch") {
+        setRefetching(true);
+      } else if (fetchReason === "filter") {
+        setFiltering(true);
+      }
       setError(null);
 
       const filters = buildFiltersFromColumnFilters(columnFilters);
@@ -91,13 +136,50 @@ export function useTrackedEmailsData(
       });
       setData(result.data);
       setTotalCount(result.count);
+
+      // 🚀 OPTIMIZATION: Reset retry count on success
+      retryCountRef.current = 0;
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+
       const error = err instanceof Error ? err : new Error("Unknown error");
+
+      // 🚀 OPTIMIZATION: Retry logic with exponential backoff
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current += 1;
+        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 8000); // Max 8s
+
+        console.warn(
+          `[useTrackedEmailsData] Retry ${retryCountRef.current}/${MAX_RETRIES} in ${delay}ms`,
+          error
+        );
+
+        // Reset fetching flag for retry
+        fetchingRef.current = false;
+
+        // Retry after delay
+        setTimeout(() => {
+          fetchEmails();
+        }, delay);
+
+        return;
+      }
+
+      // Max retries reached, show error
       setError(error);
-      console.error("Failed to fetch emails:", error);
+      console.error("Failed to fetch emails after retries:", error);
       toast.error("Erreur lors du chargement des emails");
+      retryCountRef.current = 0; // Reset for next fetch
     } finally {
-      setLoading(false);
+      // Clear all loading states
+      setInitialLoading(false);
+      setRefetching(false);
+      setFiltering(false);
+      fetchingRef.current = false;
+      abortControllerRef.current = null;
     }
   }, [pagination.pageIndex, pagination.pageSize, columnFilters]);
 
@@ -108,6 +190,7 @@ export function useTrackedEmailsData(
       pagination.pageIndex > 0 ||
       pagination.pageSize !== 10
     ) {
+      fetchReasonRef.current = "refetch"; // Mark as refetch
       fetchEmails();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,6 +216,9 @@ export function useTrackedEmailsData(
       }
       return prev;
     });
+
+    // Mark as filter operation
+    fetchReasonRef.current = "filter";
 
     // Debounce search filter, immediate for others
     if (hasSearchFilter) {
@@ -168,12 +254,10 @@ export function useTrackedEmailsData(
       enrichmentQueue.clear();
 
       try {
-        // Batch fetch all updated emails in one go
-        const enrichmentPromises = idsToEnrich.map(id =>
-          TrackedEmailService.getTrackedEmailById(id)
-        );
-
-        const enrichedEmails = await Promise.all(enrichmentPromises);
+        // 🚀 OPTIMIZATION: Use batch query instead of Promise.all individual queries
+        // 1 query vs N queries for better performance
+        const enrichedEmails =
+          await TrackedEmailService.getBatchTrackedEmailsByIds(idsToEnrich);
 
         // Update all enriched emails at once
         setData(prev => {
@@ -358,6 +442,9 @@ export function useTrackedEmailsData(
     data,
     setData,
     loading,
+    initialLoading,
+    refetching,
+    filtering,
     error,
     totalCount,
     pagination,

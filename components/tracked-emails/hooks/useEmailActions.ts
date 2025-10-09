@@ -38,7 +38,7 @@ export function useEmailActions({
   setData,
 }: UseEmailActionsProps): UseEmailActionsReturn {
   /**
-   * Delete a single email
+   * Delete a single email with optimistic update and rollback
    */
   const handleDeleteEmail = useCallback(
     async (email: TrackedEmailWithDetails) => {
@@ -47,30 +47,45 @@ export function useEmailActions({
         return;
       }
 
+      // 🚀 OPTIMIZATION: Optimistic update - save previous state for rollback
+      let previousData: TrackedEmailWithDetails[] = [];
+
       try {
-        await TrackedEmailService.deleteTrackedEmail(email.id);
+        // Save current state before optimistic update
+        setData(prev => {
+          previousData = prev;
+          // Optimistic update: remove immediately from UI
+          return prev.filter(e => e.id !== email.id);
+        });
+
         toast.success("Email supprimé avec succès");
-        // Remove from local state (optimistic update)
-        setData(prev => prev.filter(e => e.id !== email.id));
+
+        // Perform actual deletion
+        await TrackedEmailService.deleteTrackedEmail(email.id);
       } catch (error) {
         console.error("Failed to delete email:", error);
         toast.error("Erreur lors de la suppression de l'email");
+
+        // 🚀 OPTIMIZATION: Rollback on error
+        setData(previousData);
       }
     },
     [user, setData]
   );
 
   /**
-   * Update email status
+   * Update email status with optimistic update and rollback
    */
   const handleStatusUpdate = useCallback(
     async (emailId: string, status: EmailStatus) => {
+      // 🚀 OPTIMIZATION: Optimistic update - save previous state for rollback
+      let previousData: TrackedEmailWithDetails[] = [];
+
       try {
-        await TrackedEmailService.updateEmailStatus(emailId, status);
-        toast.success("Statut mis à jour");
-        // Update local state (optimistic update)
-        setData(prev =>
-          prev.map(email =>
+        // Save current state and perform optimistic update
+        setData(prev => {
+          previousData = prev;
+          return prev.map(email =>
             email.id === emailId
               ? {
                   ...email,
@@ -81,33 +96,39 @@ export function useEmailActions({
                       : email.stopped_at,
                 }
               : email
-          )
-        );
+          );
+        });
+
+        toast.success("Statut mis à jour");
+
+        // Perform actual update
+        await TrackedEmailService.updateEmailStatus(emailId, status);
       } catch (error) {
         console.error("Failed to update status:", error);
         toast.error("Erreur lors de la mise à jour du statut");
+
+        // 🚀 OPTIMIZATION: Rollback on error
+        setData(previousData);
       }
     },
     [setData]
   );
 
   /**
-   * Bulk stop tracking for selected emails
+   * Bulk stop tracking for selected emails with optimistic update and rollback
    */
   const handleBulkStopTracking = useCallback(
     async (emailIds: string[]) => {
       if (emailIds.length === 0) return;
 
+      // 🚀 OPTIMIZATION: Optimistic update - save previous state for rollback
+      let previousData: TrackedEmailWithDetails[] = [];
+
       try {
-        await Promise.all(
-          emailIds.map(id =>
-            TrackedEmailService.updateEmailStatus(id, "stopped")
-          )
-        );
-        toast.success(`${emailIds.length} email(s) arrêté(s) avec succès`);
-        // Update local state (optimistic update)
-        setData(prev =>
-          prev.map(email =>
+        // Save current state and perform optimistic update
+        setData(prev => {
+          previousData = prev;
+          return prev.map(email =>
             emailIds.includes(email.id)
               ? {
                   ...email,
@@ -115,18 +136,30 @@ export function useEmailActions({
                   stopped_at: new Date().toISOString(),
                 }
               : email
+          );
+        });
+
+        toast.success(`${emailIds.length} email(s) arrêté(s) avec succès`);
+
+        // Perform actual updates
+        await Promise.all(
+          emailIds.map(id =>
+            TrackedEmailService.updateEmailStatus(id, "stopped")
           )
         );
       } catch (error) {
         console.error("Failed to stop tracking:", error);
         toast.error("Erreur lors de l'arrêt du suivi");
+
+        // 🚀 OPTIMIZATION: Rollback on error
+        setData(previousData);
       }
     },
     [setData]
   );
 
   /**
-   * Bulk delete selected emails (admin only)
+   * Bulk delete selected emails (admin only) with optimistic update and rollback
    */
   const handleBulkDelete = useCallback(
     async (emailIds: string[]) => {
@@ -137,16 +170,28 @@ export function useEmailActions({
 
       if (emailIds.length === 0) return;
 
+      // 🚀 OPTIMIZATION: Optimistic update - save previous state for rollback
+      let previousData: TrackedEmailWithDetails[] = [];
+
       try {
+        // Save current state and perform optimistic update
+        setData(prev => {
+          previousData = prev;
+          return prev.filter(email => !emailIds.includes(email.id));
+        });
+
+        toast.success(`${emailIds.length} email(s) supprimé(s) avec succès`);
+
+        // Perform actual deletions
         await Promise.all(
           emailIds.map(id => TrackedEmailService.deleteTrackedEmail(id))
         );
-        toast.success(`${emailIds.length} email(s) supprimé(s) avec succès`);
-        // Remove from local state (optimistic update)
-        setData(prev => prev.filter(email => !emailIds.includes(email.id)));
       } catch (error) {
         console.error("Failed to delete emails:", error);
         toast.error("Erreur lors de la suppression des emails");
+
+        // 🚀 OPTIMIZATION: Rollback on error
+        setData(previousData);
       }
     },
     [user, setData]

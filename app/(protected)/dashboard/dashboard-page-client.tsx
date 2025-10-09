@@ -29,12 +29,14 @@ interface DashboardPageClientProps {
   user: User;
   initialStats: DashboardStats | null;
   initialEmails: TrackedEmailWithDetails[] | null;
+  initialEmailsCount: number;
 }
 
 export function DashboardPageClient({
   user,
   initialStats,
   initialEmails,
+  initialEmailsCount,
 }: DashboardPageClientProps) {
   const { stats, loading, refreshing, error } = useDashboardStats(initialStats);
   return (
@@ -232,7 +234,10 @@ export function DashboardPageClient({
           <div className="mb-8">
             <Card>
               <CardContent className="px-6 py-4">
-                <TrackedEmailsTable initialData={initialEmails} />
+                <TrackedEmailsTable
+                  initialData={initialEmails}
+                  initialTotalCount={initialEmailsCount}
+                />
               </CardContent>
             </Card>
           </div>

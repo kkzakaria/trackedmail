@@ -59,6 +59,7 @@ export default async function DashboardPage() {
       user={userWithRole}
       initialStats={initialStats}
       initialEmails={initialEmails?.data || null}
+      initialEmailsCount={initialEmails?.count || 0}
     />
   );
 }
