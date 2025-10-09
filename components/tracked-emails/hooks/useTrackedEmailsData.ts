@@ -97,6 +97,8 @@ export function useTrackedEmailsData(
   // Retry logic state
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
+  // Track if initial data has been used to skip first fetch
+  const hasUsedInitialDataRef = useRef(false);
 
   const fetchEmails = useCallback(async () => {
     // 🚀 OPTIMIZATION: Request deduplication - prevent simultaneous fetches
@@ -185,14 +187,22 @@ export function useTrackedEmailsData(
 
   // Auto-fetch when pagination changes
   useEffect(() => {
-    if (
-      !initialData ||
-      pagination.pageIndex > 0 ||
-      pagination.pageSize !== 10
-    ) {
-      fetchReasonRef.current = "refetch"; // Mark as refetch
-      fetchEmails();
+    // Skip ONLY the very first fetch if we have initialData on page 0 with default pageSize
+    const isInitialLoad =
+      initialData &&
+      !hasUsedInitialDataRef.current &&
+      pagination.pageIndex === 0 &&
+      pagination.pageSize === 10;
+
+    if (isInitialLoad) {
+      // Mark that we've used the initial data, future page 0 navigations will fetch
+      hasUsedInitialDataRef.current = true;
+      return;
     }
+
+    // All other pagination changes trigger a fetch
+    fetchReasonRef.current = "refetch"; // Mark as refetch
+    fetchEmails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.pageIndex, pagination.pageSize]); // Refetch on pagination change
 
@@ -203,31 +213,36 @@ export function useTrackedEmailsData(
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Check if search filter is present
+    // Check if search filter is present for debouncing
     const hasSearchFilter = columnFilters.some(
       filter =>
         filter.id === "recipient_emails" && typeof filter.value === "string"
     );
 
-    // Reset pagination to first page when filters change
-    setPagination(prev => {
-      if (prev.pageIndex !== 0) {
-        return { ...prev, pageIndex: 0 };
-      }
-      return prev;
-    });
-
     // Mark as filter operation
     fetchReasonRef.current = "filter";
 
-    // Debounce search filter, immediate for others
-    if (hasSearchFilter) {
-      debounceTimerRef.current = setTimeout(() => {
+    // Reset pagination to first page when filters change
+    // Use debouncing for search, immediate for other filters
+    const applyFilters = () => {
+      setPagination(prev => {
+        if (prev.pageIndex !== 0) {
+          return { ...prev, pageIndex: 0 };
+        }
+        // If already on page 0, trigger refetch manually
         fetchEmails();
+        return prev;
+      });
+    };
+
+    if (hasSearchFilter) {
+      // Debounce search filter
+      debounceTimerRef.current = setTimeout(() => {
+        applyFilters();
       }, 500); // 500ms debounce for search
     } else {
-      // Immediate fetch for status filters
-      fetchEmails();
+      // Immediate application for status filters
+      applyFilters();
     }
 
     // Cleanup
@@ -237,7 +252,7 @@ export function useTrackedEmailsData(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnFilters]); // Refetch on filter change
+  }, [columnFilters]); // Reset pagination on filter change
 
   // Realtime subscription with batch enrichment optimization
   useEffect(() => {
