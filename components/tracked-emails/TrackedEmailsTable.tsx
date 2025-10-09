@@ -63,6 +63,7 @@ export default function TrackedEmailsTable({
     setData,
     loading,
     totalCount,
+    statusCounts,
     pagination,
     setPagination,
     columnFilters,
@@ -90,6 +91,7 @@ export default function TrackedEmailsTable({
   const { table, statusColumn, uniqueStatusValues } = useTrackedEmailsTable({
     data,
     totalCount,
+    statusCounts,
     pagination,
     onPaginationChange: setPagination,
     columnFilters,
@@ -131,6 +133,7 @@ export default function TrackedEmailsTable({
         <TrackedEmailsFilters
           table={table}
           uniqueStatusValues={uniqueStatusValues}
+          globalStatusCounts={statusCounts}
           onStatusChange={handleStatusChange}
         />
 

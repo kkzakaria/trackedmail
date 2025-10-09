@@ -27,6 +27,7 @@ export interface UseTrackedEmailsDataReturn {
   filtering: boolean;
   error: Error | null;
   totalCount: number;
+  statusCounts: Record<string, number>;
   pagination: PaginationState;
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
   columnFilters: ColumnFiltersState;
@@ -81,6 +82,7 @@ export function useTrackedEmailsData(
 
   const [error, setError] = useState<Error | null>(null);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -138,6 +140,7 @@ export function useTrackedEmailsData(
       });
       setData(result.data);
       setTotalCount(result.count);
+      setStatusCounts(result.statusCounts || {});
 
       // 🚀 OPTIMIZATION: Reset retry count on success
       retryCountRef.current = 0;
@@ -462,6 +465,7 @@ export function useTrackedEmailsData(
     filtering,
     error,
     totalCount,
+    statusCounts,
     pagination,
     setPagination,
     columnFilters,

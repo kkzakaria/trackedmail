@@ -48,6 +48,7 @@ const COLUMN_LABELS: Record<string, string> = {
 export interface TrackedEmailsFiltersProps {
   table: Table<TrackedEmailWithDetails>;
   uniqueStatusValues: string[];
+  globalStatusCounts: Record<string, number>;
   onStatusChange: (checked: boolean, status: EmailStatus) => void;
 }
 
@@ -55,11 +56,13 @@ export interface TrackedEmailsFiltersProps {
  * Filters component for tracked emails table
  * @param table - TanStack Table instance
  * @param uniqueStatusValues - Available status values for filtering
+ * @param globalStatusCounts - Global counts from server (all pages)
  * @param onStatusChange - Callback for status filter changes
  */
 export function TrackedEmailsFilters({
   table,
   uniqueStatusValues,
+  globalStatusCounts,
   onStatusChange,
 }: TrackedEmailsFiltersProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,15 +73,6 @@ export function TrackedEmailsFilters({
   const searchValue = (recipientColumn?.getFilterValue() ?? "") as string;
   const selectedStatuses =
     (statusColumn?.getFilterValue() as EmailStatus[]) || [];
-
-  // Calculate status counts
-  const statusCounts = new Map<string, number>();
-  uniqueStatusValues.forEach(status => {
-    const count = table
-      .getFilteredRowModel()
-      .rows.filter(row => row.getValue("status") === status).length;
-    statusCounts.set(status, count);
-  });
 
   return (
     <div className="flex items-center gap-3">
@@ -149,7 +143,7 @@ export function TrackedEmailsFilters({
                   >
                     <TrackedEmailStatusBadge status={value as EmailStatus} />
                     <span className="text-muted-foreground ms-2 text-xs">
-                      {statusCounts.get(value)}
+                      {globalStatusCounts[value] || 0}
                     </span>
                   </Label>
                 </div>

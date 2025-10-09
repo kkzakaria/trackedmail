@@ -25,6 +25,7 @@ import type { TrackedEmailWithDetails, EmailStatus } from "@/lib/types";
 export interface UseTrackedEmailsTableOptions {
   data: TrackedEmailWithDetails[];
   totalCount: number;
+  statusCounts: Record<string, number>;
   pagination: PaginationState;
   onPaginationChange: (
     updater: PaginationState | ((old: PaginationState) => PaginationState)
@@ -49,6 +50,7 @@ export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
   const {
     data,
     totalCount,
+    statusCounts,
     pagination,
     onPaginationChange,
     columnFilters,
@@ -106,17 +108,15 @@ export function useTrackedEmailsTable(options: UseTrackedEmailsTableOptions) {
 
   // Extract status column info for filters
   const statusColumn = table.getColumn("status");
-  const statusFacetedValues = statusColumn?.getFacetedUniqueValues();
   const statusFilterValue = statusColumn?.getFilterValue() as
     | EmailStatus[]
     | undefined;
 
-  // Get unique status values for filter dropdown
+  // Get unique status values from global counts (not from filtered data)
+  // This ensures all statuses are always visible in the dropdown
   const uniqueStatusValues = useMemo(() => {
-    if (!statusColumn) return [];
-    const values = Array.from(statusFacetedValues?.keys() || []);
-    return values.sort();
-  }, [statusColumn, statusFacetedValues]);
+    return Object.keys(statusCounts).sort();
+  }, [statusCounts]);
 
   return {
     table,
