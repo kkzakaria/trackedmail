@@ -40,6 +40,7 @@ import type { EmailStatus, TrackedEmailWithDetails } from "@/lib/types";
 
 interface TrackedEmailsTableProps {
   initialData?: TrackedEmailWithDetails[] | null;
+  initialTotalCount?: number;
 }
 
 /**
@@ -48,6 +49,7 @@ interface TrackedEmailsTableProps {
  */
 export default function TrackedEmailsTable({
   initialData,
+  initialTotalCount,
 }: TrackedEmailsTableProps = {}) {
   const { user } = useAuth();
 
@@ -65,7 +67,10 @@ export default function TrackedEmailsTable({
     setPagination,
     columnFilters,
     setColumnFilters,
-  } = useTrackedEmailsData(initialData);
+  } = useTrackedEmailsData({
+    initialData: initialData ?? null,
+    initialTotalCount: initialTotalCount ?? 0,
+  });
 
   // Actions hook
   const {
