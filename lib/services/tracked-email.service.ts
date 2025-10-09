@@ -254,23 +254,14 @@ export class TrackedEmailService {
   }
 
   /**
-   * Get global status counts from view (for filters dropdown)
-   * Uses tracked_emails_status_counts view for optimal performance
+   * Get global status counts from materialized view (for filters dropdown)
+   * Uses dashboard_stats_realtime materialized view for optimal performance
    */
   static async getGlobalStatusCounts(): Promise<Record<string, number>> {
-    // Type assertion needed because view is not in generated types
-    const { data, error } = await (
-      supabase as unknown as {
-        from: (table: string) => {
-          select: (cols: string) => Promise<{
-            data: Array<{ status: string; count: number }> | null;
-            error: { message: string } | null;
-          }>;
-        };
-      }
-    )
-      .from("tracked_emails_status_counts")
-      .select("status, count");
+    // Get status counts from materialized view via RPC function
+    const { data, error } = await supabase.rpc(
+      "get_dashboard_stats" as unknown as never
+    );
 
     if (error) {
       console.error(
@@ -280,13 +271,12 @@ export class TrackedEmailService {
       throw new Error(`Failed to fetch global status counts: ${error.message}`);
     }
 
-    // Convert array to object: { pending: 45, responded: 58, ... }
-    const counts: Record<string, number> = {};
-    (data || []).forEach(row => {
-      counts[row.status] = Number(row.count);
-    });
+    // Extract statusCounts from the result
+    const stats = data as unknown as {
+      statusCounts: Record<string, number>;
+    };
 
-    return counts;
+    return stats?.statusCounts || {};
   }
 
   /**
