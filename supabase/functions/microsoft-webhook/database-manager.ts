@@ -208,6 +208,7 @@ export async function logWebhookEvent(
     const userAgent = req.headers.get('User-Agent') || 'Unknown'
     const xForwardedFor = req.headers.get('X-Forwarded-For')
 
+    // Utiliser le nouveau schéma avec colonnes supplémentaires
     await supabase
       .from('webhook_events')
       .insert({
@@ -220,8 +221,11 @@ export async function logWebhookEvent(
         },
         notification_count: payload.value?.length || 0
       })
+
+    console.log(`✅ Logged webhook event: ${payload.value?.length || 0} notifications`)
   } catch (error) {
-    console.warn('Failed to log webhook event:', error)
+    console.error('❌ Failed to log webhook event:', error)
+    // Note: Non-bloquant, le traitement continue même si le log échoue
   }
 }
 
@@ -277,31 +281,26 @@ export async function getSystemConfig(
 
 /**
  * Met à jour les statistiques de traitement
+ *
+ * @deprecated La table processing_stats n'existe pas encore.
+ * Les statistiques sont disponibles via:
+ * - webhook_events (nombre de notifications reçues)
+ * - detection_logs (succès/échecs de détection)
+ * - tracked_emails (emails trackés)
+ *
+ * TODO: Créer une vue matérialisée pour agréger ces stats si nécessaire
  */
 export async function updateProcessingStats(
-  supabase: EdgeSupabaseClient,
+  _supabase: EdgeSupabaseClient,
   stats: {
     processed: number
     successful: number
     failed: number
   }
 ): Promise<void> {
-  try {
-    const currentDate = new Date().toISOString().split('T')[0]
-
-    // Upsert les statistiques journalières
-    await supabase
-      .from('processing_stats')
-      .upsert({
-        date: currentDate,
-        webhook_notifications: stats.processed,
-        emails_tracked: stats.successful,
-        errors: stats.failed,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'date'
-      })
-  } catch (error) {
-    console.warn('Failed to update processing stats:', error)
-  }
+  // Fonction désactivée temporairement - table processing_stats non implémentée
+  // Les stats sont disponibles via les tables existantes:
+  // - SELECT COUNT(*) FROM webhook_events WHERE DATE(received_at) = CURRENT_DATE
+  // - SELECT COUNT(*) FROM detection_logs WHERE is_response = true
+  console.log(`📊 Processing stats: ${stats.processed} processed, ${stats.successful} successful, ${stats.failed} failed`)
 }
