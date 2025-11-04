@@ -62,8 +62,8 @@ export interface SubscriptionHealth {
  * Configuration par défaut pour les abonnements
  */
 export const SUBSCRIPTION_CONFIG = {
-  defaultExpirationHours: 72, // Maximum pour Microsoft Graph
-  renewBeforeHours: 1,
+  defaultExpirationHours: 72, // Maximum pour Microsoft Graph (3 jours)
+  renewBeforeHours: 24, // Renouveler 24h avant expiration (au lieu de 1h)
   maxSubscriptionsPerMailbox: 1,
   changeTypes: ['created'], // On ne s'intéresse qu'aux nouveaux emails
   includeResourceData: false

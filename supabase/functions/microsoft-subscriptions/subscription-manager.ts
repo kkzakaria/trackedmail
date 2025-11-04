@@ -174,13 +174,16 @@ export async function renewSubscription(
       newExpirationDateTime.toISOString()
     )
 
-    // Mettre à jour en base
+    // Mettre à jour en base (succès)
     const { error: updateError } = await (supabase as any)
       .from('webhook_subscriptions')
       .update({
         expiration_date_time: updatedSubscription.expirationDateTime,
         last_renewed_at: new Date().toISOString(),
-        renewal_count: (subscription as any).renewal_count + 1
+        renewal_count: (subscription as any).renewal_count + 1,
+        last_renewal_attempt_at: new Date().toISOString(),
+        last_renewal_error: null,
+        renewal_failure_count: 0
       })
       .eq('subscription_id', request.subscriptionId)
 
@@ -201,6 +204,21 @@ export async function renewSubscription(
 
   } catch (error) {
     console.error('❌ Error renewing subscription:', error)
+
+    // Enregistrer l'échec en base de données
+    try {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      await (supabase as any)
+        .from('webhook_subscriptions')
+        .update({
+          last_renewal_attempt_at: new Date().toISOString(),
+          last_renewal_error: errorMessage,
+          renewal_failure_count: ((subscription as any)?.renewal_failure_count || 0) + 1
+        })
+        .eq('subscription_id', request.subscriptionId)
+    } catch (dbError) {
+      console.warn('⚠️ Failed to update renewal failure in database:', dbError)
+    }
 
     return {
       success: false,
